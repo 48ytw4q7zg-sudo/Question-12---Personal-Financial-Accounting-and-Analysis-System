@@ -39,6 +39,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
 
+  // 转账默认分类ID（其他）
+  private static final Long TRANSFER_CATEGORY_ID = 13L;
+  // 交易类型常量
+  private static final int TYPE_INCOME = 1;
+  private static final int TYPE_EXPENSE = 2;
+
   private final TransactionMapper transactionMapper;
   private final AccountMapper accountMapper;
   private final CategoryMapper categoryMapper;
@@ -155,12 +161,12 @@ public class TransactionServiceImpl implements TransactionService {
     String outNote = toAccount.getName() + "→" + fromAccount.getName() + "(转出)" + (note.isEmpty() ? "" : ": " + note);
     String inNote = fromAccount.getName() + "→" + toAccount.getName() + "(转入)" + (note.isEmpty() ? "" : ": " + note);
 
-    // 创建转出记录（type=2 支出，category_id=13 其他）
+    // 创建转出记录（type=支出，category=其他）
     Transaction outTransaction = new Transaction();
     outTransaction.setUserId(userId);
     outTransaction.setAccountId(request.getFromAccountId());
-    outTransaction.setCategoryId(13L); // 其他分类
-    outTransaction.setType(2); // 支出
+    outTransaction.setCategoryId(TRANSFER_CATEGORY_ID);
+    outTransaction.setType(TYPE_EXPENSE);
     outTransaction.setAmount(request.getAmount());
     outTransaction.setNote(outNote);
     outTransaction.setTime(now);
@@ -169,12 +175,12 @@ public class TransactionServiceImpl implements TransactionService {
     outTransaction.setUpdateTime(now);
     transactionMapper.insert(outTransaction);
 
-    // 创建转入记录（type=1 收入，category_id=13 其他）
+    // 创建转入记录（type=收入，category=其他）
     Transaction inTransaction = new Transaction();
     inTransaction.setUserId(userId);
     inTransaction.setAccountId(request.getToAccountId());
-    inTransaction.setCategoryId(13L); // 其他分类
-    inTransaction.setType(1); // 收入
+    inTransaction.setCategoryId(TRANSFER_CATEGORY_ID);
+    inTransaction.setType(TYPE_INCOME);
     inTransaction.setAmount(request.getAmount());
     inTransaction.setNote(inNote);
     inTransaction.setTime(now);
@@ -192,9 +198,10 @@ public class TransactionServiceImpl implements TransactionService {
   }
 
   /**
-   * 导入 CSV
+   * 导入 CSV（@Transactional 保证批量插入原子性）
    */
   @Override
+  @Transactional
   public String importCsv(Long userId, MultipartFile file, Long accountId) {
     // 校验账户归属
     validateAccount(userId, accountId);
@@ -239,7 +246,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
       }
     } catch (Exception e) {
-      throw new BusinessException(400, "CSV 文件读取失败: " + e.getMessage());
+      throw new BusinessException(3001, "CSV 文件读取失败: " + e.getMessage());
     }
 
     return String.format("导入完成：成功 %d 条，失败 %d 条", successCount, failCount);
