@@ -1,5 +1,6 @@
 package com.example.finance.entity.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -35,5 +36,6 @@ public class TransactionRequest {
   private String note;
 
   @NotNull(message = "交易时间不能为空")
+  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
   private LocalDateTime time;
 }
