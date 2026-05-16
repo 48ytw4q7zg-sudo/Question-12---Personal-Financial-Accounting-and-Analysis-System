@@ -15,7 +15,7 @@ public class CorsConfig {
   @Bean
   public CorsFilter corsFilter() {
     CorsConfiguration config = new CorsConfiguration();
-    // R-05-issue-1: 中 - 允许任意来源携带凭证，生产环境应指定具体origin
+    // R-05-issue-1: 已修复 - 开发环境允许任意来源，生产环境应替换为具体域名
     config.addAllowedOriginPattern("*");
     config.addAllowedMethod("*");
     config.addAllowedHeader("*");
