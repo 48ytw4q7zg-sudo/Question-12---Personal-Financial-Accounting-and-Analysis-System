@@ -144,10 +144,10 @@ CREATE TABLE `recurring_bill` (
 -- 测试数据（按外键依赖顺序: user → account → transaction → budget → recurring_bill）
 -- ============================================================
 
--- 测试用户（2 条，密码均为 123456 的 BCrypt 哈希）
+-- 测试用户（2 条，密码均为 123456 的 BCrypt 哈希 · 由 BCryptPasswordEncoder 生成）
 INSERT INTO `user` (`username`, `password`) VALUES
-  ('zhangsan', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'),
-  ('lisi',     '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy');
+  ('zhangsan', '$2a$10$dGB2.RDec.rSTe7KZ/EkT.Mi9pWrxkJMiKL4fJmQ8OVXuBq/KHlG6'),
+  ('lisi',     '$2a$10$dGB2.RDec.rSTe7KZ/EkT.Mi9pWrxkJMiKL4fJmQ8OVXuBq/KHlG6');
 
 -- 测试账户（4 条，覆盖 4 种类型，均为用户 zhangsan 的账户）
 INSERT INTO `account` (`user_id`, `name`, `type`, `initial_balance`, `currency`) VALUES

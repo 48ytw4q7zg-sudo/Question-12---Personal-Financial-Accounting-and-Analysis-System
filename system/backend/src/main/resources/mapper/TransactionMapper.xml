@@ -71,7 +71,7 @@
     </if>
   </select>
 
-  <!-- 月度收支汇总（type=1 收入, type=2 支出） -->
+  <!-- 月度收支汇总（type=1 收入, type=2 支出 · 排除转账记录避免虚增） -->
   <select id="selectMonthlySummary" resultType="com.example.finance.entity.dto.MonthlySummaryDTO">
     SELECT
       #{year} AS year,
@@ -84,9 +84,10 @@
     WHERE t.user_id = #{userId}
       AND YEAR(t.time) = #{year}
       AND MONTH(t.time) = #{month}
+      AND t.transfer_id IS NULL
   </select>
 
-  <!-- 年度收支汇总（type=1 收入, type=2 支出） -->
+  <!-- 年度收支汇总（type=1 收入, type=2 支出 · 排除转账记录避免虚增） -->
   <select id="selectYearlySummary" resultType="com.example.finance.entity.dto.MonthlySummaryDTO">
     SELECT
       #{year} AS year,
@@ -98,9 +99,10 @@
     FROM `transaction` t
     WHERE t.user_id = #{userId}
       AND YEAR(t.time) = #{year}
+      AND t.transfer_id IS NULL
   </select>
 
-  <!-- 分类汇总（type 可选，为空时返回全部） -->
+  <!-- 分类汇总（type 可选，为空时返回全部 · 排除转账记录避免虚增） -->
   <select id="selectCategorySummary" resultType="com.example.finance.entity.dto.CategorySummaryDTO">
     SELECT
       t.category_id AS categoryId,
@@ -113,6 +115,7 @@
     WHERE t.user_id = #{userId}
       AND YEAR(t.time) = #{year}
       AND MONTH(t.time) = #{month}
+      AND t.transfer_id IS NULL
       <if test="type != null">
         AND t.type = #{type}
       </if>
@@ -120,7 +123,7 @@
     ORDER BY totalAmount DESC
   </select>
 
-  <!-- 月度趋势（type=1 收入, type=2 支出） -->
+  <!-- 月度趋势（type=1 收入, type=2 支出 · 排除转账记录避免虚增） -->
   <select id="selectTrend" resultType="com.example.finance.entity.dto.MonthlyTrendDTO">
     SELECT
       DATE_FORMAT(t.time, '%Y-%m') AS month,
@@ -129,6 +132,7 @@
     FROM `transaction` t
     WHERE t.user_id = #{userId}
       AND YEAR(t.time) = #{year}
+      AND t.transfer_id IS NULL
     GROUP BY DATE_FORMAT(t.time, '%Y-%m')
     ORDER BY month ASC
   </select>
