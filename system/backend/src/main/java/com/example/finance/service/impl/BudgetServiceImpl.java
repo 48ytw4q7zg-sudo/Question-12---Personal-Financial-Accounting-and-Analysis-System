@@ -151,6 +151,15 @@ public class BudgetServiceImpl implements BudgetService {
     int yearInt = Integer.parseInt(year);
     int monthInt = Integer.parseInt(month);
 
+    // R-05-issue-2: 已修复 - selectCategorySummary提到循环外消除N+1查询
+    var summaryList = transactionMapper.selectCategorySummary(userId, yearInt, monthInt, 1);
+    java.util.Map<Long, java.math.BigDecimal> spentMap = summaryList.stream()
+        .collect(java.util.stream.Collectors.toMap(
+            com.example.finance.entity.dto.CategorySummaryDTO::getCategoryId,
+            com.example.finance.entity.dto.CategorySummaryDTO::getTotalAmount,
+            (a, b) -> a
+        ));
+
     List<BudgetProgressDTO> result = new ArrayList<>();
     for (BudgetDTO budget : budgets) {
       BudgetProgressDTO dto = new BudgetProgressDTO();
@@ -158,15 +167,7 @@ public class BudgetServiceImpl implements BudgetService {
       dto.setCategoryName(budget.getCategoryName());
       dto.setBudgetAmount(budget.getAmount());
 
-      // 查询该分类当月的支出总额
-      var summaryList = transactionMapper.selectCategorySummary(userId, yearInt, monthInt, 1);
-      BigDecimal spent = BigDecimal.ZERO;
-      for (var summary : summaryList) {
-        if (summary.getCategoryId().equals(budget.getCategoryId())) {
-          spent = summary.getTotalAmount();
-          break;
-        }
-      }
+      BigDecimal spent = spentMap.getOrDefault(budget.getCategoryId(), BigDecimal.ZERO);
       dto.setSpentAmount(spent);
 
       // 计算百分比

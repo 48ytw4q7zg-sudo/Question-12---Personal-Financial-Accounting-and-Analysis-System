@@ -159,7 +159,8 @@ public class TransactionServiceImpl implements TransactionService {
 
     LocalDateTime now = LocalDateTime.now();
     String note = request.getNote() != null ? request.getNote() : "";
-    String outNote = toAccount.getName() + "→" + fromAccount.getName() + "(转出)" + (note.isEmpty() ? "" : ": " + note);
+    // R-05-issue-1: 已修复 - outNote方向修正为fromAccount→toAccount(转出)
+    String outNote = fromAccount.getName() + "→" + toAccount.getName() + "(转出)" + (note.isEmpty() ? "" : ": " + note);
     String inNote = fromAccount.getName() + "→" + toAccount.getName() + "(转入)" + (note.isEmpty() ? "" : ": " + note);
 
     // 创建转出记录（type=支出，category=其他）
