@@ -42,4 +42,8 @@ router.beforeEach((to, from, next) => {
   }
 })
 
+router.afterEach((to) => {
+  document.title = to.meta.title ? `${to.meta.title} - 个人财务记账` : '个人财务记账与分析系统'
+})
+
 export default router
