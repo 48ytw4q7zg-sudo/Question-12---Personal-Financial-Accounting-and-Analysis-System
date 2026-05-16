@@ -1,0 +1,23 @@
+{
+  "_signature": "creator qxw · author_id 2501060122",
+  "schema_version": 1,
+  "last_updated": null,
+  "overall_status": "unknown",
+  "dimensions": {
+    "build":                { "status": "unknown", "detail": null },
+    "tests":                { "status": "unknown", "total": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0 },
+    "api":                  { "status": "unknown", "endpoints_reached": 0, "endpoints_expected": 28, "p95_ms": null },
+    "database":             { "status": "unknown", "tables_found": 0, "tables_expected": 6, "decimal_audit": "unknown" },
+    "git":                  { "status": "unknown", "commits": 0, "clean_tree": null },
+    "dependency_precision": { "status": "unknown", "violations": [] },
+    "file_integrity":       { "status": "unknown", "missing": [] },
+    "rxx_audit":            { "status": "unknown", "unresolved_markers": 0 },
+    "runtime":              { "status": "unknown", "memory_mb": 0, "worktree_count": 0 }
+  },
+  "auto_heal_triggered": false,
+  "heal_actions_attempted": [],
+  "modifier": {
+    "name": "qxw",
+    "id": "2501060122"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "_signature": "creator qxw · author_id 2501060122",
+  "schema_version": 1,
+  "phase": "delivery",
+  "objective_distance": 0.50,
+  "loop_count": 0,
+  "min_loops": 5,
+  "max_loops": 15,
+  "consecutive_clean_loops": 0,
+  "current_level": "L1",
+  "score_floor": 80,
+  "score_current": 0,
+  "review_iteration": 0,
+  "max_review_iterations": 5,
+  "tighten_factor": 1.0,
+  "blocked_tasks": [],
+  "frozen_modules": [],
+  "last_health": {
+    "timestamp": null,
+    "build": "unknown",
+    "tests": "unknown",
+    "api": "unknown",
+    "database": "unknown",
+    "git": "unknown",
+    "dependency_precision": "unknown",
+    "file_integrity": "unknown",
+    "rxx_audit": "unknown"
+  },
+  "valves": {
+    "valve_1_doc_consistency": "pending",
+    "valve_2_global_test": "pending",
+    "valve_3_global_review": "pending",
+    "valve_4_linkage_test": "pending"
+  },
+  "web": {
+    "total_queries": 0,
+    "last_query_timestamp": null,
+    "last_cve_check_timestamp": null
+  },
+  "docs": {
+    "scanned_count": 0,
+    "extracted_criteria_count": 0,
+    "last_scan_timestamp": null
+  },
+  "modifier": {
+    "name": "qxw",
+    "id": "2501060122"
+  },
+  "release_bundle": {
+    "generated": false,
+    "path": null
+  }
+}

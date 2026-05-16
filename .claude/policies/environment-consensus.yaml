@@ -1,0 +1,40 @@
+# Q-CR v10 STRICT — multi-environment consensus
+# creator: qxw · author_id: 2501060122
+# loaded by: .claude/commands/Q-CR.md §VIII Valve 2 + cross-env replay
+
+meta:
+  schema_version: 1
+  author: qxw
+  author_id: 2501060122
+  applies_to: "/Q-CR multi-env consensus"
+
+# Environments where critical checks are re-run before final acceptance.
+environments:
+  - name: "local"
+    description: "developer workstation — primary"
+    always_required: true
+  - name: "docker"
+    description: "containerized clean install — recommended"
+    always_required: false
+  - name: "clean_install"
+    description: "fresh checkout + scratch DB"
+    always_required: false
+
+# Consensus threshold — fraction of environments that must agree on PASS.
+require_consensus: 0.85
+
+# The critical checks each environment must execute.
+critical_checks:
+  - install_success                # pom + package.json install
+  - compile_success                # mvn compile + pnpm build
+  - test_pass_rate                 # >= 1.00
+  - api_smoke_passed               # core endpoints 2xx
+  - benchmark_delta                # within recursive-guard.benchmark_variance_threshold
+
+# Behaviour on divergence between environments.
+on_divergence:
+  if_local_only_passes: "warn_and_continue"
+  if_majority_fails: "rollback"
+  if_security_check_diverges: "escalate"
+
+signature: "creator qxw · 2501060122"

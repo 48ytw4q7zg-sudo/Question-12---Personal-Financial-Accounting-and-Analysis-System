@@ -1,0 +1,76 @@
+# Q-CR v10 STRICT — recovery action matrix
+# creator: qxw · author_id: 2501060122
+# loaded by: .claude/commands/Q-CR.md §IX (paired with failure-classifier.yaml)
+
+meta:
+  schema_version: 1
+  author: qxw
+  author_id: 2501060122
+  applies_to: "/Q-CR phase IX recovery"
+
+recovery_matrix:
+
+  compile_failure:
+    - rerun_compile_with_clean
+    - inspect_dependency_tree
+    - restart_sandbox_worktree
+    - propose_fix_via_systematic_debugging_skill
+
+  test_failure:
+    - isolate_flaky_via_rerun
+    - increase_validation_depth
+    - rollback_last_patch
+    - propose_fix_via_test_driven_development_skill
+
+  integration_failure:
+    - recheck_api_design_md_vs_controller_endpoints
+    - restart_backend_and_wait_25s
+    - inspect_database_connection
+    - replay_historical_api_session
+
+  semantic_failure:
+    - rollback_immediately
+    - re_read_prd_md_section
+    - invoke_brainstorming_skill
+    - widen_validation_pipeline
+
+  replay_failure:
+    - rollback_immediately
+    - snapshot_micro_state
+    - escalate_to_user
+
+  resource_failure:
+    - cleanup_worktrees_older_than_24h
+    - free_port_8080_if_busy
+    - prune_target_and_dist
+    - restart_session
+
+  api_failure:
+    - recheck_api_design_md
+    - check_backend_process_health
+    - check_database_connection
+    - restart_service_if_possible
+
+  runtime_degradation:
+    - cleanup_worktrees
+    - rotate_logs
+    - force_snapshot_rollback
+    - restart_session
+
+  security_failure:
+    - invoke_security_reviewer_skill
+    - patch_via_refactor_helper_skill
+    - re_run_security_review
+    - escalate_if_high_severity_remaining
+
+# Escalation packet template — written to .claude/state/escalation-packet-<ts>.md
+escalation:
+  required_sections:
+    - "## Author Signature (qxw / 2501060122)"
+    - "## Failure Class"
+    - "## Recovery Actions Attempted"
+    - "## Current State Snapshot"
+    - "## Recommended Next Step"
+  pause_loop_on_emit: true
+
+signature: "creator qxw · 2501060122"

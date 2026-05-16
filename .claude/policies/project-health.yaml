@@ -1,0 +1,120 @@
+# Q-CR v10 STRICT — project health observation
+# creator: qxw · author_id: 2501060122
+# loaded by: .claude/commands/Q-CR.md §IV (Phase A 8-dim observer)
+
+meta:
+  schema_version: 1
+  author: qxw
+  author_id: 2501060122
+  applies_to: "/Q-CR phase A"
+
+# Where the consolidated report is written every loop.
+output_path: ".claude/state/health-bus.json"
+
+checks:
+
+  # A1 — compile
+  build:
+    commands:
+      - "cd system/backend && mvn -B -q -DskipTests=true clean compile"
+      - "cd system/frontend && pnpm install --frozen-lockfile && pnpm build"
+    timeout_seconds: 300
+    fail_on:
+      - "BUILD FAILURE"
+      - "ERROR"
+    warn_on:
+      - "deprecated"
+
+  # A2 — test
+  test:
+    commands:
+      - "cd system/backend && mvn -B test"
+    min_total_cases: 37
+    min_pass_rate: 1.00
+    max_flaky_rate: 0.05
+
+  # A3 — API (only if backend reachable)
+  api:
+    base_url: "http://localhost:8080"
+    health_endpoint: "/api/health"
+    expected_endpoint_count: 28
+    smoke_endpoints:
+      - "POST /api/user/login"
+      - "GET  /api/account"
+      - "GET  /api/category"
+      - "GET  /api/transaction"
+      - "GET  /api/statistics/monthly"
+    timeout_ms: 3000
+    max_p95_latency_ms: 500
+    start_if_down:
+      enabled: true
+      command: "cd system/backend && mvn -q spring-boot:run"
+      wait_seconds: 25
+
+  # A4 — database
+  database:
+    driver: "mysql"
+    host: "localhost"
+    port: 3306
+    schema: "finance_db"
+    probe_query: "SELECT 1"
+    expected_tables:
+      - user
+      - account
+      - category
+      - transaction
+      - budget
+      - recurring_bill
+    decimal_audit:
+      forbid_columns_of_types: ["FLOAT", "DOUBLE"]
+      money_columns_must_be: "DECIMAL(12,2)"
+    connection_timeout_seconds: 5
+
+  # A5 — git
+  git:
+    min_commits: 30
+    require_clean_working_tree: true
+    whitelist_untracked:
+      - "*.png"
+      - "*.log"
+
+  # A6 — dependency precision
+  dependency_precision:
+    forbidden_patterns:
+      - "LATEST"
+      - "SNAPSHOT"
+      - "^"
+      - "~"
+      - "*"
+    files_to_scan:
+      - "system/backend/pom.xml"
+      - "system/frontend/package.json"
+    exempt:
+      - "0.0.1-SNAPSHOT"   # own project version
+
+  # A7 — file integrity
+  files:
+    backend_java_min: 60
+    frontend_vue_min: 11
+    docs_md_min: 5
+    sql_min: 1
+
+  # A8 — R-XX audit
+  rxx_audit:
+    grep_patterns:
+      - "R-(05|06|07|08).*未修复"
+      - "TODO(?!.*已修复)"
+      - "FIXME"
+    must_be_zero: true
+
+  # Runtime envelope
+  runtime:
+    memory_limit_mb: 4096
+    max_worktrees: 10
+    max_processes: 20
+
+  # CI (optional — disabled by default since no GH Actions in this project)
+  ci:
+    enabled: false
+
+signature: "creator qxw · 2501060122"

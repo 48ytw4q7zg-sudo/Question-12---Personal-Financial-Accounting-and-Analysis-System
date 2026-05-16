@@ -1,0 +1,60 @@
+# Q-CR v10 STRICT — Worker (mutation producer) policy
+# creator: qxw · author_id: 2501060122
+# loaded by: .claude/commands/Q-CR.md §V (Phase B)
+
+meta:
+  schema_version: 1
+  author: qxw
+  author_id: 2501060122
+  applies_to: "/Q-CR phase B"
+
+# Sandboxing — Worker writes go to an isolated worktree before promotion.
+sandbox:
+  type: "git-worktree"            # alt: "docker", "tmpdir"
+  base: "../sandbox-"             # actual dir = base + <timestamp>
+  fallback_to_tmpdir: true
+
+# Per-loop mutation budget (auto-shrinks under tighten — see recursive-guard).
+budget:
+  max_diff_files: 20
+  max_diff_lines: 500
+  tighten_shrink_factor: 0.80      # multiplied each clean loop, floor 5 files / 100 lines
+  floor_files: 5
+  floor_lines: 100
+
+# Worker-side gates before returning patch.
+min_pre_validation:
+  - compile
+  - unit_test
+
+# Risk classes Worker may emit.
+allowed_change_classes:
+  - dependency_pin
+  - bug_fix
+  - refactor
+  - perf
+  - security_hardening
+  - doc_update
+  - test_update
+  - config
+
+# Forbidden without explicit user confirmation (red-line ops).
+forbidden_without_confirmation:
+  - db_schema_migration
+  - secret_rotation
+  - production_config_change
+  - .env_edit
+  - dependency_major_upgrade
+  - git_push
+
+# Files Worker is never allowed to mutate in autonomous mode.
+deny_path_globs:
+  - "**/.env*"
+  - "**/secrets/**"
+  - ".claude/state/runtime.json"   # only the scheduler writes runtime state
+  - "**/node_modules/**"
+  - "**/target/**"
+
+allow_refactor: true
+
+signature: "creator qxw · 2501060122"

@@ -1,0 +1,60 @@
+# Q-CR v10 STRICT — deterministic replay policy
+# creator: qxw · author_id: 2501060122
+# loaded by: .claude/commands/Q-CR.md §VIII Valve 4 (linkage chains)
+
+meta:
+  schema_version: 1
+  author: qxw
+  author_id: 2501060122
+  applies_to: "/Q-CR replay layer"
+
+# Sources of historical traffic / behaviour the patch must NOT regress.
+replay_sources:
+  - name: "historical_api_sessions"
+    path: ".claude/state/api-sessions/"
+    format: "har"
+    minimum_sessions: 0           # ramps up after first capture
+  - name: "user_workflow_logs"
+    path: ".claude/state/workflows/"
+    format: "yaml"
+  - name: "past_regression_scenarios"
+    path: ".claude/state/regression/"
+    format: "yaml"
+
+# When to run replay.
+schedule: "after_each_acceptance"
+also_run_on_final_loop: true
+
+# Hard budget — replay must not exceed this.
+replay_timeout_seconds: 300
+
+# Per-scenario tolerance.
+tolerances:
+  numeric_diff_abs: 0.01           # for money columns DECIMAL(12,2)
+  numeric_diff_rel: 0.0001
+  latency_p95_increase_pct: 5
+
+# Linkage chains exercised by the replay step (project-specific).
+linkage_chains:
+  - id: "chain-1-auth"
+    description: "register → login → JWT → /api/account (protected)"
+    expected_status_path: ["201 or 200", "200", "200"]
+  - id: "chain-2-data"
+    description: "POST /api/transaction → SELECT readback → equal fields"
+    fields_to_compare: ["amount", "account_id", "category_id", "time", "type", "note"]
+  - id: "chain-3-stat"
+    description: "GET /api/statistics/monthly vs manual SUM(amount) WHERE type=2"
+    diff_tolerance: 0.01
+  - id: "chain-4-tx"
+    description: "POST /api/transaction/transfer  ·  S_before == S_after"
+    invariant: "total_balance_conserved"
+    diff_tolerance: 0.01
+
+# Replay outputs.
+report_path_template: ".claude/state/replay-loop-<N>.json"
+require_signature: true
+signature_block:
+  creator: qxw
+  author_id: 2501060122
+
+signature: "creator qxw · 2501060122"

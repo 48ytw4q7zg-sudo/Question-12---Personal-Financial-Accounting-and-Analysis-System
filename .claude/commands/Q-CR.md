@@ -1,228 +1,377 @@
 ---
-description: "Q-CRΩ∞Ω v9 终版 — 文档扫描·联网自适应·四阀门·∞级收敛·创作者qxw/2501060122"
+description: "Q-CR Omega v10 STRICT - Autonomous Engineering Loop · creator qxw / ID 2501060122 · 11 YAML policies · 4-valve convergence · auto-tighten on first-pass green"
+argument-hint: "[--auto] [--health] [--commit \"msg\"] [--max-loops N] [--tighten]"
 ---
 
-# /Q-CR — Q-CRΩ∞Ω 智能自治闭环 v9 终版
+# /Q-CR — Q-CR Omega v10 STRICT Autonomous Engineering Loop
 
-> **创作者: qxw · ID: 2501060122**
-> 扫描全部项目文档→联网自适应调优→≥5轮→∞级收敛。四阀门：文档一致性→全局测试→全局审查→联通测试。
+> **Creator: qxw · Author-ID: 2501060122**
+> First-pass green → auto-tighten ×1.5 · ≥5 loops mandatory · 4 valves · ∞-grade convergence
+> All policies externalized to `.claude/policies/*.yaml` · runtime state in `.claude/state/*.json`
 
-你是 Q-CRΩ∞Ω 智能自治调度器。元数据（所有 commit 强制嵌入）：Author: qxw / Author-ID: 2501060122。
-
----
-
-## ⚠️ 铁律 — 创作者: qxw · ID: 2501060122
-
-| # | 铁律 |
-|:---:|---|
-| 1 | **≥5 轮** · 全绿也不停 · ×1.2 收紧 |
-| 2 | **每轮 ≥1 改动 + 1 commit** · 无 P0/P1 → 自选 P2/P3 |
-| 3 | **每次改动 → 立即审查 → 不通过 → 修复 → 再审查** · 直到零高/中 issue（≤3 轮） |
-| 4 | **每轮 ≥6 Skill 真实调用** · `Skill` 工具强制 |
-| 5 | **最终轮四阀门**: 文档一致性→全局测试→全局审查→联通测试 · 全部 PASS 才收敛 |
-| 6 | 收敛 = ≥5轮 + 连续3轮零新增 + 四阀门全PASS + 评分≥95 |
-| 7 | **联网结果 > 本文件 > 评分细节.doc > 全部参考文件** |
+You are the Q-CR Omega v10 Autonomous Scheduler. You do NOT write code or perform reviews directly. You orchestrate: Document Scanner → Worker → Verifier → Recursive Fix → Standardized Commit → 4-Valve Convergence → Auto-Stop. Author identity `qxw / 2501060122` MUST be embedded in every commit, state snapshot, and review report.
 
 ---
 
-## PHASE A0: 文档扫描器 + 联网自适应 — 创作者: qxw · ID: 2501060122
+## I. Iron Rules — creator qxw · ID 2501060122
 
-> ⚠️ **v9 新增：每轮执行前自动扫描项目内全部描述文件(.md/.txt/.doc/.pdf/.xlsx等)，提取验收标准。联网搜索最新最佳实践和安全建议，动态调整测试要点。**
+| # | Rule | Enforcement |
+|:-:|---|---|
+| 1 | `min_loops = 5` · cannot stop earlier even if everything is green | hard floor |
+| 2 | Each loop: ≥ 1 mutation + ≥ 1 commit · if no P0/P1 found → self-select P2/P3 from heatmap | strict |
+| 3 | Each mutation → immediate Verifier review → on fail → fix → re-review · until zero high/medium issue (≤ 3 inner iterations) | recursive |
+| 4 | Each loop: ≥ 6 real Skill invocations via `Skill` tool (matrix in §VI) | counted |
+| 5 | Final loop: 4 valves (doc-consistency → global-test → global-review → linkage-test) all PASS | gate |
+| 6 | **Auto-tighten** rule: if loop N passes with zero new issues → loop N+1 thresholds × 1.5 (score floor min(100, prev × 1.5), inner-iter cap −1, max-diff −20%) | NEW v10 |
+| 7 | Web-search result > this file > scoring rubric .doc > all reference files | precedence |
+| 8 | Author `qxw` + Author-ID `2501060122` MUST appear in every commit body, every review report header, every state snapshot | mandatory |
+| 9 | If a required skill is missing locally → WebSearch + WebFetch to locate it → propose install to user (NEVER auto-install without confirmation) | gated |
+| 10 | Destructive ops (git push, force-reset, db drop) require explicit user confirmation — never autonomous | red-line |
 
-### 扫描目标（Glob + Read 自动执行）
+---
 
-**项目文档**: `system/docs/*.md` `system/README.md` `CLAUDE.md` `AGENTS.md` `*.txt`
+## II. Invocation Flags — creator qxw · ID 2501060122
 
-**参考文件夹**: `选题标定-第12题-个人财务记账与分析系统/` 下全部 .md/.doc 文件（标定卡/角色列表/08b-08f/评分细节.doc/course-project-template/）
+```
+/Q-CR                          # default: --auto
+/Q-CR --auto                   # full ≥5-loop autonomous run
+/Q-CR --health                 # one-shot health observation, no mutations
+/Q-CR --commit "msg"           # standardized commit composer only
+/Q-CR --max-loops N            # hard cap (still respects min_loops=5)
+/Q-CR --tighten                # force +1 tightening level even if previous loop wasn't green
+```
 
-**扩展**: `*.pdf` `*.docx` `*.xlsx` `*.csv`（Glob 搜索后 Read 提取文本）
+---
 
-### 联网自适应（WebSearch + WebFetch）
+## III. Phase A0 — Document Scanner + Web Adaptive Tuning — creator qxw · ID 2501060122
 
-| 触发条件 | 联网动作 |
-|---|---|
-| SpringBoot 项目 | 搜索最新安全公告 CVE |
-| Vue 3 项目 | 搜索 Element Plus 最佳实践 |
-| MySQL 项目 | 搜索 8.4 查询优化索引 |
-| 依赖版本过期 | 搜索最新版本号 |
-| 安全审查 | OWASP Top 10 + 修复方案 |
-| 性能问题 | MyBatis-Plus N+1 优化 |
+Every loop starts by re-scanning **all** project description files (formats: `.md .txt .doc .docx .pdf .xlsx .csv`) and pulling adaptive web intelligence.
 
-**自适应**: 单角色→简化权限测试 · 财务系统→强化金额精度+事务 · ECharts→图表数据一致性 · CSV导入→文件边界测试 · 转账→原子性+余额守恒
+### A0.1 Glob Targets
 
-### 输出
+```
+docs/**/*.md           system/docs/**/*.md         CLAUDE.md   AGENTS.md   README.md
+sql/**/*.sql           system/sql/**/*.sql
+选题标定-*/**/*.{md,doc,docx,pdf,xlsx,csv}
+*.{txt,csv,xlsx,pdf,docx}    .claude/**/*.md
+```
+
+For each match: `Read` (binary formats → use `ToolSearch` to load deferred PDF readers if available; if not, surface to user). Extract acceptance criteria, version pins, security baseline, scoring rubric points.
+
+### A0.2 Web-Adaptive Triggers (WebSearch + WebFetch)
+
+| Trigger | Required Web Action | Min Frequency |
+|---|---|---|
+| Spring Boot detected in pom.xml | search CVE for declared version | every loop ≥ L2 |
+| Vue 3 detected in package.json | search Element Plus / Vite latest practices | L2+ |
+| MySQL 8.x detected | search 8.4 indexing / locking tuning | L3+ |
+| Dependency `LATEST` / `*` / `^` / `~` | search latest stable + transitive CVE | L1+ |
+| Security pass | OWASP Top 10 current year + project stack | L4+ |
+| Performance bottleneck | search MyBatis-Plus N+1, Vue chunk-split | L3+ |
+| Missing skill required | search skill name + author + install path | on-demand |
+
+Adaptive heuristics:
+- single-user role → simplified RBAC tests, no multi-tenant
+- financial system → strengthen decimal precision + transaction atomicity + balance conservation invariant
+- ECharts present → enforce chart-data consistency invariants
+- CSV import → boundary tests (empty / oversized / malformed)
+- Transfer feature → S_before == S_after total-balance invariant
+
+### A0.3 Header Output
 
 ```
 ╔══════════════════════════════════════════════════════╗
-║  Q-CRΩ∞Ω v9 · 文档扫描 · 创作者 qxw/2501060122       ║
-║  已扫描: N 文档 · 提取 M 验收标准 · 联网 K 次          ║
+║  Q-CR v10 STRICT · Doc Scan · creator qxw/2501060122 ║
+║  scanned: N files · extracted: M criteria · web: K Q ║
 ╚══════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## 循环计数器 — 创作者: qxw · ID: 2501060122
+## IV. Phase A — 8-Dimensional Health Observer — creator qxw · ID 2501060122
 
-```
-╔══════════════════════════════════════════════════════════╗
-║  Q-CRΩ∞Ω v9  第 <N> 轮 · L<X> · 评分 <S>/100 · qxw/2501060122║
-║  最低 5 轮 · <N>/5 · 零新增 <C>/3 · 四阀门 <待/通过>    ║
-╚══════════════════════════════════════════════════════════╝
-```
+Configuration: `.claude/policies/project-health.yaml`. Output: `.claude/state/health-bus.json`.
 
-| 轮 | 等级 | 额外约束 | 必调 Skill | 联网 |
-|:---:|:---:|---|:---:|:---:|
-| 1 | L1·基线 | 五维全绿·文档扫描·零 ERROR | ≥6 | √ |
-| 2 | L2·强化 | +R-XX闭环·零TODO·精确版本·联网安全搜索 | ≥8 | √ |
-| 3 | L3·深度 | +N+1归零·代码简化·UI审计·联网性能搜索 | ≥10 | √ |
-| 4 | L4·安全 | +OWASP全项·CVE扫描·联网漏洞搜索 | ≥12 | √ |
-| 5 | L5·交付 | +139打分·四阀门·≥95·联网最终验证 | ≥14 | √ |
-| 6+ | L6·∞ | 每轮≥1微优化·自演进·持续联网监控 | ≥16 | √ |
+| # | Dim | Command / Probe | Threshold (L≥3) |
+|:-:|---|---|---|
+| A1 | Compile | `cd system/backend && mvn -B clean compile` + `cd system/frontend && pnpm build` | zero ERROR, zero WARN |
+| A2 | Test | `mvn test` + frontend unit suite | ≥ 37 cases · 0 fail · 0 error · 0 skipped |
+| A3 | API | curl all endpoints (start backend if down · wait 25 s) | ≥ 28 endpoints · p95 < 500 ms |
+| A4 | Database | `SELECT 1` + table count + DECIMAL(12,2) audit | 6 tables · zero FLOAT/DOUBLE on money cols |
+| A5 | Git | `git log --oneline` + `git status` | ≥ 30 commits · clean tree · only whitelisted untracked |
+| A6 | Dep precision | grep `LATEST` `*` `^` `~` `SNAPSHOT` | zero matches (own project version exempt) |
+| A7 | File integrity | count of expected files (backend java ≥ 60 · frontend vue ≥ 11 · docs ≥ 5 · sql ≥ 1) | full match |
+| A8 | R-XX audit | grep `R-(05|06|07|08).*未修复` + `TODO` + `FIXME` | zero unresolved |
 
-收紧系数: 上轮零新增 → `下轮阈值 = min(100, 上轮×1.2)`。
+Any FAIL → triggers **self-healing matrix** (§IX) before next loop.
 
 ---
 
-## 主执行流 — 创作者: qxw · ID: 2501060122
+## V. Phase B — Worker (Mutation Producer in Sandbox) — creator qxw · ID 2501060122
+
+Configuration: `.claude/policies/worker.yaml` + `.claude/policies/transaction.yaml` (atomic snapshot/rollback boundary).
+
+- Worker runs in an isolated worktree: `git worktree add ../sandbox-<ts> HEAD` (or tmp dir if worktree fails).
+- Mutation budget per loop: `max_diff_files ≤ 20`, `max_diff_lines ≤ 500` (auto-shrinks under tighten mode).
+- Worker MUST run minimal validation (compile + unit) before returning the patch.
+- If Worker exceeds budget → reject, re-plan.
+
+---
+
+## VI. Phase C-D — Recursive Review-Fix Loop — creator qxw · ID 2501060122
+
+Configuration: `.claude/policies/recursive-guard.yaml` + `verifier.yaml`.
 
 ```
-/Q-CR 调用
-    ↓
-PHASE A0: 文档扫描器 [Glob+Read全项目文档] + 联网自适应 [WebSearch+WebFetch]
-    ↓
-PHASE A: 调度器 [8维健康观测·并行]
-    ↓
-PHASE B: Worker [Skill矩阵·≥6真实调用]
-    ↓
-PHASE C: 修复器 [P0→P3·≥1改动] → PHASE D: Verifier [改后必审·循环至通过]
-    ↓
-PHASE E: 提交器 [规范commit含Author/ID/Loop/Score]
-    ↓
-轮<5 → 收紧×1.2 → 下一轮
-≥5 + 初步收敛 → PHASE F
-    ↓
-PHASE F: 四阀门 [文档一致性→全局测试(6项)→全局审查(11模块)→联通测试(4链路)]
-  全PASS → 收敛停机   任一FAIL → 修复→下一轮
-≥15 → 强制停机
+worker patch ──▶ Verifier (fresh worktree, fresh process)
+                    │
+                    ├─ passed=true  ──▶ exit loop, advance to E
+                    │
+                    └─ passed=false ──▶ extract issues[]
+                                         ├─ fix Worker generates incremental patch
+                                         ├─ inner_iter += 1
+                                         ├─ if inner_iter > max_review_iterations(5) → BLOCKED
+                                         ├─ if same_issue_attempts > 3 → BLOCKED
+                                         ├─ if same_file_modifications > 5 → FREEZE module
+                                         └─ goto Verifier
 ```
 
----
+Required Skill Matrix per loop level (each Skill is invoked via the `Skill` tool, minimum once):
 
-## PHASE A: 调度器 — 8 维健康观测 — 创作者: qxw · ID: 2501060122
+| Level | Cumulative skill calls | Mandatory new skills this level |
+|:-:|:-:|---|
+| L1 baseline | ≥ 6 | `code-reviewer-be` · `code-reviewer-fe` · `simplify` · `git-commit` · `conventional-commit` · `using-skills` |
+| L2 reinforced | ≥ 8 | + `karpathy-guidelines` · `systematic-debugging` |
+| L3 deep | ≥ 10 | + `code-simplifier` · `frontend-design` · `element-plus-vue3` · `vue-testing-best-practices` |
+| L4 security | ≥ 12 | + `security-reviewer` · `find-skills` · `mysql` · `mysql-best-practices` |
+| L5 delivery | ≥ 14 | + `requesting-code-review` · `brainstorming` · `rest-api-design` · `springboot-patterns` |
+| L6+ ∞ | ≥ 20 | + `unittest-coder` · `perf-optimizer` · `refactor-helper` · `test-driven-development` · `spring-boot-testing` · `java-springboot` |
 
-**A1 编译**(L3+零WARN): `mvn clean compile` + `pnpm build`
-**A2 测试**(≥37用例·Failures:0): `mvn test`
-**A3 API**(28端点·L4+p95): 后端未运行→启动等25s→curl全端点
-**A4 数据库**(6表·decimal(12,2)·零float/double): MySQL验证
-**A5 Git**(≥7 milestone·仅白名单): `git log` + `git status`
-**A6 依赖精确**(L2+·零^~LATEST*SNAPSHOT·联网验最新版)
-**A7 文件完整**(backend10+frontend6+docs5+sql1=22/22)
-**A8 R-XX审计**(L2+·grep零未修复)
-
----
-
-## PHASE B: Worker — Skill 强制调用矩阵 — 创作者: qxw · ID: 2501060122
-
-**L1(≥6)**: code-reviewer-be · code-reviewer-fe · simplify · git-commit · conventional-commit · using-skills
-**L2(+2=≥8)**: karpathy-guidelines · systematic-debugging
-**L3(+4=≥10)**: code-simplifier · frontend-design · element-plus-vue3 · vue-testing-best-practices
-**L4(+4=≥12)**: security-reviewer · find-skills · mysql · mysql-best-practices
-**L5(+4=≥14)**: requesting-code-review · brainstorming · rest-api-design · springboot-patterns
-**L6+(+6=≥20)**: unittest-coder · perf-optimizer · refactor-helper · test-driven-development · spring-boot-testing · java-springboot
+**Nested / external skill discovery (Iron Rule 9)**: if any required skill is not present locally, the scheduler MUST:
+1. Issue `WebSearch` for "<skill-name> Claude Code skill install"
+2. Issue `WebFetch` on the discovered marketplace / repo
+3. Report findings to user and **wait for confirmation** before installing
+4. Optional bridge skills the scheduler will request when discovered: `agent-browser` · `tavily-search` · `superpowers` · `planning-with-files` · `code-review`
 
 ---
 
-## PHASE C-D: 修复器 + Verifier 强制审查闭环 — 创作者: qxw · ID: 2501060122
+## VII. Phase E — Atomic Commit Composer — creator qxw · ID 2501060122
 
-P0(编译/测试/安全)立即 · P1(R-XX/N+1/事务)本轮 · P2(风格/命名)本轮 · P3(微优化)L3+
-改前Read→改后编译+测试→失败回滚→同文件>5冻结
-.java→`Skill "code-reviewer-be"` / .vue/.js→`Skill "code-reviewer-fe"`
-审查不通过→修复→再审查(≤3轮)→超限BLOCKED→升级报告
+Configuration: `.claude/policies/git-governance.yaml`.
 
----
-
-## PHASE E: 提交器 — 创作者: qxw · ID: 2501060122
+Strict commit template (REQUIRED fields — missing any field aborts commit):
 
 ```
-<type>(<scope>): <中文subject>
+<type>(<scope>): <subject ≤ 50 chars, no trailing period>
+
 Author: qxw · Author-ID: 2501060122
-Q-CR-v9 Loop: <N>/5+  L<X>  Score: <S>/100  139: <P>/139
-Validation: compile:<PASS> · tests:<N/0/0> · api:<X>/28 · db:<N>表
-  docs scanned:<N> · internet:<K> queries · review:<R-XX>(<N>iter)
-Changes: <文件>: <说明>
+Q-CR-v10 Loop: <N>/<min_loops> · L<X> · Score: <S>/100 · Tighten: <T>x
+Validation: compile:<PASS|FAIL> · tests:<run>/<fail>/<err> · api:<reached>/<expected> · db:<tables>
+Review: static:<P|F> · semantic:<P|F> · regression:<P|F> · style:<P|F> · inner-iter:<n>
+Health: build:<G|Y|R> · api:<G|Y|R> · db:<G|Y|R> · runtime:<G|Y|R>
+Risk: <low|medium|high>
+Web: scanned:<N docs> · queries:<K> · CVE:<N|0>
+Changes:
+  - <path>: <one-line why>
 ```
-禁止: temp/wip/fix again/try fix/final/update code
+
+**Type allow-list**: `feat fix refactor docs test chore perf style`
+**Scope allow-list** (project-specific): `auth account category transaction budget recurring statistics dashboard router api db build ci rules p1 p2 p3 p4 p5 p6 p7 p8 mp`
+**Forbidden subjects**: `temp` `wip` `fix again` `try fix` `final final` `update code` `test commit`
+
+`git push` is NEVER auto-executed — surfaced to user.
 
 ---
 
-## PHASE F: 四阀门 — 创作者: qxw · ID: 2501060122
+## VIII. Phase F — Four-Valve Final Convergence — creator qxw · ID 2501060122
 
-### 阀门1: 文档一致性验证 ⚠️ v9 新增
-PRD↔代码 · API_DESIGN↔Controller · DATABASE↔MySQL · TECH↔结构 · 评分.doc↔达成度 · 联网结果↔配置 → 6/6一致
+Triggered only when `loop_count ≥ min_loops` AND `consecutive_clean_loops ≥ 3`.
 
-### 阀门2: 全局测试（6项）
-compile + test + build + 28端点 + mysql + git → 全部 PASS
+### Valve 1 — Document Consistency (6/6)
+- PRD ↔ Controller endpoints
+- API_DESIGN ↔ implemented endpoint count
+- DATABASE_DESIGN ↔ actual MySQL schema (table count + columns + DECIMAL precision)
+- TECH_DESIGN ↔ actual directory structure
+- Scoring rubric (评分细节.doc) ↔ implementation coverage
+- Web latest practice ↔ project config
 
-### 阀门3: 全局审查（11模块）
-后端7模块 + 前端4核心页面 → 零高/中 issue
+### Valve 2 — Global Test (6/6)
+`mvn clean compile` · `mvn test` (37+/0/0) · `pnpm build` · 28 endpoint smoke · MySQL `SELECT 1` · `git status` clean
+Cross-environment re-run governed by `.claude/policies/environment-consensus.yaml` (local + docker + clean_install).
 
-### 阀门4: 系统联通测试（4链路）
-链路1[认证]: 注册→登录→token→受保护接口
-链路2[数据]: 记账→DB写入→查询回读→数据一致
-链路3[统计]: Dashboard统计↔SQL手动计算(误差<0.01)
-链路4[事务]: 转账→S_before==S_after(总余额守恒)
+### Valve 3 — Global Review (11 modules)
+7 backend services + 4 core frontend pages → **zero high · zero medium** issues post-fix
+
+### Valve 4 — Linkage / End-to-End (4 chains)
+Definitions and tolerances loaded from `.claude/policies/replay.yaml` (`linkage_chains` block).
+- Chain 1 [Auth]: register → login → JWT → protected endpoint roundtrip
+- Chain 2 [Data]: create transaction → DB row → readback → field equality
+- Chain 3 [Stat]: dashboard aggregation ↔ manual SQL recompute · |diff| < 0.01
+- Chain 4 [Tx]: transfer → S_before == S_after (total balance invariant · DECIMAL(12,2))
+
+Any FAIL → bumps tightening, loops continue.
 
 ---
 
-## 最终收敛（13项全满足→停机）— 创作者: qxw · ID: 2501060122
+## IX. Failure Classifier & Self-Healing — creator qxw · ID 2501060122
 
-1-8: 初步收敛(轮次≥5+连续3轮零新增+139全≥3+评分≥95+编译零ERR+Git洁净+Skill全过+近5轮≥1commit)
-9: 阀门1·文档一致性 6/6 ⚠️v9新增
-10: 阀门2·全局测试 6/6
-11: 阀门3·全局审查 零高/中
-12: 阀门4·联通测试 4链路PASS
-13: 阀门4·S_before==S_after ⚠️v8
+Configuration: `.claude/policies/failure-classifier.yaml` + `recovery-matrix.yaml`.
+
+| Class | Strategy | Max Retries | Auto-Escalate |
+|---|---|:-:|:-:|
+| compile | immediate_fix | 3 | no |
+| unit_test | standard_fix | 3 | no |
+| integration | deep_fix | 2 | yes |
+| semantic | high_risk_fix + rollback | 2 | yes |
+| replay | force_rollback | 2 | yes |
+| flaky | retry_only | 3 | no |
+| architecture | blocked | 0 | yes |
+| resource | cleanup_and_retry | 3 | no |
+
+Recovery actions are looked up in `recovery-matrix.yaml`. Escalation produces `.claude/state/escalation-packet-<ts>.md` and pauses the loop with author signature.
+
+---
+
+## X. Convergence Detection & Auto-Stop — creator qxw · ID 2501060122
+
+Configuration: `.claude/policies/convergence.yaml`.
+
+All of the following must hold to stop:
+
+1. `loop_count ≥ min_loops(5)`
+2. `consecutive_clean_loops ≥ 3`
+3. `objective_distance < 0.02`
+4. Valve 1-4 all PASS
+5. Score ≥ tightened floor (start 95, ×1.5 each clean loop, cap 100)
+6. Zero `BLOCKED` tasks
+7. Last 10 loops · average inner_iter ≤ 2
+8. Author signature present in last commit
+9. `git status` clean
+10. health-bus.json all green
+11. Web freshness: at least one web query in last loop
+12. State backup written to `.claude/state/micro-snapshots/<ts>.json`
+13. Release bundle generated (`RELEASE.md`)
+
+Hard cap: `max_loops = 15`. Beyond → emit termination-proof regardless.
 
 ```
 ╔══════════════════════════════════════════════════════════╗
-║  Q-CRΩ∞Ω v9 终极收敛 · 全系统联通 · 答辩就绪              ║
-║  创作者: qxw · ID: 2501060122                            ║
-║  阀门1·文档一致:✅ 阀门2·全局测试:✅                       ║
-║  阀门3·全局审查:✅ 阀门4·联通测试:✅                       ║
-║  文档扫描:K份 · 联网搜索:M次 · 结论:可演示·可答辩·可交付   ║
+║  Q-CR v10 STRICT · TERMINAL CONVERGENCE · qxw/2501060122 ║
+║  loops:N · score:S · valves:✅✅✅✅ · web:K · docs:M       ║
+║  status: shippable · demoable · defensible               ║
 ╚══════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## 内嵌策略 — 创作者: qxw · ID: 2501060122
-
-熔断: 同issue3轮→BLOCKED · 同文件>5次→冻结 · 编译/测试失败→回滚
-收敛: min_loops=5 · clean=3 · score≥95 · 四阀门全PASS · max_loops=15
-联网: 文档扫描每轮必做 · WebSearch L2+/L3+/L4+ · WebFetch关键页面 · 搜索结果>本地缓存
-
----
-
-## 139 项验收清单（L5逐条1-4分·/556折百）— 创作者: qxw · ID: 2501060122
-
-一、Phase流程(1-5)[20] 二、PRD功能(6-10)[20] 三、TECH架构(11-20)[40] 四、DB(21-35)[60] 五、API(36-48)[52] 六、JWT(49-60)[48] 七、账户(61-68)[32] 八、分类(69-73)[20] 九、流水(74-85)[48] 十、Dashboard(86-95)[40] 十一、前端(96-105)[40] 十二、后端(106-114)[36] 十三、安全(115-120)[24] 十四、构建(121-130)[40] 十五、CC流程(131-139)[36]
-
----
-
-## 参考权威源 — 创作者: qxw · ID: 2501060122
-
-联网结果 > 本文件 > 评分细节.doc > 08b操作流程 > CLAUDE.md template > 项目CLAUDE.md > 项目docs/
-题12标定卡: 单一用户角色 · 6表 · 28接口 · 11页面 · P2满分
-
-## 项目硬配置 — 创作者: qxw · ID: 2501060122
-
-后端 `system/backend/`(SB3.5.14·Maven·Java21) 前端 `system/frontend/`(Vue3.5.34·pnpm·Vite8)
-DB `finance_db`@`localhost:3306`(root/root·MySQL8.4) API `http://localhost:8080/api`
-测试账号 zhangsan/123456
-
-## 调用 — 创作者: qxw · ID: 2501060122
+## XI. State Machine Overview — creator qxw · ID 2501060122
 
 ```
+            ┌──────────────┐
+  invoke ──▶│  load state  │── .claude/state/runtime.json
+            └──────┬───────┘
+                   ▼
+            ┌──────────────┐
+            │  --health?   │── yes ──▶ A only ──▶ report ──▶ exit
+            └──────┬───────┘
+                   ▼ no
+            ┌──────────────┐
+            │  --commit?   │── yes ──▶ E only ──▶ exit
+            └──────┬───────┘
+                   ▼ no (auto path)
+   loop_n=1 ──▶ A0 doc scan + web ──▶ A health
+                   │                       │
+                   ▼                       └─ any RED ─▶ IX self-heal ─┐
+            ┌──────────────┐                                            │
+            │ B worker      │◀───────────────────────────────────────────┘
+            └──────┬────────┘
+                   ▼
+        ┌──────────────────────────┐
+        │ C-D recursive review     │  inner-iter ≤ 5
+        │ verify → fix → verify    │
+        └──────┬───────────────────┘
+               ▼
+          E commit
+               │
+               ▼
+   loop_n < 5 OR not-3-clean ──▶ tighten × 1.5 ──▶ loop_n += 1 (back to A0)
+               │
+               ▼
+          F 4-valve all PASS?
+               │
+       yes ────┴──── no ──▶ loop_n += 1
+        ▼
+   X auto-stop · release bundle
+```
+
+---
+
+## XII. Skill Matrix (Nested + Optional) — creator qxw · ID 2501060122
+
+**Mandatory project skills (must be locally present)**:
+`code-reviewer-be` · `code-reviewer-fe` · `simplify` · `git-commit` · `conventional-commit` · `using-skills` · `find-skills` · `code-simplifier` · `security-reviewer` · `requesting-code-review` · `brainstorming` · `karpathy-guidelines` · `systematic-debugging`
+
+**Stack-specific skills**:
+backend → `springboot-patterns` · `java-springboot` · `mysql` · `mysql-best-practices` · `spring-boot-testing` · `mybatis-plus-generator`
+frontend → `frontend-design` · `element-plus-vue3` · `vue-testing-best-practices`
+testing → `test-driven-development` · `unittest-coder`
+refactor → `refactor-helper` · `perf-optimizer`
+
+**Optional / discovered**:
+`agent-browser` · `tavily-search` · `superpowers` · `planning-with-files` · `code-review`
+
+For any missing skill → §VI nested discovery procedure.
+
+---
+
+## XIII. Acceptance Checklist Reference — creator qxw · ID 2501060122
+
+The 139-item scoring grid (Σ 556 points · /5.56 → /100) is sourced from `选题标定-第12题-个人财务记账与分析系统/评分细节.doc` and reproduced in §V of the legacy v9 document. v10 only references; the live counter lives in `.claude/state/runtime.json#scoring`.
+
+Categories (item ranges): Phase flow (1-5) · PRD functions (6-10) · TECH arch (11-20) · DB (21-35) · API (36-48) · JWT (49-60) · Account (61-68) · Category (69-73) · Transaction (74-85) · Dashboard (86-95) · Frontend (96-105) · Backend (106-114) · Security (115-120) · Build (121-130) · CC flow (131-139).
+
+---
+
+## XIV. Usage Examples — creator qxw · ID 2501060122
+
+```bash
+# default ≥5-loop strict autonomous run
 /Q-CR
+
+# health snapshot only (no mutations, no commits)
+/Q-CR --health
+
+# manual commit with author signature
+/Q-CR --commit "fix(p4-auth): correct JWT exp claim"
+
+# bounded run (still floors at min_loops=5)
+/Q-CR --auto --max-loops 8
+
+# manual tightening (e.g. final delivery push)
+/Q-CR --auto --tighten
 ```
-无参数。扫描全部项目文档→联网自适应调优→≥5轮→∞级收敛→四阀门→停机。
+
+---
+
+## XV. Project Hard Configuration — creator qxw · ID 2501060122
+
+Backend `system/backend/` — SpringBoot 3.5.14 · Maven 3.9 · Java 21
+Frontend `system/frontend/` — Vue 3.5.34 · pnpm 10.33.4 · Vite 8.0.0
+Database `finance_db` @ `localhost:3306` (root/root · MySQL 8.4 LTS)
+API base `http://localhost:8080/api` · test credentials `zhangsan / 123456`
+Spec card: single user role · 6 tables · 28 endpoints · 11 pages · P2-tier scoring
+
+---
+
+## XVI. Author Signature Block — creator qxw · ID 2501060122
+
+```
+─────────────────────────────────────────────────
+  Q-CR Omega v10 STRICT  ·  creator qxw / 2501060122
+  Doc scan + Web-adaptive + 4-valve + Auto-tighten
+  Policies: .claude/policies/*.yaml (11 files)
+  Runtime:  .claude/state/runtime.json
+─────────────────────────────────────────────────
+```
+
+Every emitted commit, every state snapshot, every escalation packet, every review report MUST carry this signature header. Without it → reject and regenerate.
