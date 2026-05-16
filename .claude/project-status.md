@@ -15,15 +15,15 @@
 
 ## 当前状态字段(9 个)
 
-- **当前 Phase**:Phase 5(前端开发完成) <!-- Phase 0 → 1 切换时手动改本行 -->
-- **上次更新**:2026-05-16 <!-- 由 /rules-updater 自动写入 YYYY-MM-DD;手动切换 Phase 时不必改本字段 -->
-- **已完成文档**:PRD.md, TECH_DESIGN.md, DATABASE_DESIGN.md, API_DESIGN.md <!-- 完成 SRS 后由 /rules-updater 自动列出,如:PRD.md, TECH_DESIGN.md, DATABASE_DESIGN.md -->
-- **数据库表**:user, account, category, transaction, budget, recurring_bill <!-- 完成 Phase 2 后自动列表名,如:user, house, payment, repair -->
-- **已有接口**:28 个接口:登录注册+改密码 / 账户 CRUD / 分类列表 / 收支记录 / 转账 / 预算管理 / 周期账单 / 仪表盘统计 / 汇率查询 <!-- 完成 Phase 3 后自动列接口数 + 关键功能 -->
-- **已完成的后端模块**:UserServiceImpl, AccountServiceImpl, CategoryServiceImpl, TransactionServiceImpl, BudgetServiceImpl, RecurringBillServiceImpl, StatisticsServiceImpl <!-- 完成 Phase 4 后自动列 ServiceImpl -->
-- **已完成的前端页面**:LoginPage, DashboardPage, AccountPage, CategoryPage, TransactionListPage, BudgetPage, RecurringBillPage, TransferPage, AnalyticsPage, ImportPage, UserSettingsPage <!-- 完成 Phase 5 后自动列 .vue 文件名 -->
-- **已完成的对话记录数**:11 <!-- /rules-updater 统计 docs/对话记录/ 下 .md 文件数 · 05 验收要求 ≥21 -->
-- **已完成的 commit 数(估)**:7 <!-- /rules-updater 估值(基于 git log --oneline | wc -l) · 05 验收要求 ≥30 -->
+- **当前 Phase**:Phase 7 (Loop 3 验收迭代 · 149/150 通过)
+- **上次更新**:2026-05-16
+- **已完成文档**:PRD.md, TECH_DESIGN.md, DATABASE_DESIGN.md, API_DESIGN.md, DEPLOY.md
+- **数据库表**:user, account, category, transaction, budget, recurring_bill
+- **已有接口**:28 个接口:登录注册+改密码 / 账户CRUD / 分类列表 / 收支记录+转账 / 预算管理+预警 / 周期账单 / 仪表盘统计 / 汇率查询
+- **已完成的后端模块**:UserServiceImpl, AccountServiceImpl, CategoryServiceImpl, TransactionServiceImpl, BudgetServiceImpl, RecurringBillServiceImpl, StatisticsServiceImpl
+- **已完成的前端页面**:LoginPage, DashboardPage, AccountPage, CategoryPage, TransactionListPage, BudgetPage, RecurringBillPage, TransferPage, AnalyticsPage, ImportPage, UserSettingsPage
+- **已完成的对话记录数**:15+ <!-- /rules-updater 统计 docs/对话记录/ 下 .md 文件数 -->
+- **已完成的 commit 数(估)**:26 <!-- /rules-updater 估值 · 05 验收要求 ≥30 -->
 
 ## 每 Phase 末该做的事
 
