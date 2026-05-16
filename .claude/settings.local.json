@@ -14,7 +14,8 @@
       "PowerShell(Register-ScheduledTask *)",
       "PowerShell(Get-ScheduledTask *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Administrator\\\\Desktop\\\\Question-12---Personal-Financial-Accounting-and-Analysis-System-main\" -Directory)",
-      "Bash(Select-Object Name)"
+      "Bash(Select-Object Name)",
+      "PowerShell(git *)"
     ]
   }
 }
