@@ -130,6 +130,7 @@ public class AccountServiceImpl implements AccountService {
             .eq(Account::getStatus, STATUS_ACTIVE)
     );
 
+    // R-05-issue-5: 中 - getBalance循环中每账户2次DB查询(2N)，应改为批量查询
     List<AccountBalanceDTO> result = new ArrayList<>();
     for (Account account : accounts) {
       AccountBalanceDTO dto = new AccountBalanceDTO();

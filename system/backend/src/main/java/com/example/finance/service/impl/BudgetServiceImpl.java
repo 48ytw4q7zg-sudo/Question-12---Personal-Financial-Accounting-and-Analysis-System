@@ -84,6 +84,7 @@ public class BudgetServiceImpl implements BudgetService {
       throw new BusinessException(4001, "预算仅可设置在支出分类上");
     }
 
+    // R-05-issue-6: 中 - 并发插入可能绕过service层唯一检查，应捕获DuplicateKeyException抛友好提示
     // 查询是否已存在该月该分类的预算
     Budget existing = budgetMapper.selectOne(
         new LambdaQueryWrapper<Budget>()
