@@ -3,6 +3,7 @@ package com.example.finance.entity.dto;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -35,9 +36,11 @@ public class RecurringBillRequest {
   private Integer type;
 
   /**
-   * 周期：daily weekly monthly yearly
+   * 周期：daily=每日, weekly=每周, monthly=每月, yearly=每年（Q-CR v11 acceptance #29）
    */
   @NotBlank(message = "周期不能为空")
+  @Pattern(regexp = "^(daily|weekly|monthly|yearly)$",
+      message = "周期只能是 daily / weekly / monthly / yearly")
   private String period;
 
   @NotBlank(message = "下次到期日不能为空")

@@ -21,9 +21,9 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 jwt:
-  secret: ${JWT_SECRET:finance-system-jwt-secret-key-2026}
+  secret: ${JWT_SECRET:CHANGE-ME-IN-PRODUCTION-USE-JWT_SECRET-ENV}
   expire: 604800000
 
 logging:
   level:
-    com.example.finance: debug
+    com.example.finance: ${LOG_LEVEL:info}

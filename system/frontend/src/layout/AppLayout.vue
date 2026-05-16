@@ -2,7 +2,10 @@
   <el-container class="app-layout">
     <el-header class="app-header">
       <div class="header-left">
-        <el-icon class="menu-toggle" @click="toggleSidebar" :size="20">
+        <el-icon v-if="isMobile" class="menu-toggle" @click="drawerVisible = true" :size="20">
+          <Expand />
+        </el-icon>
+        <el-icon v-else class="menu-toggle" @click="toggleSidebar" :size="20">
           <Fold v-if="!isCollapsed" />
           <Expand v-else />
         </el-icon>
@@ -17,55 +20,20 @@
       </div>
     </el-header>
     <el-container class="app-body">
-      <el-aside :width="isCollapsed ? '64px' : '200px'" class="app-aside">
-        <el-menu
-          :default-active="activeMenu"
-          :collapse="isCollapsed"
-          router
-          class="aside-menu"
-        >
-          <el-menu-item index="/">
-            <el-icon><HomeFilled /></el-icon>
-            <template #title>首页</template>
-          </el-menu-item>
-          <el-menu-item index="/account">
-            <el-icon><Wallet /></el-icon>
-            <template #title>账户管理</template>
-          </el-menu-item>
-          <el-menu-item index="/category">
-            <el-icon><Menu /></el-icon>
-            <template #title>分类浏览</template>
-          </el-menu-item>
-          <el-menu-item index="/transaction">
-            <el-icon><List /></el-icon>
-            <template #title>收支记录</template>
-          </el-menu-item>
-          <el-menu-item index="/budget">
-            <el-icon><Money /></el-icon>
-            <template #title>预算管理</template>
-          </el-menu-item>
-          <el-menu-item index="/recurring-bill">
-            <el-icon><Calendar /></el-icon>
-            <template #title>周期账单</template>
-          </el-menu-item>
-          <el-menu-item index="/transfer">
-            <el-icon><Sort /></el-icon>
-            <template #title>转账</template>
-          </el-menu-item>
-          <el-menu-item index="/analytics">
-            <el-icon><TrendCharts /></el-icon>
-            <template #title>统计分析</template>
-          </el-menu-item>
-          <el-menu-item index="/import">
-            <el-icon><Upload /></el-icon>
-            <template #title>数据导入</template>
-          </el-menu-item>
-          <el-menu-item index="/settings">
-            <el-icon><Setting /></el-icon>
-            <template #title>设置</template>
-          </el-menu-item>
-        </el-menu>
+      <!-- Desktop sidebar: >= 768px -->
+      <el-aside v-if="!isMobile" :width="isCollapsed ? '64px' : '200px'" class="app-aside">
+        <sidebar-menu :active-menu="activeMenu" :collapsed="isCollapsed" />
       </el-aside>
+      <!-- Mobile drawer: < 768px -->
+      <el-drawer
+        v-model="drawerVisible"
+        direction="ltr"
+        size="200px"
+        :with-header="false"
+        class="mobile-drawer"
+      >
+        <sidebar-menu :active-menu="activeMenu" :collapsed="false" @navigate="drawerVisible = false" />
+      </el-drawer>
       <el-main class="app-main">
         <router-view />
       </el-main>
@@ -77,13 +45,18 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import SidebarMenu from '../components/SidebarMenu.vue'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const isCollapsed = ref(false)
+const drawerVisible = ref(false)
 
 const activeMenu = computed(() => route.path)
+
+// TECH_DESIGN §6.0: < 768px → mobile drawer mode
+const isMobile = ref(false)
 
 function toggleSidebar() {
   isCollapsed.value = !isCollapsed.value
@@ -95,11 +68,16 @@ function handleLogout() {
   router.push('/login')
 }
 
-// 响应式：小屏幕自动折叠侧栏
+// Responsive breakpoint handler
 function handleResize() {
-  if (window.innerWidth < 768) {
+  const w = window.innerWidth
+  isMobile.value = w < 768
+  if (w >= 768 && w < 992) {
     isCollapsed.value = true
+  } else if (w >= 992) {
+    isCollapsed.value = false
   }
+  // < 768px: isMobile = true → drawer; desktop sidebar hidden
 }
 
 onMounted(() => {
@@ -174,5 +152,10 @@ onUnmounted(() => {
   background-color: #f5f7fa;
   overflow-y: auto;
   padding: 20px;
+}
+
+/* Mobile drawer styles */
+.mobile-drawer :deep(.el-drawer__body) {
+  padding: 0;
 }
 </style>

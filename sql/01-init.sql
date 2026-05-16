@@ -129,7 +129,7 @@ CREATE TABLE `recurring_bill` (
   `name`          VARCHAR(30)   NOT NULL                 COMMENT '账单名称（1-30字符，如：房租、工资）',
   `amount`        DECIMAL(12,2) NOT NULL                 COMMENT '金额（必须>0，精度2位，禁用FLOAT/DOUBLE）',
   `type`          TINYINT       NOT NULL                 COMMENT '类型：1=收入, 2=支出',
-  `period`        VARCHAR(10)   NOT NULL                 COMMENT '周期：monthly=每月, weekly=每周',
+  `period`        VARCHAR(10)   NOT NULL                 COMMENT '周期：daily=每日, weekly=每周, monthly=每月, yearly=每年',
   `next_due_date` DATE          NOT NULL                 COMMENT '下次到期日（@Scheduled日检到期依据）',
   `status`        TINYINT       NOT NULL DEFAULT 1       COMMENT '状态：1=活跃, 0=停用（软删除，停用后不可恢复）',
   `create_time`   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP                COMMENT '创建时间',

@@ -16,8 +16,8 @@ public class JwtConfig {
   // HS256 要求密钥至少 32 字节（256 bit）
   private static final int MIN_SECRET_LENGTH = 32;
 
-  // 出厂默认密钥（已公开在 application.yml 中，生产必须用 JWT_SECRET 环境变量覆盖）
-  private static final String DEFAULT_SECRET = "finance-system-jwt-secret-key-2026";
+  // 出厂占位密钥（明显非生产值 · 已公开在 application.yml 中 · 生产必须用 JWT_SECRET 环境变量覆盖 · Q-CR v11 Loop 4 安全收紧）
+  private static final String DEFAULT_SECRET = "CHANGE-ME-IN-PRODUCTION-USE-JWT_SECRET-ENV";
 
   @Value("${jwt.secret}")
   private String secret;

@@ -16,8 +16,8 @@ import java.util.Date;
 @Slf4j
 public class JwtUtils {
 
-  // 默认密钥（可通过 JWT_SECRET 环境变量覆盖）
-  private static String SECRET = "finance-system-jwt-secret-key-2026";
+  // 出厂占位密钥（明显非生产值 · 必须通过 JWT_SECRET 环境变量覆盖 · Q-CR v11 Loop 4 安全收紧）
+  private static String SECRET = "CHANGE-ME-IN-PRODUCTION-USE-JWT_SECRET-ENV";
   // 默认过期时间：7天（可通过 JWT_EXPIRE 环境变量覆盖，单位毫秒）
   private static long EXPIRE = 7 * 24 * 60 * 60 * 1000L;
 

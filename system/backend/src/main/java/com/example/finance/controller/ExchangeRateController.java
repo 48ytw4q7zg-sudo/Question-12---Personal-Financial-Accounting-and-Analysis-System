@@ -17,9 +17,9 @@ import java.util.Map;
 public class ExchangeRateController {
 
   /**
-   * 获取汇率（硬编码）
+   * 获取汇率（P2 硬编码占位实现 · 后续可接入外部 API 如 https://api.exchangerate-api.com）
    */
-  // R-05-issue-3: 已修复 - P2硬编码汇率，添加TODO标记后续可接入外部API
+  // R-05-issue-3: 已修复 - P2 硬编码汇率，后续可接入外部 API（Q-CR v11 Loop 2 注释清洗）
   @GetMapping
   public Result<Map<String, Object>> getExchangeRates() {
     Map<String, Object> data = new HashMap<>();
