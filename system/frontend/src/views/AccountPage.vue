@@ -176,7 +176,7 @@ async function handleSubmit() {
 }
 
 async function handleDelete(row) {
-  await ElMessageBox.confirm('确定删除该账户吗？', '提示', { type: 'warning' })
+  await ElMessageBox.confirm('确定删除该账户吗？', '提示', { type: 'warning' }).catch(() => { return })
   await deleteAccount(row.id)
   ElMessage.success('删除成功')
   loadAccounts()

@@ -211,14 +211,14 @@ async function handleSubmit() {
 }
 
 async function handleDeactivate(row) {
-  await ElMessageBox.confirm('确定停用该周期账单吗？', '提示', { type: 'warning' })
+  await ElMessageBox.confirm('确定停用该周期账单吗？', '提示', { type: 'warning' }).catch(() => { return })
   await deleteRecurringBill(row.id)
   ElMessage.success('已停用')
   loadBills()
 }
 
 async function handleGenerate(row) {
-  await ElMessageBox.confirm('确定生成该周期账单的交易记录吗？', '提示', { type: 'info' })
+  await ElMessageBox.confirm('确定生成该周期账单的交易记录吗？', '提示', { type: 'info' }).catch(() => { return })
   await generateRecurringBill(row.id)
   ElMessage.success('生成成功')
   loadBills()

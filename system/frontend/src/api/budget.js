@@ -11,3 +11,7 @@ export function saveBudget(data) {
 export function getBudgetProgress(params) {
   return request.get('/budget/progress', { params })
 }
+
+export function getBudgetAlert(params) {
+  return request.get('/budget/alert', { params })
+}
