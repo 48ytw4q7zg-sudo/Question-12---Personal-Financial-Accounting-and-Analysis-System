@@ -22,7 +22,8 @@ import java.time.LocalDateTime;
 public class UserServiceImpl implements UserService {
 
   private final UserMapper userMapper;
-  private final BCryptPasswordEncoder bCryptEncoder = new BCryptPasswordEncoder();
+  // OWASP A02 加密失败: BCrypt 工作因子 12 (默认 10) · 与已存哈希 $10$ 兼容,新注册升级强度
+  private final BCryptPasswordEncoder bCryptEncoder = new BCryptPasswordEncoder(12);
 
   /**
    * 注册（用户名已存在则抛异常）
