@@ -59,10 +59,14 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     Set<Long> accountIds = bills.stream().map(RecurringBill::getAccountId).collect(Collectors.toSet());
     Set<Long> categoryIds = bills.stream().map(RecurringBill::getCategoryId).collect(Collectors.toSet());
 
-    Map<Long, String> accountNameMap = accountMapper.selectBatchIds(accountIds).stream()
-        .collect(Collectors.toMap(Account::getId, Account::getName));
-    Map<Long, String> categoryNameMap = categoryMapper.selectBatchIds(categoryIds).stream()
-        .collect(Collectors.toMap(Category::getId, Category::getName));
+    Map<Long, String> accountNameMap = accountIds.isEmpty()
+        ? Map.of()
+        : accountMapper.selectByIds(accountIds).stream()
+            .collect(Collectors.toMap(Account::getId, Account::getName));
+    Map<Long, String> categoryNameMap = categoryIds.isEmpty()
+        ? Map.of()
+        : categoryMapper.selectByIds(categoryIds).stream()
+            .collect(Collectors.toMap(Category::getId, Category::getName));
 
     return bills.stream().map(bill -> toDTO(bill, accountNameMap, categoryNameMap)).toList();
   }

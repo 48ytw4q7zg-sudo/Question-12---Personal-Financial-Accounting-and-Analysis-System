@@ -114,7 +114,7 @@ class BudgetServiceImplTest {
     budget.setAmount(new BigDecimal("2000.00"));
 
     when(budgetMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(budget));
-    when(categoryMapper.selectBatchIds(anyCollection())).thenReturn(List.of(expenseCategory));
+    when(categoryMapper.selectByIds(anyCollection())).thenReturn(List.of(expenseCategory));
 
     List<BudgetDTO> result = budgetService.list(1L, "2026", "5");
     assertEquals(1, result.size());
@@ -126,7 +126,6 @@ class BudgetServiceImplTest {
   @DisplayName("预算列表空数据")
   void list_empty() {
     when(budgetMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(Collections.emptyList());
-    when(categoryMapper.selectBatchIds(anyCollection())).thenReturn(Collections.emptyList());
 
     List<BudgetDTO> result = budgetService.list(1L, "2026", "5");
     assertTrue(result.isEmpty());
@@ -155,7 +154,7 @@ class BudgetServiceImplTest {
     budget2.setAmount(new BigDecimal("500.00"));
 
     when(budgetMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(budget1, budget2));
-    when(categoryMapper.selectBatchIds(anyCollection())).thenReturn(List.of(expenseCategory, cat2));
+    when(categoryMapper.selectByIds(anyCollection())).thenReturn(List.of(expenseCategory, cat2));
     // 餐饮花了 500（未超），交通花了 600（超支）
     var summary1 = new com.example.finance.entity.dto.CategorySummaryDTO();
     summary1.setCategoryId(1L);

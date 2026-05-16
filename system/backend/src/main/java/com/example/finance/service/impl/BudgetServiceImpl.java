@@ -56,8 +56,10 @@ public class BudgetServiceImpl implements BudgetService {
 
     // 批量加载分类名称，避免 N+1 查询
     Set<Long> categoryIds = budgets.stream().map(Budget::getCategoryId).collect(Collectors.toSet());
-    Map<Long, String> categoryNameMap = categoryMapper.selectBatchIds(categoryIds).stream()
-        .collect(Collectors.toMap(Category::getId, Category::getName));
+    Map<Long, String> categoryNameMap = categoryIds.isEmpty()
+        ? Map.of()
+        : categoryMapper.selectByIds(categoryIds).stream()
+            .collect(Collectors.toMap(Category::getId, Category::getName));
 
     return budgets.stream().map(b -> {
       BudgetDTO dto = new BudgetDTO();
