@@ -1,0 +1,8 @@
+# 系统级忽略规则
+node_modules/
+dist/
+target/
+.idea/
+*.iml
+*.log
+application-local.yml
