@@ -15,6 +15,7 @@ import com.example.finance.mapper.RecurringBillMapper;
 import com.example.finance.mapper.TransactionMapper;
 import com.example.finance.service.RecurringBillService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 /**
  * 周期性账单服务实现
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RecurringBillServiceImpl implements RecurringBillService {

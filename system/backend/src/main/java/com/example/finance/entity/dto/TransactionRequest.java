@@ -20,9 +20,9 @@ public class TransactionRequest {
   @NotNull(message = "分类不能为空")
   private Long categoryId;
 
-  // R-05-issue-2: 高 - type注释"1=支出2=收入"与Entity"1=收入2=支出"不一致，应改为"1=收入 2=支出"
+  // R-05-issue-2: 已修复 - type注释改为与Entity一致"1=收入 2=支出"
   /**
-   * 类型：1=支出 2=收入
+   * 类型：1=收入 2=支出
    */
   @NotNull(message = "类型不能为空")
   private Integer type;

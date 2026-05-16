@@ -12,6 +12,8 @@ import com.example.finance.mapper.CategoryMapper;
 import com.example.finance.mapper.TransactionMapper;
 import com.example.finance.service.BudgetService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 /**
  * 预算服务实现
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BudgetServiceImpl implements BudgetService {
@@ -84,7 +87,7 @@ public class BudgetServiceImpl implements BudgetService {
       throw new BusinessException(4001, "预算仅可设置在支出分类上");
     }
 
-    // R-05-issue-6: 中 - 并发插入可能绕过service层唯一检查，应捕获DuplicateKeyException抛友好提示
+    // R-05-issue-6: 已修复 - 捕获DuplicateKeyException并发兜底
     // 查询是否已存在该月该分类的预算
     Budget existing = budgetMapper.selectOne(
         new LambdaQueryWrapper<Budget>()
@@ -109,7 +112,23 @@ public class BudgetServiceImpl implements BudgetService {
       budget.setAmount(request.getAmount());
       budget.setCreateTime(LocalDateTime.now());
       budget.setUpdateTime(LocalDateTime.now());
-      budgetMapper.insert(budget);
+      try {
+        budgetMapper.insert(budget);
+      } catch (DuplicateKeyException e) {
+        // 并发插入时唯一索引拦截，重新查询已存在的记录
+        log.warn("预算并发插入冲突，重新查询: userId={}, categoryId={}, month={}", userId, request.getCategoryId(), request.getMonth());
+        budget = budgetMapper.selectOne(
+            new LambdaQueryWrapper<Budget>()
+                .eq(Budget::getUserId, userId)
+                .eq(Budget::getCategoryId, request.getCategoryId())
+                .eq(Budget::getMonth, request.getMonth())
+        );
+        if (budget != null) {
+          budget.setAmount(request.getAmount());
+          budget.setUpdateTime(LocalDateTime.now());
+          budgetMapper.updateById(budget);
+        }
+      }
     }
 
     BudgetDTO dto = new BudgetDTO();
