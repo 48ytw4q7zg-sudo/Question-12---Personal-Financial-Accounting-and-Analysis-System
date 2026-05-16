@@ -19,6 +19,9 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 预算服务实现
@@ -26,6 +29,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class BudgetServiceImpl implements BudgetService {
+
+  // category.type=1 为支出分类
+  private static final int CATEGORY_TYPE_EXPENSE = 1;
 
   private final BudgetMapper budgetMapper;
   private final CategoryMapper categoryMapper;
@@ -45,6 +51,11 @@ public class BudgetServiceImpl implements BudgetService {
             .eq(Budget::getMonth, monthStr)
     );
 
+    // 批量加载分类名称，避免 N+1 查询
+    Set<Long> categoryIds = budgets.stream().map(Budget::getCategoryId).collect(Collectors.toSet());
+    Map<Long, String> categoryNameMap = categoryMapper.selectBatchIds(categoryIds).stream()
+        .collect(Collectors.toMap(Category::getId, Category::getName));
+
     return budgets.stream().map(b -> {
       BudgetDTO dto = new BudgetDTO();
       dto.setId(b.getId());
@@ -53,11 +64,7 @@ public class BudgetServiceImpl implements BudgetService {
       dto.setAmount(b.getAmount());
       dto.setCreateTime(b.getCreateTime());
       dto.setUpdateTime(b.getUpdateTime());
-
-      // 填充分类名称
-      Category category = categoryMapper.selectById(b.getCategoryId());
-      dto.setCategoryName(category != null ? category.getName() : "");
-
+      dto.setCategoryName(categoryNameMap.getOrDefault(b.getCategoryId(), ""));
       return dto;
     }).toList();
   }
@@ -73,7 +80,7 @@ public class BudgetServiceImpl implements BudgetService {
       throw new BusinessException(4001, "分类不存在");
     }
     // 预算仅针对支出分类（category.type=1 为支出）
-    if (category.getType() != 1) {
+    if (category.getType() != CATEGORY_TYPE_EXPENSE) {
       throw new BusinessException(4001, "预算仅可设置在支出分类上");
     }
 
