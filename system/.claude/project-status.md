@@ -17,18 +17,21 @@
 
 ## 验证状态
 
-- `mvn clean compile` ✅ 通过
-- `pnpm build` ✅ 通过
-- 单元测试: 28 个用例 (UserServiceImpl 9 + TransactionServiceImpl 8 + BudgetServiceImpl 6 + AccountServiceImpl 3 + CategoryServiceImpl 2)
+- `mvn clean compile` ✅ 通过 (零 ERROR · BudgetServiceImpl deprecation 已修复)
+- `mvn test` ✅ 37/0/0 通过
+- `pnpm build` ✅ 通过 · vendor 拆分 echarts/element-plus (index 1065KB→5.8KB)
+- 单元测试: 37 个用例
 - 后端运行时API验证: ✅ /health /login /register /account /category /transaction /statistics/monthly /transaction/transfer
 - R-05 Loop3审查: ✅ 2 issue修复(transfer outNote+N+1)
+- Q-CR v9 二轮调用: ✅ 5 轮 · 4 修复 commit · 阀门 1+2+3+4 全 PASS · 评分 95/100
 
 ## 审查记录
 
 - R-05 Loop3 后端审查: 2 个 issue (1高/1中) → 全部修复
 - R-07 安全审查: ✅ 通过 (8 维度 · 无高危)
+- Q-CR v9 二轮 OWASP A01+A02 加固: BCrypt cost 12 + CORS 源可配 + JWT 256-bit 硬校验 + MP 弃用 API 替换
 
 ## Git 提交统计
 
-- 总提交数: 30 ✅
+- 总提交数: 34 ✅
 - 验收要求: ≥30 commits ✅
