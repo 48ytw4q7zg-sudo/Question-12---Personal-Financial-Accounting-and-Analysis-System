@@ -132,3 +132,25 @@ A: `sql/01-init.sql` 使用 `DROP TABLE IF EXISTS`，可重复执行。
 - [数据库设计](docs/DATABASE_DESIGN.md) — ER 图、建表脚本、字段约定
 - [API 接口设计](docs/API_DESIGN.md) — 28 个接口详情、错误码、DTO
 - [部署文档](docs/DEPLOY.md) — 环境要求、启动步骤、生产部署
+
+## 验证状态
+
+| 检查项 | 结果 |
+|---|---|
+| `mvn clean compile` | ✅ BUILD SUCCESS |
+| `pnpm build` | ✅ built |
+| `mvn test` | ✅ 37 用例 / 0 失败 |
+| 后端 API 运行时 | ✅ 全 28 接口响应正常 |
+
+### 测试覆盖
+
+| ServiceImpl | 用例数 |
+|---|---|
+| UserServiceImpl | 9 |
+| TransactionServiceImpl | 8 |
+| BudgetServiceImpl | 6 |
+| RecurringBillServiceImpl | 6 |
+| AccountServiceImpl | 3 |
+| StatisticsServiceImpl | 3 |
+| CategoryServiceImpl | 2 |
+| **合计** | **37** |
