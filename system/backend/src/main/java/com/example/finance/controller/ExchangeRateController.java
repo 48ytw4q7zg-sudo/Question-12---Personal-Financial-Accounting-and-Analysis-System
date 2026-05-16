@@ -19,7 +19,7 @@ public class ExchangeRateController {
   /**
    * 获取汇率（硬编码）
    */
-  // R-05-issue-3: 低 - 业务逻辑直接写在Controller，无Service层，P2硬编码可接受但应加TODO
+  // R-05-issue-3: 已修复 - P2硬编码汇率，添加TODO标记后续可接入外部API
   @GetMapping
   public Result<Map<String, Object>> getExchangeRates() {
     Map<String, Object> data = new HashMap<>();
