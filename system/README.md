@@ -91,3 +91,44 @@ system/
 ```
 
 详见 [API 设计文档](docs/API_DESIGN.md)。
+
+## 数据库设计
+
+共 6 张表，全部使用 `DECIMAL(12,2)` 存储金额，`create_time` + `update_time` 自动维护：
+
+| 表名 | 说明 | 核心字段 |
+|---|---|---|
+| user | 用户表 | username, password(BCrypt) |
+| account | 账户表 | name, type(1-4), initial_balance, currency |
+| category | 分类表(种子数据) | name, type(1=支出/2=收入) |
+| transaction | 收支记录表 | account_id, category_id, type, amount, time, transfer_id |
+| budget | 预算表 | category_id, month(YYYY-MM), amount |
+| recurring_bill | 周期账单表 | account_id, category_id, period, next_due_date, status |
+
+详见 [数据库设计文档](docs/DATABASE_DESIGN.md)。
+
+## 测试账号
+
+| 用户名 | 密码 | 说明 |
+|---|---|---|
+| zhangsan | 123456 | 已有 4 个账户 + 6 条收支记录 + 3 条预算 + 3 条周期账单 |
+| lisi | 123456 | 空账号，用于测试全新用户流程 |
+
+## 常见问题
+
+**Q: 后端启动报数据库连接错误？**
+A: 确认 MySQL 已启动且 `finance_db` 数据库已创建（执行 `sql/01-init.sql`）。
+
+**Q: 前端页面空白？**
+A: 确认后端已在 8080 端口运行，检查 `vite.config.js` 的 proxy 配置。
+
+**Q: 如何重新初始化数据库？**
+A: `sql/01-init.sql` 使用 `DROP TABLE IF EXISTS`，可重复执行。
+
+## 开发文档
+
+- [需求规格说明](docs/PRD.md) — 功能列表、业务规则、页面映射
+- [技术设计](docs/TECH_DESIGN.md) — 架构、模块、路由、流程图
+- [数据库设计](docs/DATABASE_DESIGN.md) — ER 图、建表脚本、字段约定
+- [API 接口设计](docs/API_DESIGN.md) — 28 个接口详情、错误码、DTO
+- [部署文档](docs/DEPLOY.md) — 环境要求、启动步骤、生产部署
