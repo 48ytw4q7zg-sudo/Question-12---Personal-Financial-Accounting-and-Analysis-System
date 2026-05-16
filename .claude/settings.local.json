@@ -5,7 +5,16 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git push *)",
-      "Bash(git submodule *)"
+      "Bash(git submodule *)",
+      "Bash(git ls-tree *)",
+      "Bash(git rm *)",
+      "Skill(find-skills)",
+      "Bash(npx skills *)",
+      "WebSearch",
+      "PowerShell(Register-ScheduledTask *)",
+      "PowerShell(Get-ScheduledTask *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Administrator\\\\Desktop\\\\Question-12---Personal-Financial-Accounting-and-Analysis-System-main\" -Directory)",
+      "Bash(Select-Object Name)"
     ]
   }
 }
