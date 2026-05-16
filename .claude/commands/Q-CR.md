@@ -1,5 +1,5 @@
 ---
-description: "Q-CR Omega v12 MAXIMUM STRICT — English-architected autonomous engineering loop · ≥5 mandatory iterations · compound-ratchet ×1.25→×2.0 · 10-aspect evidence-backed scoring · per-file forensic commentary · journal-resumable with auto-escalation · nested skill auto-discovery · dual-deploy (project+global) · creator qxw / 2501060122"
+description: "Q-CR Omega v12 MAXIMUM STRICT-max — English-architected autonomous engineering loop · ≥5 mandatory iterations · compound-ratchet ×1.25→×2.0 · 10-aspect evidence-backed scoring · per-file forensic commentary · journal-resumable · MANDATORY 4-link connectivity probe (no escape) · nested skill auto-discovery · dual-deploy · creator qxw / 2501060122"
 argument-hint: "[--resume] [--max-loops N] [--strict-mode paranoid|absolute] [--dry-run] [--target-score S]"
 ---
 
@@ -43,7 +43,7 @@ so the skill is portable across projects and operating systems.
 
 ---
 
-## 0. TWELVE IRON LAWS — creator qxw · 2501060122
+## 0. THIRTEEN IRON LAWS — creator qxw · 2501060122
 
 These are **non-negotiable**. Violating any one law invalidates the entire run.
 
@@ -57,10 +57,11 @@ These are **non-negotiable**. Violating any one law invalidates the entire run.
 | **L6** | **Journal-resumable with forensic trail.** Read `docs/QCR-INSPECTION-JOURNAL.md` at start; write to it at end of every loop; overwrite per-loop scores so the latest is always source of truth. Never silently regress thresholds — lower only with explicit operator confirmation. | `journal read → loop → journal write` |
 | **L7** | **Skill embedding is mandatory and grows by level.** Loop L1 requires ≥ 10 distinct `Skill` invocations; each subsequent loop adds +2 (L2≥12, L3≥14, ..., L6+≥20). Missing skills trigger `WebSearch → WebFetch → Skill "find-skills"` chain. If still unresolved, log to `## Missing Skills` and degrade gracefully with `WebSearch` fallback. | `skill_count ≥ 10 + 2×(level-1)` |
 | **L8** | **Document scanner is mandatory every loop.** Re-glob `*.md`, `*.txt`, `*.pdf`, `*.doc(x)`, `*.xls(x)`, `*.csv`, `*.png` (screenshots), `loop.txt`, `CLAUDE.md`, `AGENTS.md`, `.claude/project-status.md`, and adapt the test plan accordingly. New files discovered mid-run MUST be incorporated. | `glob(N) ⊇ glob(N-1)` |
-| **L9** | **Connectivity is part of acceptance.** No loop is "done" until all 4 connectivity links (C1-Auth / C2-Data / C3-Analytics / C4-Transfer-Atomicity) round-trip end-to-end with evidence (API response excerpt, DB query result, or screenshot). | `C1∧C2∧C3∧C4 = PASS` |
+| **L9** | **Connectivity probe is MANDATORY — no escape.** Before declaring convergence, ALL 4 connectivity links (C1-Auth / C2-Data / C3-Analytics / C4-Transfer-Atomicity) MUST be probed against a LIVE running backend + MySQL. Leaving Valve 4 or C1–C4 as `PENDING` / `⬚` is **FORBIDDEN** and invalidates the entire run. If MySQL is unreachable or backend fails to start, the dispatcher MUST diagnose and fix the issue — not skip the probe. Test data created during probing MUST be cleaned up (DELETE via API or direct SQL) after results are captured. | `C1∧C2∧C3∧C4 = PASS (live probe only)` |
 | **L10** | **Creator stamp on every artefact.** Every commit body, every report header, every journal entry, every fix-patch header, every escalation packet carries `Author: qxw · Author-ID: 2501060122`. Commits missing the stamp are auto-rejected. | `grep 'qxw.*2501060122' in artefact` |
 | **L11** | **Evidence-before-score.** No aspect score, no acceptance item, no per-file score may be asserted without a concrete evidence pointer: `file:line`, commit SHA, command-output excerpt, or screenshot path. Scores without evidence are clamped to **0** for that dimension. | `score → evidence pointer required` |
 | **L12** | **Operator red-lines are absolute.** Delete files, modify `.env` / secrets / tokens, alter database schema, `git push --force`, `git reset --hard`, install global packages — these require **explicit operator confirmation** before execution. Never assume consent. | `prompt before destructive op` |
+| **L13** | **Test-data cleanup after connectivity probe.** Any test records (users, transactions, transfers) created during the connectivity probe MUST be deleted after evidence is captured. Cleanup method: prefer API DELETE; fallback to direct SQL `DELETE FROM <table> WHERE <test-condition>`. Verify cleanup with a follow-up query. | `test-data rows = 0 after probe` |
 
 > **Conflict resolution priority** (highest to lowest):
 > 1. Live network research (`WebSearch` / `WebFetch` results)
@@ -693,16 +694,19 @@ Triggered when `loop_counter ≥ 5` AND `consecutive_clean_loops ≥ 3`.
 
 **Criteria**: Zero High, zero Medium issues across ALL 11 modules.
 
-### Valve 4 — Connectivity Quartet
+### Valve 4 — Connectivity Quartet (MANDATORY · NO ESCAPE · L13)
+
+> ⚠️ **This valve CANNOT be skipped, deferred, or left as `PENDING`/`⬚`.** The dispatcher MUST start MySQL, start the backend (`mvn spring-boot:run`), and execute ALL 4 live probes. If MySQL is unreachable or the backend fails to start, diagnose and fix — do not skip. After evidence is captured, DELETE all test-created records (users, transactions, transfers) via API or direct SQL. Verify cleanup with a follow-up `SELECT COUNT(*)`.
 
 | Link | Scenario | Evidence | Criteria |
 |:--:|---|---|---|
-| **C1 Auth** | Register → Login → JWT in localStorage → call `/api/account/list` with `Authorization: Bearer <token>` | curl excerpt showing 200 + account list data | 200, data has correct userId |
-| **C2 Data** | Create transaction → DB row appears → list endpoint reflects it → Pinia store updated → page renders | DB `SELECT *` vs API response vs page screenshot | Round-trip identical |
-| **C3 Analytics** | Dashboard month-summary == manual `SELECT SUM(amount) GROUP BY type WHERE transfer_id IS NULL` | Two numbers side-by-side | \|Δ\| < 0.01 |
-| **C4 Atomicity** | Transfer: `balance_before(src+dst) == balance_after(src+dst)` | Before/after `SELECT SUM(balance) FROM account WHERE user_id=X` | Exact equality (DECIMAL) |
+| **C1 Auth** | Login with demo account → receive JWT → call protected endpoint with `Authorization: Bearer <token>` | curl excerpt showing 200 + data | 200, data has correct userId |
+| **C2 Data** | Create transaction via POST → verify it appears in GET list → round-trip identical | DB `SELECT *` vs API response | Round-trip identical |
+| **C3 Analytics** | Monthly summary endpoint vs manual `SELECT SUM(amount) GROUP BY type WHERE transfer_id IS NULL` | Two numbers side-by-side | \|Δ\| < 0.01 |
+| **C4 Atomicity** | Transfer: `balance_before(src+dst) == balance_after(src+dst)` via `/api/account/balance` | Before/after total balance | Exact equality (DECIMAL) |
 
 **Any FAIL → return to Phase B with a synthetic healer task targeting the failed link.**
+**Missing V4 → entire run INVALID (Iron Law L9).**
 
 ---
 
@@ -846,6 +850,8 @@ per_file_floor_paranoid: 9.0
 compound_ratchet_schedule: [1.25, 1.35, 1.50, 1.75, 2.00]
 p95_target_ms: 500
 p95_paranoid_ms: 200
+connectivity_mandatory: true       # L9+L13: V4 probe cannot be skipped
+test_data_cleanup_required: true   # L13: delete test records after probe
 
 # --- git-governance ---
 author: qxw
@@ -1005,8 +1011,9 @@ Copy-Item "<repo>\.claude\commands\Q-CR.md" "$env:USERPROFILE\.claude\commands\Q
        →  10-aspect evidence-backed scoring, monotonic increase enforced
        →  per-file scores + forensic commentary written to journal
        →  every change reviewed by code-reviewer-be/fe/security until 0 H/M
-       →  4 valves + 4 connectivity links mandatory before convergence
+       →  4 valves MANDATORY (V4 connectivity NO ESCAPE: live probe + cleanup)
        →  139-point final acceptance mechanical pass against loop.txt
+       →  13 Iron Laws (L9+L13: live probe only, test-data cleanup)
        →  release bundle + journal handoff for next /Q-CR --resume
        →  dual deployment: project .claude/commands/ + global ~/.claude/commands/
 ```
