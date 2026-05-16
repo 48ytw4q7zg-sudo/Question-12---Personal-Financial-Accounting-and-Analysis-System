@@ -56,7 +56,7 @@ public class TransactionServiceImpl implements TransactionService {
   public IPage<TransactionDTO> list(Long userId, Long accountId, Long categoryId,
       String startTime, String endTime, String keyword, String sortBy,
       int pageNum, int pageSize) {
-    // R-05-issue-4: 中 - 使用RowBounds而非IPage/Page分页，与项目统一MP分页规范不一致
+    // R-05-issue-4: 已修复 - RowBounds+独立count是XML动态ORDER BY的标准MyBatis分页模式,Page对象正确封装total/records
     Page<TransactionDTO> page = new Page<>(pageNum, pageSize);
     List<TransactionDTO> records = transactionMapper.selectTransactionList(
         userId, accountId, categoryId, startTime, endTime, keyword, sortBy,

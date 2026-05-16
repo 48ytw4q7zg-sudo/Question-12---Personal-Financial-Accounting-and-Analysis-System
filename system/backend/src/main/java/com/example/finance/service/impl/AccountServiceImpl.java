@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 账户服务实现
@@ -132,7 +133,24 @@ public class AccountServiceImpl implements AccountService {
             .eq(Account::getStatus, STATUS_ACTIVE)
     );
 
-    // R-05-issue-5: 中 - getBalance循环中每账户2次DB查询(2N)，应改为批量查询
+    // R-05-issue-5: 已修复 - 批量查询消除2N，改为2次DB(GROUP BY) + Map索引
+    List<Long> accountIds = accounts.stream().map(Account::getId).toList();
+
+    // 批量查询所有账户的收入和支出（各1次DB查询 · N+1消除）
+    List<Map<String, Object>> incomeRows = accountIds.isEmpty() ? List.of()
+        : transactionMapper.selectAccountIncomeBatch(userId, accountIds);
+    List<Map<String, Object>> expenseRows = accountIds.isEmpty() ? List.of()
+        : transactionMapper.selectAccountExpenseBatch(userId, accountIds);
+
+    Map<Long, BigDecimal> incomeMap = new java.util.HashMap<>();
+    for (Map<String, Object> row : incomeRows) {
+      incomeMap.put(((Number) row.get("accountId")).longValue(), (BigDecimal) row.get("totalIncome"));
+    }
+    Map<Long, BigDecimal> expenseMap = new java.util.HashMap<>();
+    for (Map<String, Object> row : expenseRows) {
+      expenseMap.put(((Number) row.get("accountId")).longValue(), (BigDecimal) row.get("totalExpense"));
+    }
+
     List<AccountBalanceDTO> result = new ArrayList<>();
     for (Account account : accounts) {
       AccountBalanceDTO dto = new AccountBalanceDTO();
@@ -141,13 +159,10 @@ public class AccountServiceImpl implements AccountService {
       dto.setAccountType(account.getType());
       dto.setInitialBalance(account.getInitialBalance());
 
-      // 计算该账户的总收入和总支出
-      BigDecimal totalIncome = transactionMapper.selectAccountIncome(userId, account.getId());
-      BigDecimal totalExpense = transactionMapper.selectAccountExpense(userId, account.getId());
-
+      BigDecimal totalIncome = incomeMap.getOrDefault(account.getId(), BigDecimal.ZERO);
+      BigDecimal totalExpense = expenseMap.getOrDefault(account.getId(), BigDecimal.ZERO);
       dto.setTotalIncome(totalIncome);
       dto.setTotalExpense(totalExpense);
-      // 当前余额 = 初始余额 + 收入 - 支出
       dto.setCurrentBalance(account.getInitialBalance().add(totalIncome).subtract(totalExpense));
 
       result.add(dto);

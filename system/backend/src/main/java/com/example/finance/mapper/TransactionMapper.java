@@ -11,6 +11,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.session.RowBounds;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 交易记录 Mapper（含复杂查询）
@@ -88,4 +89,14 @@ public interface TransactionMapper extends BaseMapper<Transaction> {
    * 计算账户总支出
    */
   java.math.BigDecimal selectAccountExpense(@Param("userId") Long userId, @Param("accountId") Long accountId);
+
+  /**
+   * 批量计算账户收入（消除N+1）
+   */
+  List<Map<String, Object>> selectAccountIncomeBatch(@Param("userId") Long userId, @Param("accountIds") List<Long> accountIds);
+
+  /**
+   * 批量计算账户支出（消除N+1）
+   */
+  List<Map<String, Object>> selectAccountExpenseBatch(@Param("userId") Long userId, @Param("accountIds") List<Long> accountIds);
 }

@@ -155,4 +155,30 @@
       AND t.type = 2
   </select>
 
+  <!-- 批量计算账户收入（消除N+1 · GROUP BY account_id） -->
+  <select id="selectAccountIncomeBatch" resultType="java.util.HashMap">
+    SELECT t.account_id AS accountId, COALESCE(SUM(t.amount), 0) AS totalIncome
+    FROM `transaction` t
+    WHERE t.user_id = #{userId}
+      AND t.account_id IN
+      <foreach collection="accountIds" item="id" open="(" separator="," close=")">
+        #{id}
+      </foreach>
+      AND t.type = 1
+    GROUP BY t.account_id
+  </select>
+
+  <!-- 批量计算账户支出（消除N+1 · GROUP BY account_id） -->
+  <select id="selectAccountExpenseBatch" resultType="java.util.HashMap">
+    SELECT t.account_id AS accountId, COALESCE(SUM(t.amount), 0) AS totalExpense
+    FROM `transaction` t
+    WHERE t.user_id = #{userId}
+      AND t.account_id IN
+      <foreach collection="accountIds" item="id" open="(" separator="," close=")">
+        #{id}
+      </foreach>
+      AND t.type = 2
+    GROUP BY t.account_id
+  </select>
+
 </mapper>
