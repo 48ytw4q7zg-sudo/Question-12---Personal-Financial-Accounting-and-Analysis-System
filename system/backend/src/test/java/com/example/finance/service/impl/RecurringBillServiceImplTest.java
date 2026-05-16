@@ -109,7 +109,7 @@ class RecurringBillServiceImplTest {
 
     BusinessException ex = assertThrows(BusinessException.class,
         () -> service.create(1L, req));
-    assertEquals(2003, ex.getCode());
+    assertEquals(5006, ex.getCode());
   }
 
   @Test

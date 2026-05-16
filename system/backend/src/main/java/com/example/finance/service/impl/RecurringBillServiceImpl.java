@@ -203,7 +203,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   private Account validateAccount(Long userId, Long accountId) {
     Account account = accountMapper.selectById(accountId);
     if (account == null || !account.getUserId().equals(userId) || account.getStatus() != 1) {
-      throw new BusinessException(2003, "账户不存在");
+      throw new BusinessException(5006, "账户不存在");
     }
     return account;
   }
@@ -214,7 +214,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   private void validateCategory(Long categoryId) {
     Category category = categoryMapper.selectById(categoryId);
     if (category == null) {
-      throw new BusinessException(4001, "分类不存在");
+      throw new BusinessException(5007, "分类不存在");
     }
   }
 
