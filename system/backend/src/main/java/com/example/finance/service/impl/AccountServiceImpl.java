@@ -28,6 +28,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AccountServiceImpl implements AccountService {
 
+  private static final int STATUS_ACTIVE = 1;
+  private static final int STATUS_INACTIVE = 0;
+
   private final AccountMapper accountMapper;
   private final TransactionMapper transactionMapper;
   private final RecurringBillMapper recurringBillMapper;
@@ -40,7 +43,7 @@ public class AccountServiceImpl implements AccountService {
     List<Account> accounts = accountMapper.selectList(
         new LambdaQueryWrapper<Account>()
             .eq(Account::getUserId, userId)
-            .eq(Account::getStatus, 1)
+            .eq(Account::getStatus, STATUS_ACTIVE)
             .orderByDesc(Account::getCreateTime)
     );
     return accounts.stream().map(this::toDTO).toList();
@@ -57,7 +60,7 @@ public class AccountServiceImpl implements AccountService {
     account.setType(request.getType());
     account.setInitialBalance(request.getInitialBalance());
     account.setCurrency(request.getCurrency() != null ? request.getCurrency() : "CNY");
-    account.setStatus(1);
+    account.setStatus(STATUS_ACTIVE);
     account.setCreateTime(LocalDateTime.now());
     account.setUpdateTime(LocalDateTime.now());
 
@@ -104,14 +107,14 @@ public class AccountServiceImpl implements AccountService {
         new LambdaQueryWrapper<RecurringBill>()
             .eq(RecurringBill::getAccountId, accountId)
             .eq(RecurringBill::getUserId, userId)
-            .eq(RecurringBill::getStatus, 1)
+            .eq(RecurringBill::getStatus, STATUS_ACTIVE)
     );
     if (billCount > 0) {
       throw new BusinessException(2002, "该账户下有 " + billCount + " 个活跃周期性账单，请先停用后再禁用");
     }
 
     // 软删除
-    account.setStatus(0);
+    account.setStatus(STATUS_INACTIVE);
     account.setUpdateTime(LocalDateTime.now());
     accountMapper.updateById(account);
   }
@@ -124,7 +127,7 @@ public class AccountServiceImpl implements AccountService {
     List<Account> accounts = accountMapper.selectList(
         new LambdaQueryWrapper<Account>()
             .eq(Account::getUserId, userId)
-            .eq(Account::getStatus, 1)
+            .eq(Account::getStatus, STATUS_ACTIVE)
     );
 
     List<AccountBalanceDTO> result = new ArrayList<>();

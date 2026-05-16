@@ -33,6 +33,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RecurringBillServiceImpl implements RecurringBillService {
 
+  private static final int STATUS_ACTIVE = 1;
+  private static final int STATUS_INACTIVE = 0;
+
   private final RecurringBillMapper recurringBillMapper;
   private final TransactionMapper transactionMapper;
   private final AccountMapper accountMapper;
@@ -46,7 +49,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     List<RecurringBill> bills = recurringBillMapper.selectList(
         new LambdaQueryWrapper<RecurringBill>()
             .eq(RecurringBill::getUserId, userId)
-            .eq(RecurringBill::getStatus, 1)
+            .eq(RecurringBill::getStatus, STATUS_ACTIVE)
             .orderByDesc(RecurringBill::getCreateTime)
     );
 
@@ -81,7 +84,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     bill.setType(request.getType());
     bill.setPeriod(request.getPeriod());
     bill.setNextDueDate(LocalDate.parse(request.getNextDueDate(), DateTimeFormatter.ISO_LOCAL_DATE));
-    bill.setStatus(1);
+    bill.setStatus(STATUS_ACTIVE);
     bill.setCreateTime(LocalDateTime.now());
     bill.setUpdateTime(LocalDateTime.now());
 
@@ -115,10 +118,10 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   @Override
   public void deactivate(Long userId, Long billId) {
     RecurringBill bill = getBillById(userId, billId);
-    if (bill.getStatus() == 0) {
+    if (bill.getStatus() == STATUS_INACTIVE) {
       throw new BusinessException(5004, "周期性账单已停用");
     }
-    bill.setStatus(0);
+    bill.setStatus(STATUS_INACTIVE);
     bill.setUpdateTime(LocalDateTime.now());
     recurringBillMapper.updateById(bill);
   }
@@ -131,7 +134,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   public TransactionDTO generate(Long userId, Long billId) {
     RecurringBill bill = getBillById(userId, billId);
     // 校验账单状态
-    if (bill.getStatus() == 0) {
+    if (bill.getStatus() == STATUS_INACTIVE) {
       throw new BusinessException(5004, "周期性账单已停用");
     }
 
