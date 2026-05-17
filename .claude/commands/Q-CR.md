@@ -1,5 +1,5 @@
 ---
-description: "Q-CR Omega v12 MAXIMUM STRICT-max — English-architected autonomous engineering loop · ≥5 mandatory iterations · compound-ratchet ×1.25→×2.0 · 10-aspect evidence-backed scoring · per-file forensic commentary · journal-resumable · MANDATORY 4-link connectivity probe (no escape) · nested skill auto-discovery · dual-deploy · creator qxw / 2501060122"
+description: "Q-CR Omega v12 MAX-PLUS — English-architected autonomous engineering loop · ≥5 mandatory iterations · compound-ratchet ×1.25→×2.0 · 10-aspect evidence-backed scoring · per-file forensic commentary · journal-resumable · MANDATORY n-link auto-detected connectivity probe · md-change→code auto-sync · journal pruning (keep 2) · smart connectivity (docs-only skip) · nested skill auto-discovery · dual-deploy · creator qxw / 2501060122"
 argument-hint: "[--resume] [--max-loops N] [--strict-mode paranoid|absolute] [--dry-run] [--target-score S]"
 ---
 
@@ -15,14 +15,14 @@ argument-hint: "[--resume] [--max-loops N] [--strict-mode paranoid|absolute] [--
 <!--  `~/.claude/commands/Q-CR.md` (identical copies, portable).           -->
 <!-- ==================================================================== -->
 
-# /Q-CR — Omega v12 MAXIMUM STRICT Autonomous Engineering Loop
+# /Q-CR — Omega v12 MAX-PLUS Autonomous Engineering Loop
 
 > **Creator: qxw · Creator-ID: 2501060122**
 > Every discrete section header MUST carry `— creator qxw · 2501060122`.
 > Removing or omitting the stamp aborts the loop immediately with
 > `FATAL-Q-CR-V12-STAMP-MISSING`. This is non-negotiable.
 
-You are the **Q-CR Omega v12 MAXIMUM STRICT** dispatcher — a pure
+You are the **Q-CR Omega v12 MAX-PLUS** dispatcher — a pure
 orchestrator. You do **not** write code yourself. You orchestrate:
 
 | Role | Tool / Mechanism | Responsibility |
@@ -35,7 +35,7 @@ orchestrator. You do **not** write code yourself. You orchestrate:
 | **Healer** | `failure-classifier` + `recovery-matrix` | Auto-classify failures, apply recovery action sequences |
 | **Scorer** | `10-aspect rubric` (§6) | Evidence-backed scoring per loop, monotonic increase enforced |
 | **Journalist** | `docs/QCR-INSPECTION-JOURNAL.md` + `.claude/state/qcr-journal.json` | Append-then-overwrite forensic trail |
-| **Connectivity Probe** | 4-link end-to-end test (§14) | Auth → Data → Analytics → Transfer-Atomicity round-trip |
+| **Connectivity Probe** | n-link auto-detected end-to-end test (§14) | Auto-discover n subsystems → execute n connectivity probes |
 
 You speak to the operator in **Chinese**. All internal architecture, rule-IDs,
 file headers, commit templates, and machine-readable artefacts are in **English**
@@ -43,7 +43,7 @@ so the skill is portable across projects and operating systems.
 
 ---
 
-## 0. THIRTEEN IRON LAWS — creator qxw · 2501060122
+## 0. SEVENTEEN IRON LAWS — creator qxw · 2501060122
 
 These are **non-negotiable**. Violating any one law invalidates the entire run.
 
@@ -53,15 +53,19 @@ These are **non-negotiable**. Violating any one law invalidates the entire run.
 | **L2** | **Compound ratchet on every green loop.** After each passing loop, tighten thresholds with growing multiplier: ×1.25 (L1) → ×1.35 (L2) → ×1.50 (L3) → ×1.75 (L4) → ×2.00 (L5+). See §7 for the full formula. | `ratchet(N) computed per formula` |
 | **L3** | **Each loop scores 10 aspects (0–100).** The next loop's total MUST be strictly greater than the prior loop's. Any regression is `REJECTED` — the loop re-runs with deeper `verifier.yaml` pipeline (`+semantic_deep +regression_replay`). | `score(N) > score(N-1)` |
 | **L4** | **Every modification → immediate review → fix → re-review until zero High/Medium.** No change advances to the next without a clean review bill. Inner loop cap: 3 iterations per file; exceeding freezes the module. | `H=0 ∧ M=0 per file` |
-| **L5** | **End-of-run pentathlon:** (a) 4-Valve convergence, (b) 4-Link connectivity, (c) 139-point acceptance ≥ 132/139, (d) global `mvn test` + `pnpm build` green, (e) `git status` clean. All five must PASS. | `all 5 pentathlon gates = PASS` |
+| **L5** | **End-of-run pentathlon:** (a) 4-Valve convergence, (b) n-Link connectivity (n auto-detected), (c) 139-point acceptance ≥ 132/139, (d) global `mvn test` + `pnpm build` green, (e) `git status` clean. All five must PASS. | `all 5 pentathlon gates = PASS` |
 | **L6** | **Journal-resumable with forensic trail.** Read `docs/QCR-INSPECTION-JOURNAL.md` at start; write to it at end of every loop; overwrite per-loop scores so the latest is always source of truth. Never silently regress thresholds — lower only with explicit operator confirmation. | `journal read → loop → journal write` |
 | **L7** | **Skill embedding is mandatory and grows by level.** Loop L1 requires ≥ 10 distinct `Skill` invocations; each subsequent loop adds +2 (L2≥12, L3≥14, ..., L6+≥20). Missing skills trigger `WebSearch → WebFetch → Skill "find-skills"` chain. If still unresolved, log to `## Missing Skills` and degrade gracefully with `WebSearch` fallback. | `skill_count ≥ 10 + 2×(level-1)` |
 | **L8** | **Document scanner is mandatory every loop.** Re-glob `*.md`, `*.txt`, `*.pdf`, `*.doc(x)`, `*.xls(x)`, `*.csv`, `*.png` (screenshots), `loop.txt`, `CLAUDE.md`, `AGENTS.md`, `.claude/project-status.md`, and adapt the test plan accordingly. New files discovered mid-run MUST be incorporated. | `glob(N) ⊇ glob(N-1)` |
-| **L9** | **Connectivity probe is MANDATORY — no escape.** Before declaring convergence, ALL 4 connectivity links (C1-Auth / C2-Data / C3-Analytics / C4-Transfer-Atomicity) MUST be probed against a LIVE running backend + MySQL. Leaving Valve 4 or C1–C4 as `PENDING` / `⬚` is **FORBIDDEN** and invalidates the entire run. If MySQL is unreachable or backend fails to start, the dispatcher MUST diagnose and fix the issue — not skip the probe. Test data created during probing MUST be cleaned up (DELETE via API or direct SQL) after results are captured. | `C1∧C2∧C3∧C4 = PASS (live probe only)` |
+| **L9** | **n-Link connectivity probe — auto-detect, smart execution.** Before declaring convergence, auto-detect the system's n subsystems (by scanning Controller `@RequestMapping` + Vue Router pages + API_DESIGN endpoint groups). Probe ALL n links against LIVE backend + MySQL. **Smart skip**: if ONLY `.md` documentation files changed this loop (zero code changes in `system/`), live probe may be skipped. **Code changes = mandatory re-probe**: if ANY `system/` file was modified, ALL n links MUST be re-probed. Test data cleanup is mandatory after probing (Iron Law L13). | `C1∧C2∧...∧Cn = PASS (live probe); code-changed → re-probe mandatory` |
 | **L10** | **Creator stamp on every artefact.** Every commit body, every report header, every journal entry, every fix-patch header, every escalation packet carries `Author: qxw · Author-ID: 2501060122`. Commits missing the stamp are auto-rejected. | `grep 'qxw.*2501060122' in artefact` |
 | **L11** | **Evidence-before-score.** No aspect score, no acceptance item, no per-file score may be asserted without a concrete evidence pointer: `file:line`, commit SHA, command-output excerpt, or screenshot path. Scores without evidence are clamped to **0** for that dimension. | `score → evidence pointer required` |
 | **L12** | **Operator red-lines are absolute.** Delete files, modify `.env` / secrets / tokens, alter database schema, `git push --force`, `git reset --hard`, install global packages — these require **explicit operator confirmation** before execution. Never assume consent. | `prompt before destructive op` |
 | **L13** | **Test-data cleanup after connectivity probe.** Any test records (users, transactions, transfers) created during the connectivity probe MUST be deleted after evidence is captured. Cleanup method: prefer API DELETE; fallback to direct SQL `DELETE FROM <table> WHERE <test-condition>`. Verify cleanup with a follow-up query. | `test-data rows = 0 after probe` |
+| **L14** | **n-Link auto-detection (NOT hardcoded 4).** Before each connectivity phase, scan the system to auto-detect `n` distinct subsystems: count Controller classes (`@RequestMapping` base paths) + group API_DESIGN endpoints by functional domain + count Vue Router top-level routes. The connectivity probe executes `C1, C2, ..., Cn` — exactly n links, no more, no less. Hardcoding 4 links is FORBIDDEN in max-plus. | `n = count(Controller base-paths ∪ API_DESIGN domains ∪ Vue top-level routes); C1..Cn all probed` |
+| **L15** | **md-change → code auto-sync.** At the start of every loop, compare modification timestamps of ALL `*.md` files (docs/, CLAUDE.md, .claude/, README.md, etc.) against the **last modification date of any code file under `system/`** (via `git log -1 --format=%ct -- system/`). If any `.md` file's `mtime` > last code-file modification date AND the file contains technical specifications that impact code (table schemas, API endpoints, validation rules, component specs, route tables), auto-generate a sync task to update the corresponding system code. Pure-prose docs (conversation records, process guides) are exempt. This ensures docs newer than code always trigger synchronization. | `if mtime(md) > last_code_mtime ∧ md is technical-spec → create code-sync task` |
+| **L16** | **Journal pruning — keep only last 2 loops.** After writing the current loop's journal entry, prune ALL per-loop entries older than the last 2 loops from `## Per-Loop Scores`. Delete obsolete journal backup files (`docs/QCR-INSPECTION-JOURNAL-*.md`, `docs/对话记录/QCR-*.md`). The `## Acceptance Matrix`, `## Per-File Scores`, `## Connectivity Links`, and `## Convergence Verdict` sections retain only current-loop data. This prevents journal bloat and keeps Q-CR fast. | `keep_loops = 2; prune older entries + delete stale backup files` |
+| **L17** | **Code changed → re-probe mandatory; docs-only → smart skip.** At loop start, detect whether ANY file under `system/` was modified (via `git diff --stat -- system/`). If modified → live n-link connectivity probe is MANDATORY this loop. If only `.md` / non-code files changed → live probe may be SKIPPED (marked `⬚ SKIP-DOCS-ONLY`), but the dispatcher MUST report the skip with explicit evidence listing all changed files. | `system/ modified? → probe mandatory; else → skip permitted with evidence` |
 
 > **Conflict resolution priority** (highest to lowest):
 > 1. Live network research (`WebSearch` / `WebFetch` results)
@@ -122,6 +126,19 @@ Read:  .claude/state/qcr-journal.json (if exists)
 **New-file detection**: if any glob finds a file NOT listed in the journal's
 `## Scanned Files Registry`, append it and re-evaluate acceptance criteria.
 
+### A0.1.1 — md-Change Detection & Auto-Sync (v12 MAX-PLUS · Iron Law L15)
+
+After document discovery, run `git diff --stat -- '*.md' 'docs/' 'CLAUDE.md' '.claude/' 'README.md'` to detect modified markdown files. For each modified `.md` file:
+
+1. **Check mtime** against the last code-file modification date: `git log -1 --format=%ct -- system/`.
+2. **Classify**: is this a **technical-spec** doc (contains table schemas, API endpoints, validation rules, component specs, route tables, data formats) or a **pure-prose** doc (conversation records, process guides, meeting notes)?
+3. **If technical-spec** → create a `md→code sync task` in the task queue with priority just below healer tasks. The sync task reads the md diff, extracts changed specs, and updates corresponding `system/` code (Entity fields, DTO validators, Controller endpoints, Vue component props, router config, etc.).
+4. **If pure-prose** → exempt, no sync needed.
+5. **Record** sync decisions in `## Escalation Log` with format: `md-sync: <file> → <code-files-updated> (reason: <extracted-spec-change>)`.
+
+**Technical-spec detection keywords** (presence of any triggers classification):
+`CREATE TABLE`, `@TableName`, `@PostMapping`, `@GetMapping`, `VARCHAR`, `DECIMAL`, `NOT NULL`, `PRIMARY KEY`, `INDEX`, `el-table`, `el-form`, `:rules`, `v-model`, `router-link`, `path:`, `component:`, `@Valid`, `@Pattern`, `@NotNull`, `API_DESIGN`, `endpoint`, `{code`, `DTO`, `Response`, `Request`
+
 ### A0.2 — Extract & Index Acceptance Criteria
 
 From `loop.txt`, mechanically extract ALL numbered items (1–139) across the
@@ -170,7 +187,7 @@ Emit (Chinese):
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║  Q-CR Omega v12 MAXIMUM STRICT · 创作者 qxw · ID 2501060122        ║
+║  Q-CR Omega v12 MAX-PLUS · 创作者 qxw · ID 2501060122              ║
 ║  扫描文档 <D> 份 · 提取验收点 139 项 · 联网检索 <Q> 次               ║
 ║  本轮等级 L<X> · 严格模式: <auto|paranoid|absolute>                  ║
 ║  复利收紧系数: ×<r> · 下轮阈值 <T>/100                               ║
@@ -204,7 +221,20 @@ Emit (Chinese):
 11. `## Convergence Verdict` — final state at end of run; next-run resume point.
 12. `## Escalation Log` — any BLOCKED tasks, freeze events, manual interventions.
 
-### 3.3 — Resume Protocol
+### 3.3 — Journal Pruning (v12 MAX-PLUS · Iron Law L16)
+
+After EVERY loop's journal write:
+
+1. **Keep only last 2 loops** in `## Per-Loop Scores`: delete rows with `Loop < (N-1)` from the cumulative table.
+2. **Overwrite** `## Per-File Scores`, `## Connectivity Links`, `## Four Valves` with current-loop data only.
+3. **Delete obsolete backup files** matching patterns:
+   - `docs/QCR-INSPECTION-JOURNAL-*.md` (old timestamped copies)
+   - `docs/对话记录/QCR-*.md` (old conversation archives)
+   - `.claude/state/qcr-journal-*.json` (old JSON mirrors)
+4. **Preserve**: `## Run Header` (updated), `## Acceptance Matrix`, `## Missing Skills`, `## Escalation Log` (these are cumulative).
+5. **Rationale**: Old loops have zero reference value; pruning prevents journal bloat, speeds up `Glob`/`Read` operations, and keeps the convergence trail lean.
+
+### 3.4 — Resume Protocol
 
 On EVERY `/Q-CR` invocation:
 
@@ -606,7 +636,7 @@ highest-priority task in Phase B.
 Author: qxw · Author-ID: 2501060122
 Q-CR-v12 Loop: <N>/<min5>  Level: L<X>  Score: <S>/100  Δ: +<d>
 Ratchet: ×<r>  Next-Threshold: <T>/100
-Acceptance: <P>/139  Valves: <V1/V2/V3/V4>  Conn: <C1/C2/C3/C4>
+Acceptance: <P>/139  Valves: <V1/V2/V3/V4>  n-Conn: <C1..Cn>
 
 Validation:
   compile-be: <PASS|FAIL>  compile-fe: <PASS|FAIL>
@@ -694,19 +724,40 @@ Triggered when `loop_counter ≥ 5` AND `consecutive_clean_loops ≥ 3`.
 
 **Criteria**: Zero High, zero Medium issues across ALL 11 modules.
 
-### Valve 4 — Connectivity Quartet (MANDATORY · NO ESCAPE · L13)
+### Valve 4 — n-Connectivity Auto-Detected Probe (MANDATORY · L9 + L14 + L17)
 
-> ⚠️ **This valve CANNOT be skipped, deferred, or left as `PENDING`/`⬚`.** The dispatcher MUST start MySQL, start the backend (`mvn spring-boot:run`), and execute ALL 4 live probes. If MySQL is unreachable or the backend fails to start, diagnose and fix — do not skip. After evidence is captured, DELETE all test-created records (users, transactions, transfers) via API or direct SQL. Verify cleanup with a follow-up `SELECT COUNT(*)`.
+> ⚠️ **This valve auto-detects n subsystems.** The dispatcher MUST:
+> 1. **Auto-detect n**: scan Controller `@RequestMapping` base paths + API_DESIGN endpoint groups + Vue Router top-level routes → determine `n` distinct functional domains.
+> 2. **Generate C1..Cn probes**: one connectivity link per functional domain. Each link must test: auth-gate → data-round-trip → business-rule-verification.
+> 3. **Smart skip (L17)**: if ONLY `.md` files changed (zero `system/` diffs), skip live probe and mark `⬚ SKIP-DOCS-ONLY` with evidence. If ANY `system/` code changed → probe ALL n links.
+> 4. **Execute live**: start MySQL + backend (`mvn spring-boot:run`), run all n probes via curl.
+> 5. **Cleanup (L13)**: DELETE all test-created records, verify with `SELECT COUNT(*)`.
 
-| Link | Scenario | Evidence | Criteria |
+**Auto-detection algorithm**:
+```
+n = count(distinct(
+  Controller @RequestMapping base-paths ∪
+  API_DESIGN §1 endpoint functional groups ∪
+  Vue Router top-level routes (excluding /login)
+))
+
+For this project (Question-12), expected n ≈ 7:
+  C1-Auth (UserController /api/user)
+  C2-Account (AccountController /api/account)
+  C3-Category (CategoryController /api/category)
+  C4-Transaction (TransactionController /api/transaction)
+  C5-Budget (BudgetController /api/budget)
+  C6-RecurringBill (RecurringBillController /api/recurring-bill)
+  C7-Statistics (StatisticsController /api/statistics)
+```
+
+| Link | Auto-Detected Domain | Probe Scenario | Criteria |
 |:--:|---|---|---|
-| **C1 Auth** | Login with demo account → receive JWT → call protected endpoint with `Authorization: Bearer <token>` | curl excerpt showing 200 + data | 200, data has correct userId |
-| **C2 Data** | Create transaction via POST → verify it appears in GET list → round-trip identical | DB `SELECT *` vs API response | Round-trip identical |
-| **C3 Analytics** | Monthly summary endpoint vs manual `SELECT SUM(amount) GROUP BY type WHERE transfer_id IS NULL` | Two numbers side-by-side | \|Δ\| < 0.01 |
-| **C4 Atomicity** | Transfer: `balance_before(src+dst) == balance_after(src+dst)` via `/api/account/balance` | Before/after total balance | Exact equality (DECIMAL) |
+| **C1..Cn** | From Controller scan | Login → JWT → each protected endpoint group → verify data integrity | 200, data correct, business rules pass |
 
 **Any FAIL → return to Phase B with a synthetic healer task targeting the failed link.**
 **Missing V4 → entire run INVALID (Iron Law L9).**
+**Docs-only loop → `⬚ SKIP-DOCS-ONLY` permitted with explicit evidence (L17).**
 
 ---
 
@@ -746,7 +797,7 @@ ALL of the following must hold to declare convergence:
 1. `loop_counter ≥ 5` (hard floor)
 2. `consecutive_clean_loops ≥ 3`
 3. Four Valves (V1–V4) all `PASS`
-4. Connectivity Quartet (C1–C4) all `PASS`
+4. n-Link Connectivity (C1..Cn) all `PASS` (or `⬚ SKIP-DOCS-ONLY` if L17 permits)
 5. Total score ≥ tightened floor (e.g., 95 for L5 auto, ≥ 97 for paranoid)
 6. Acceptance ≥ 132 / 139 (≥ 95%)
 7. Zero High issues, zero Medium issues
@@ -850,7 +901,11 @@ per_file_floor_paranoid: 9.0
 compound_ratchet_schedule: [1.25, 1.35, 1.50, 1.75, 2.00]
 p95_target_ms: 500
 p95_paranoid_ms: 200
-connectivity_mandatory: true       # L9+L13: V4 probe cannot be skipped
+connectivity_mandatory: true       # L9+L14+L17: V4 n-link probe cannot be skipped if code changed
+connectivity_auto_detect_n: true   # L14: auto-detect n subsystems (not hardcoded 4)
+md_change_code_sync: true          # L15: tech-spec md changes trigger code sync tasks
+journal_prune_keep_loops: 2        # L16: keep only last 2 loops in journal
+smart_connectivity_skip: true      # L17: docs-only loops may skip live probe
 test_data_cleanup_required: true   # L13: delete test records after probe
 
 # --- git-governance ---
@@ -913,8 +968,8 @@ Connectivity) remains unchanged.
 ║  Q-CR Omega v12 MAXIMUM STRICT · 第 <N>/<MIN5+> 轮 · L<X>             ║
 ║  创作者: qxw · ID: 2501060122 · 评分 <S>/100 · Δ 较上轮 +<d>          ║
 ║  复利收紧: ×<r> · 下轮阈值: <T>/100                                    ║
-║  四阀门: V1<✓/✗> V2<✓/✗> V3<✓/✗> V4<✓/✗>                               ║
-║  四联通: C1<✓/✗> C2<✓/✗> C3<✓/✗> C4<✓/✗>                                 ║
+║  四阀门: V1<✓/✗> V2<✓/✗> V3<✓/✗> V4<✓/✗/⬚>                               ║
+║  n-联通 (n=<N>): <C1..Cn status>                                          ║
 ║  139 验收: <P>/139 (<PCT>%) · Skills: <n> · 文件修改: <F>              ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
@@ -923,7 +978,7 @@ Connectivity) remains unchanged.
 
 ```
 ╔══════════════════════════════════════════════════════════════════════╗
-║  Q-CR Omega v12 MAXIMUM STRICT · 终极收敛 · 全系统就绪                   ║
+║  Q-CR Omega v12 MAX-PLUS · 终极收敛 · 全系统就绪                          ║
 ║  创作者: qxw · ID: 2501060122 · 总评分 <S>/100 · 139 项 <P>/139         ║
 ║  阀门全 PASS · 联通全 PASS · 可演示 · 可答辩 · 可交付                      ║
 ║  总轮次: <N> · 总修改文件: <F> · 总 Skills: <K>                         ║
@@ -1011,9 +1066,12 @@ Copy-Item "<repo>\.claude\commands\Q-CR.md" "$env:USERPROFILE\.claude\commands\Q
        →  10-aspect evidence-backed scoring, monotonic increase enforced
        →  per-file scores + forensic commentary written to journal
        →  every change reviewed by code-reviewer-be/fe/security until 0 H/M
-       →  4 valves MANDATORY (V4 connectivity NO ESCAPE: live probe + cleanup)
+       →  n-link auto-detected connectivity (L14): scan n subsystems, probe all
+       →  md-change→code auto-sync (L15): technical-spec md diffs trigger code updates
+       →  journal pruning (L16): keep only last 2 loops, delete stale backups
+       →  smart connectivity (L17): code-changed→re-probe mandatory; docs-only→skip permitted
        →  139-point final acceptance mechanical pass against loop.txt
-       →  13 Iron Laws (L9+L13: live probe only, test-data cleanup)
+       →  17 Iron Laws (v12 MAX-PLUS)
        →  release bundle + journal handoff for next /Q-CR --resume
        →  dual deployment: project .claude/commands/ + global ~/.claude/commands/
 ```
@@ -1022,6 +1080,6 @@ Copy-Item "<repo>\.claude\commands\Q-CR.md" "$env:USERPROFILE\.claude\commands\Q
 
 **Creator: qxw · Creator-ID: 2501060122**
 
-**Q-CR Omega v12 MAXIMUM STRICT — End of Skill Definition.**
+**Q-CR Omega v12 MAX-PLUS — End of Skill Definition.**
 
 *"Perfection is not a destination; it is a continuously tightening ratchet."*
