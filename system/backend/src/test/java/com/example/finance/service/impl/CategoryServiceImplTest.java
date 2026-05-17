@@ -56,4 +56,56 @@ class CategoryServiceImplTest {
     List<CategoryDTO> result = categoryService.list();
     assertTrue(result.isEmpty());
   }
+
+  @Test
+  @DisplayName("查询分类列表 - 收入类型正确映射")
+  void list_incomeTypeMapping() {
+    Category c = new Category();
+    c.setId(3L);
+    c.setName("工资");
+    c.setType(1);
+
+    when(categoryMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(c));
+
+    List<CategoryDTO> result = categoryService.list();
+    assertEquals(1, result.size());
+    assertEquals(1, result.get(0).getType());
+    assertEquals("工资", result.get(0).getName());
+    assertEquals(3L, result.get(0).getId());
+  }
+
+  @Test
+  @DisplayName("查询分类列表 - 支出类型正确映射")
+  void list_expenseTypeMapping() {
+    Category c = new Category();
+    c.setId(5L);
+    c.setName("餐饮");
+    c.setType(2);
+
+    when(categoryMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(c));
+
+    List<CategoryDTO> result = categoryService.list();
+    assertEquals(1, result.size());
+    assertEquals(2, result.get(0).getType());
+  }
+
+  @Test
+  @DisplayName("查询分类列表 - 收入支出混合并正确区分")
+  void list_mixedIncomeExpense() {
+    Category income = new Category();
+    income.setId(1L);
+    income.setName("工资");
+    income.setType(1);
+    Category expense = new Category();
+    expense.setId(2L);
+    expense.setName("餐饮");
+    expense.setType(2);
+
+    when(categoryMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(income, expense));
+
+    List<CategoryDTO> result = categoryService.list();
+    assertEquals(2, result.size());
+    assertTrue(result.stream().anyMatch(d -> d.getType() == 1));
+    assertTrue(result.stream().anyMatch(d -> d.getType() == 2));
+  }
 }

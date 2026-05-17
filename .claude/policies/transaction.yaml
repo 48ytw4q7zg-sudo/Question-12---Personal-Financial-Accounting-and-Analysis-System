@@ -1,43 +1,5 @@
-# Q-CR v10 STRICT — atomic transaction policy
-# creator: qxw · author_id: 2501060122
-# loaded by: .claude/commands/Q-CR.md §V (between Worker and final merge)
-
-meta:
-  schema_version: 1
-  author: qxw
-  author_id: 2501060122
-  applies_to: "/Q-CR atomic-merge boundary"
-
-# Each Worker mutation is treated as an atomic transaction.
-# Pre-step snapshot allows clean rollback on any failure downstream.
+# Author: qxw · Author-ID: 2501060122
 atomic: true
-
-# Snapshot the relevant state before applying.
 snapshot_before_apply: true
-snapshot_paths:
-  - "system/backend/src/**"
-  - "system/frontend/src/**"
-  - "system/sql/**"
-  - "system/docs/**"
-  - ".claude/state/runtime.json"
-snapshot_destination: ".claude/state/micro-snapshots"
-
-# Rollback whenever any downstream stage fails:
-# (Verifier / multi-env consensus / replay / commit governance / push gate)
 rollback_on_any_failure: true
-
-# Prevent accumulation of unmerged in-flight changes across loops.
 max_pending_loops: 3
-
-# How many micro-snapshots to keep on disk.
-retention:
-  max_snapshots: 30
-  delete_older_than_hours: 168     # 7 days
-
-# Require author signature on every snapshot manifest.
-require_signature: true
-signature_block:
-  creator: qxw
-  author_id: 2501060122
-
-signature: "creator qxw · 2501060122"

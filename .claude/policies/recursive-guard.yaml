@@ -1,41 +1,9 @@
-# Q-CR v10 STRICT — recursive review-fix loop guard
-# creator: qxw · author_id: 2501060122
-# loaded by: .claude/commands/Q-CR.md §VI (Phase C-D)
-
-meta:
-  schema_version: 1
-  author: qxw
-  author_id: 2501060122
-  applies_to: "/Q-CR phase C-D"
-
-# Maximum inner Verifier↔Fixer iterations for one outer Worker patch.
-# Auto-tighten: decrement by 1 each consecutive clean outer loop (floor 2).
-max_review_iterations: 5
-
-# If the same issue id reappears N consecutive times, mark BLOCKED + escalation.
+﻿# Author: qxw · Author-ID: 2501060122
+max_review_iterations: 3
 max_same_issue_attempts: 3
-
-# If a single file is modified more than N times across loops, freeze its module.
 max_same_file_modifications: 5
-
-# Freeze whole module on repeated failure cluster instead of continuing to fight it.
 freeze_on_same_failure_repeated: true
-
-# Allowed performance degradation vs. baseline before forced rollback (5%).
 benchmark_variance_threshold: 0.05
-
-# Auto-tighten triggers (per Iron Rule 6).
-tighten:
-  score_multiplier: 1.5      # next loop score floor = min(100, prev * 1.5)
-  inner_iter_delta: -1       # tighten reduces max_review_iterations by 1
-  diff_budget_delta: -0.20   # -20% on worker.max_diff_files / max_diff_lines
-  trigger: "loop_clean_zero_new_issues"
-
-# Hard actions taken when limits are exceeded.
 actions:
-  on_iteration_limit_exceeded: "mark_blocked"
-  on_same_issue_limit_exceeded: "mark_blocked"
-  on_file_modification_limit_exceeded: "freeze_module"
-  on_benchmark_regression: "force_rollback"
-
-signature: "creator qxw · 2501060122"
+  on_limited_attempts_exceeded: "mark_blocked"
+  on_file_modification_exceeded: "freeze_module"

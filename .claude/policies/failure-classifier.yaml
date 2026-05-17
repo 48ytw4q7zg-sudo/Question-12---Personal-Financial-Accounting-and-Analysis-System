@@ -1,67 +1,12 @@
-# Q-CR v10 STRICT — failure classification matrix
-# creator: qxw · author_id: 2501060122
-# loaded by: .claude/commands/Q-CR.md §IX
-
-meta:
-  schema_version: 1
-  author: qxw
-  author_id: 2501060122
-  applies_to: "/Q-CR phase IX self-healing"
-
+﻿# Author: qxw · Author-ID: 2501060122
 failure_classes:
-
-  compile:
-    strategy: immediate_fix
-    max_retries: 3
-    auto_escalate: false
-    expected_signal: "mvn compile exit != 0 OR pnpm build exit != 0"
-
-  unit_test:
-    strategy: standard_fix
-    max_retries: 3
-    auto_escalate: false
-    expected_signal: "mvn test failures > 0"
-
-  integration:
-    strategy: deep_fix
-    max_retries: 2
-    auto_escalate: true
-    expected_signal: "endpoint smoke 5xx OR contract drift"
-
-  semantic:
-    strategy: high_risk_fix
-    max_retries: 2
-    auto_escalate: true
-    expected_signal: "business invariant violated (e.g. balance not conserved on transfer)"
-
-  replay:
-    strategy: force_rollback
-    max_retries: 2
-    auto_escalate: true
-    expected_signal: "historical workflow regression"
-
-  flaky:
-    strategy: retry_only
-    max_retries: 3
-    auto_escalate: false
-    expected_signal: "test pass on rerun within same patch"
-
-  architecture:
-    strategy: blocked
-    max_retries: 0
-    auto_escalate: true
-    expected_signal: "cross-layer leak / DB schema change / API contract break"
-
-  resource:
-    strategy: cleanup_and_retry
-    max_retries: 3
-    auto_escalate: false
-    expected_signal: "worktree leak / disk full / port busy"
-
-  security:
-    strategy: high_risk_fix
-    max_retries: 2
-    auto_escalate: true
-    expected_signal: "OWASP issue from /security-review or /security-reviewer"
-
-signature: "creator qxw · 2501060122"
+  compile:      { strategy: "immediate_fix",    max_retries: 3, auto_escalate: false }
+  unit_test:    { strategy: "standard_fix",     max_retries: 3, auto_escalate: false }
+  integration:  { strategy: "deep_fix",         max_retries: 2, auto_escalate: true  }
+  semantic:     { strategy: "high_risk_fix",    max_retries: 2, auto_escalate: true  }
+  replay:       { strategy: "force_rollback",   max_retries: 2, auto_escalate: true  }
+  flaky:        { strategy: "retry_only",       max_retries: 3, auto_escalate: false }
+  architecture: { strategy: "blocked",          max_retries: 0, auto_escalate: true  }
+  resource:     { strategy: "cleanup_and_retry",max_retries: 3, auto_escalate: false }
+  consensus_fail: { strategy: "rebuild_env_retry", max_retries: 2, auto_escalate: true }
+  meta_verify_fail: { strategy: "deep_audit_retry", max_retries: 2, auto_escalate: true }

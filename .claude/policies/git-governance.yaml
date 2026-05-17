@@ -1,85 +1,11 @@
-# Q-CR v10 STRICT — git commit governance
-# creator: qxw · author_id: 2501060122
-# loaded by: .claude/commands/Q-CR.md §VII (Phase E)
-
-meta:
-  schema_version: 1
-  author: qxw
-  author_id: 2501060122
-  applies_to: "/Q-CR phase E"
-
-# Identity stamped into every commit body.
+﻿# Author: qxw · Author-ID: 2501060122
 author: "qxw"
 author_id: "2501060122"
-
-# Conventional commit allow-lists.
-types:
-  - feat
-  - fix
-  - refactor
-  - docs
-  - test
-  - chore
-  - perf
-  - style
-
-# Project-specific scope allow-list (kept in sync with /CLAUDE.md §四·三).
-scopes:
-  - auth
-  - account
-  - category
-  - transaction
-  - budget
-  - recurring
-  - statistics
-  - dashboard
-  - router
-  - api
-  - db
-  - build
-  - ci
-  - rules
-  - mp
-  # phase-prefixed scopes (recommended for ≥30-commit projects)
-  - p1
-  - p2
-  - p3
-  - p4
-  - p5
-  - p6
-  - p7
-  - p8
-
+types: ["feat", "fix", "docs", "refactor", "test", "chore", "perf"]
+scopes: ["auth", "account", "transaction", "dashboard", "budget", "recurring", "api", "db", "build", "ci"]
 subject_max_length: 50
-
-# Hard requirements on commit body content.
-require_author_block: true
 require_validation_results: true
-require_review_status: true
-require_health_status: true
-require_risk_assessment: true
-require_web_summary: true
 reject_missing_fields: true
-
-# Lowercase substrings that must NEVER appear in a subject line.
-forbidden_subjects:
-  - "temp"
-  - "wip"
-  - "fix again"
-  - "try fix"
-  - "final final"
-  - "update code"
-  - "test commit"
-  - "asdf"
-
-# Auto-derivation rules.
-auto_detect_type: true
+forbidden_messages: ["temp", "wip", "fix again", "try fix", "final final", "test commit"]
 auto_detect_scope: true
-
-# Push policy — destructive op, never autonomous (CLAUDE.md red-line).
-push:
-  allow_auto_push: false
-  require_user_confirmation: true
-  forbid_force_push_to_main: true
-
-signature: "creator qxw · 2501060122"
+auto_detect_type: true

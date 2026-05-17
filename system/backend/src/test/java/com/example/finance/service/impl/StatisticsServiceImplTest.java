@@ -1,6 +1,8 @@
 package com.example.finance.service.impl;
 
+import com.example.finance.entity.dto.CategorySummaryDTO;
 import com.example.finance.entity.dto.MonthlySummaryDTO;
+import com.example.finance.entity.dto.MonthlyTrendDTO;
 import com.example.finance.mapper.TransactionMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -59,5 +62,59 @@ class StatisticsServiceImplTest {
     MonthlySummaryDTO result = statisticsService.getYearlySummary(1L, 2026);
     assertNotNull(result);
     assertEquals(BigDecimal.ZERO, result.getBalance());
+  }
+
+  @Test
+  @DisplayName("分类汇总 - 带类型筛选正常透传")
+  void categorySummary_withTypeFilter() {
+    CategorySummaryDTO dto = new CategorySummaryDTO();
+    dto.setCategoryId(3L);
+    dto.setCategoryName("餐饮");
+    dto.setType(2);
+    dto.setTotalAmount(new BigDecimal("500.00"));
+    dto.setTransactionCount(10L);
+    when(transactionMapper.selectCategorySummary(1L, 2026, 5, 2)).thenReturn(List.of(dto));
+
+    List<CategorySummaryDTO> result = statisticsService.getCategorySummary(1L, 2026, 5, 2);
+    assertEquals(1, result.size());
+    assertEquals("餐饮", result.get(0).getCategoryName());
+    assertEquals(new BigDecimal("500.00"), result.get(0).getTotalAmount());
+    assertEquals(10L, result.get(0).getTransactionCount());
+  }
+
+  @Test
+  @DisplayName("分类汇总 - 空数据返回空列表")
+  void categorySummary_emptyReturnsEmptyList() {
+    when(transactionMapper.selectCategorySummary(1L, 2026, 5, null)).thenReturn(List.of());
+
+    List<CategorySummaryDTO> result = statisticsService.getCategorySummary(1L, 2026, 5, null);
+    assertNotNull(result);
+    assertTrue(result.isEmpty());
+  }
+
+  @Test
+  @DisplayName("趋势查询 - 正常数据透传")
+  void trend_withData() {
+    MonthlyTrendDTO dto = new MonthlyTrendDTO();
+    dto.setMonth("2026-05");
+    dto.setTotalIncome(new BigDecimal("8000.00"));
+    dto.setTotalExpense(new BigDecimal("3000.00"));
+    when(transactionMapper.selectTrend(1L, 2026)).thenReturn(List.of(dto));
+
+    List<MonthlyTrendDTO> result = statisticsService.getTrend(1L, 2026);
+    assertEquals(1, result.size());
+    assertEquals("2026-05", result.get(0).getMonth());
+    assertEquals(new BigDecimal("8000.00"), result.get(0).getTotalIncome());
+    assertEquals(new BigDecimal("3000.00"), result.get(0).getTotalExpense());
+  }
+
+  @Test
+  @DisplayName("趋势查询 - 空数据返回空列表")
+  void trend_emptyReturnsEmptyList() {
+    when(transactionMapper.selectTrend(1L, 2026)).thenReturn(List.of());
+
+    List<MonthlyTrendDTO> result = statisticsService.getTrend(1L, 2026);
+    assertNotNull(result);
+    assertTrue(result.isEmpty());
   }
 }

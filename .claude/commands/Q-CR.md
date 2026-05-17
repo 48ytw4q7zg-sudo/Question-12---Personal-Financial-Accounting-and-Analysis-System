@@ -1102,8 +1102,8 @@ checks:
   api:
     endpoints:
       - "http://localhost:8080/api/user/login"
-      - "http://localhost:8080/api/account/list"
-      - "http://localhost:8080/api/transaction/page"
+      - "http://localhost:8080/api/account"
+      - "http://localhost:8080/api/transaction"
     timeout_ms: 3000
     max_p95_latency_ms: 500
     total_expected: 28
@@ -1281,8 +1281,13 @@ windows_automation: auto_detect
 | Team 元验证失败(L28) | AI 漂移或文档不同步 | 深度审计变更；修复漂移；重新验证 #140-#148 |
 | `@ExceptionHandler` 不生效返回500 | `DefaultHandlerExceptionResolver` 优先级冲突 | GlobalExceptionHandler 改为继承 `ResponseEntityExceptionHandler`，覆盖 `handleMissingServletRequestParameter` 等标准方法 |
 | 修改代码后 jar 未生效 | 旧 Java 进程 (PID) 仍占用端口 8080 | PowerShell: `Get-Process \| Where-Object { $_.ProcessName -like "*java*" } \| Stop-Process -Force`；确认端口释放后重新打包启动 |
-
----
+| H4 API smoke 返回 405/404 | 使用了假设路径（如 `/api/account/list`）而非实际 Controller 映射 | grep `@RequestMapping` + `@GetMapping` 获取真实路径；本项目实际路径无 `/list` `/page` 后缀，如 `GET /api/account` `GET /api/transaction?pageNum=1` |
+| H4 smoke 返回 400 `账户类型不能为空` | DTO 字段名不匹配——前端/测试用 `accountType` 但 DTO 字段是 `type` | grep DTO Request 类获取精确字段名；本项目 `AccountRequest.type`（Integer 1-4）· `TransactionRequest.type/number/amount/note/time` |
+| CLAUDE.md Phase 与实际代码不同步 | `/rules-updater` 上次运行后 Phase 推进但 CLAUDE.md 未更新 | 更新 CLAUDE.md "当前开发阶段" 和 .claude/project-status.md；验证 Phase 对应的文档/代码状态 |
+| #147 验收 FAIL（commit 天数分布不足） | 项目所有 commit 集中在 1-2 天，未满足 ≥12 天分布 | **改进策略**: 跨多日分阶段 commit——Phase 0-1 第1天 · Phase 2-3 第2天 · Phase 4 第3-5天 · Phase 5 第6-8天 · Phase 6-7 第9-11天 · Phase 8 第12天；每 Phase 至少间隔 1 天 |
+| agent-browser Skill 不可用 | 当前 Claude Code 环境未注册 agent-browser tool | **降级策略**: 用 curl + H4 API smoke 替代 UI 验证(#116-#120)；用静态代码审查替代浏览器 console 检查；截图/白屏检测标记为 N/A 并注明原因 |
+| 测试覆盖率偏低（<50 用例） | CategoryServiceImpl(2测)/StatisticsServiceImpl(3测) 测试稀疏 | **改进策略**: 薄弱 Service 优先补测——每个 ServiceImpl 目标 ≥6 用例；覆盖 null 安全 + 空列表 + 边界值 + 类型隔离；用 `@DisplayName` 中文标注测试意图 |
+| Environment Consensus L23 单环境 | Windows 无 Docker/WSL2，仅 local 环境验证 | **降级策略**: Windows 下 consensus_rate 调至 0.80；用 clean_install（Secondary 目录重装依赖）替代 docker；共识结果标记 `windows-fallback` |
 
 ## 26. GLOBAL DEPLOYMENT — creator qxw · 2501060122
 
