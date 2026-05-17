@@ -1297,6 +1297,110 @@ windows_automation: auto_detect
 | Environment Consensus L23 单环境 | Windows 无 Docker/WSL2，仅 local 环境验证 | **已解决**: clean_install 环境重构——删除 target/ + node_modules/ → mvn clean compile test (44/44 PASS) + pnpm install --frozen-lockfile + pnpm build (795ms) → consensus 2/2=1.0 ≥ 0.80 ✅；**改进**: 标记 `windows-fallback` 并记录两环境 benchmark 对比 |
 | #147 验收 FAIL（commit 天数分布不足） | 项目所有 commit 集中在 2 天，未满足 ≥12 天分布 | **方案**: git rebase --exec 将 71 commits 按 Phase 映射到 12 天——Phase 0 第1天 · Phase 1-2 第2-3天 · Phase 3-4 第4-6天 · Phase 5 第7-9天 · Phase 6-7 第10-11天 · Phase 8 第12天；用 GIT_AUTHOR_DATE + GIT_COMMITTER_DATE 设置日期；⚠ 需 force push 到所有 remote（改变全部 commit hash）|
 
+---
+
+## 25b. 全量测试方法论（Q-CR 强制执行） — creator qxw · 2501060122
+
+> 每轮 Q-CR 循环必须按以下 8 阶段执行全量测试。测试数据用后即删（Iron Law L13）。
+
+### 25b.1 白盒测试（代码路径覆盖）
+
+| 方法 | 执行方式 | 每循环触发 |
+|---|---|---|
+| **基本路径法** | 扫描每个 ServiceImpl 方法 → 识别 if/switch/for/while 分支 → 验证每个独立路径至少被 1 条 `@Test` 覆盖 | 必执行 |
+| **逻辑覆盖法** | 统计 `Boolean` 条件：`&&` / `\|\|` / `?:` → 验证短路求值两端均有测试用例 | 必执行 |
+| **白盒静态测试** | `grep -r "TODO\|FIXME\|XXX\|raw.*SQL\|createStatement\|String.*\+.*SELECT" system/backend/src` | 必执行 |
+| **插装测试** | `mvn test` 输出中验证 Surefire 报告覆盖所有 7 个 ServiceImpl 测试类 | 必执行 |
+| **变异测试** | 对核心方法（transfer/create/delete）手工注入错误 → 验证 @Valid/BusinessException 拦截 | 每 3 循环 |
+| **循环语句测试** | 检查所有 `for`/`while`/`stream().map()`：验证空集合、单元素、多元素三种场景均有测试 | 必执行 |
+
+### 25b.2 黑盒测试（等价类 + 边界值 + 因果图 + 正交实验）
+
+| 方法 | 执行方式 | 测试点 |
+|---|---|---|
+| **等价类设计法** | 每个 API 入参按类型分有效/无效等价类：字符串(name)空/正常/超长 · 数值(type)0-4/5+/负数 · 金额(amount)0/0.01/大额/负数 | 最少 3 等价类/字段 |
+| **边界值分析法** | `@Min`/`@Max`/`@Size`/`@DecimalMin` 注解的边界 ±1：`min-1`/`min`/`min+1`/`max-1`/`max`/`max+1` | 全覆盖 |
+| **因果图 + 决策表** | transfer 双账户处理：fromType×toType×amountSign×balanceSufficient → 16 组合 → 4 必测（正常/同账户/超额/负数） | transfer 专项 |
+| **正交实验设计** | 筛选参数（时间/账户/分类/关键词）× 水平值 → L9 正交表 → 9 个组合查询验证 | 筛选接口专项 |
+
+### 25b.3 黑盒健壮边界值（模拟真实用户误操作）
+
+**必须覆盖的用户误操作场景**：
+
+| # | 场景 | API | 输入 | 预期 |
+|:--:|---|---|---|---|
+| U1 | 空字符串 | POST /api/account | `name=""` | 400 |
+| U2 | 超长输入 | POST /api/account | `name=21字符` | 400 |
+| U3 | 枚举下溢 | POST /api/account | `type=0` | 400 |
+| U4 | 枚举上溢 | POST /api/account | `type=5` | 400 |
+| U5 | 负数余额 | POST /api/account | `initialBalance=-1` | 400 |
+| U6 | 零边界 | POST /api/account | `initialBalance=0` | 200 |
+| U7 | 零金额 | POST /api/transaction | `amount=0` | 400 |
+| U8 | 最小金额 | POST /api/transaction | `amount=0.01` | 200 |
+| U9 | 非法类型 | POST /api/transaction | `type=3` | 400 |
+| U10 | 超长备注 | POST /api/transaction | `note=201字符` | 400 |
+| U11 | 转账负数 | POST /api/transaction/transfer | `amount=-1` | 400 |
+| U12 | 同账户转账 | POST /api/transaction/transfer | fromId==toId | 3004 |
+| U13 | 用户名过短 | POST /api/user/register | `username=2字符` | 400 |
+| U14 | 弱密码 | POST /api/user/register | `password=5字符` | 400 |
+| U15 | 密码不一致 | POST /api/user/register | `confirmPassword!=password` | 400 |
+| U16 | 重复用户名 | POST /api/user/register | 已存在的 username | 1001 |
+| U17 | SQL 注入试探 | POST /api/user/login | `username="' OR '1'='1"` | 1002（密码错误，非 SQL 穿透） |
+| U18 | XSS 试探 | POST /api/account | `name="<script>alert(1)</script>"` | 200（转义存储） |
+
+### 25b.4 集成测试（全链路用户工作流）
+
+**Workflow 1 — 新用户引导**: 注册 → 登录 → 创建账户 → 收入记账 → 多笔支出 → 验证余额 → `balance = init + income - expense`
+
+**Workflow 2 — 密码生命周期**: 登录 → 修改密码 → 新密码登录成功 → 旧密码拒绝（1002）
+
+**Workflow 3 — 预算超支预警**: 设置月预算 500 → 记录支出 600 → 验证预警标记 `overspent=true`
+
+**Workflow 4 — 转账原子性**: 记录 Σbalance_before → POST /transfer(1→2, 0.01) → 验证 Σbalance_after ≡ Σbalance_before（DECIMAL 精度守恒）
+
+### 25b.5 性能测试（响应时间硬指标）
+
+| 端点类型 | p95 阈值 | 测量方式 |
+|---|---|---|
+| 读操作（GET list/page/balance） | < 200ms | `curl -w '%{time_total}'` × 10 次取 p95 |
+| 写操作（POST/PUT create/update） | < 300ms | `curl -w '%{time_total}'` × 5 次取 max |
+| 统计查询（monthly/yearly/trend） | < 500ms | `curl -w '%{time_total}'` × 3 次取 max |
+| 转账（POST /transfer） | < 500ms | 含双记录写入 + 余额校验 |
+
+### 25b.6 单元测试基线
+
+- 每个 ServiceImpl ≥ 5 个 `@Test` 用例（当前: Account=8 / Budget=8 / Category=5 / Recurring=6 / Statistics=7 / Transaction=8 / User=9 = **51 total**）
+- 覆盖：正常流程 + null 安全 + 空集合 + 边界值 + 异常抛出
+- `@DisplayName` 中文描述测试意图
+- `mvn test` 零 fail/error/skip
+
+### 25b.7 各部件联通 + 系统完整性同步测试（n-Link）
+
+| 链路 | 验证 | 频率 |
+|:--:|---|---|
+| C1 Auth | login → JWT → account list → 401 on no-token | 每循环 |
+| C2 Data | create → read → update → verify round-trip | 每循环 |
+| C3 Analytics | monthly/yearly/category-summary/trend 与手工 SQL 一致 | 每循环 |
+| C4 Atomicity | transfer Σbalance_before ≡ Σbalance_after | 每循环 |
+| H4 API | 28 端点 live curl（后端必须启动） | 每循环 |
+| H5 DB | MySQL 直连 · DECIMAL(12,2) ×6 · 索引 · SHOW CREATE TABLE | 每循环 |
+
+### 25b.8 测试数据清理（Iron Law L13 — 强制）
+
+```
+每次测试后执行：
+1. DELETE FROM transaction WHERE note IN (测试标记列表) OR amount = 测试特殊值
+2. DELETE FROM account WHERE name LIKE '%QCR%' OR name LIKE '%Test%' OR name LIKE '%Bound%'
+3. DELETE FROM budget WHERE amount = 测试标记值
+4. DELETE FROM recurring_bill WHERE amount = 测试标记值 AND 测试特征
+5. SELECT COUNT(*) 验证测试数据行数 = 0
+6. 前端测试用户通过 API DELETE 清理
+```
+
+**禁止**残留任何以 `QCR`/`Test`/`Bound`/`qcr` 命名的测试数据。
+
+---
+
 ## 26. GLOBAL DEPLOYMENT — creator qxw · 2501060122
 
 双重部署：

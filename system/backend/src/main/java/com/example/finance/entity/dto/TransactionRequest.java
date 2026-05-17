@@ -2,6 +2,8 @@ package com.example.finance.entity.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -26,6 +28,8 @@ public class TransactionRequest {
    * 类型：1=收入 2=支出
    */
   @NotNull(message = "类型不能为空")
+  @Min(value = 1, message = "类型须为1(收入)或2(支出)")
+  @Max(value = 2, message = "类型须为1(收入)或2(支出)")
   private Integer type;
 
   @NotNull(message = "金额不能为空")
