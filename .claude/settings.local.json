@@ -30,6 +30,18 @@
       "Skill(code-simplifier)",
       "Skill(planning-with-files)",
       "Skill(using-superpowers)"
+    ],
+    "defaultMode": "acceptEdits"
+  },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Bash(git push gitee *)",
+      "Bash(git push gitee2 *)",
+      "Bash(git push origin *)",
+      "Bash(git pull gitee *)",
+      "Bash(git pull gitee2 *)",
+      "Bash(git pull origin *)"
     ]
   },
   "hooks": {
