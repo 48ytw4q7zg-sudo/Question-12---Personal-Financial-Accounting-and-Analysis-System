@@ -170,4 +170,54 @@ class BudgetServiceImplTest {
     assertEquals(2L, alerts.get(0).getCategoryId());
     assertTrue(alerts.get(0).isOverspent());
   }
+
+  @Test
+  @DisplayName("保存预算 - 更新已存在的预算")
+  void save_updateExisting() {
+    Budget existing = new Budget();
+    existing.setId(1L);
+    existing.setUserId(1L);
+    existing.setCategoryId(1L);
+    existing.setMonth("2026-05");
+    existing.setAmount(new BigDecimal("1000.00"));
+
+    when(categoryMapper.selectById(1L)).thenReturn(expenseCategory);
+    when(budgetMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(existing);
+    when(budgetMapper.updateById(any(Budget.class))).thenReturn(1);
+
+    BudgetRequest request = new BudgetRequest();
+    request.setCategoryId(1L);
+    request.setMonth("2026-05");
+    request.setAmount(new BigDecimal("3000.00"));
+
+    BudgetDTO dto = budgetService.save(1L, request);
+    assertNotNull(dto);
+    assertEquals(new BigDecimal("3000.00"), dto.getAmount());
+    verify(budgetMapper).updateById(any(Budget.class));
+    verify(budgetMapper, never()).insert(any(Budget.class));
+  }
+
+  @Test
+  @DisplayName("预算进度 - 超支标记正确")
+  void progress_overspentFlag() {
+    Budget budget = new Budget();
+    budget.setId(1L);
+    budget.setUserId(1L);
+    budget.setCategoryId(1L);
+    budget.setMonth("2026-05");
+    budget.setAmount(new BigDecimal("1000.00"));
+
+    when(budgetMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(budget));
+    when(categoryMapper.selectByIds(anyCollection())).thenReturn(List.of(expenseCategory));
+    var summary = new com.example.finance.entity.dto.CategorySummaryDTO();
+    summary.setCategoryId(1L);
+    summary.setTotalAmount(new BigDecimal("1200.00"));
+    when(transactionMapper.selectCategorySummary(eq(1L), eq(2026), eq(5), eq(1)))
+        .thenReturn(List.of(summary));
+
+    var progress = budgetService.getProgress(1L, "2026", "5");
+    assertEquals(1, progress.size());
+    assertTrue(progress.get(0).isOverspent());
+    assertEquals(new BigDecimal("1200.00"), progress.get(0).getSpentAmount());
+  }
 }

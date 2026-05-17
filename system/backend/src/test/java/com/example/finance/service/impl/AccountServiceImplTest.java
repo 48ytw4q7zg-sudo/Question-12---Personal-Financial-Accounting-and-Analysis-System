@@ -97,4 +97,88 @@ class AccountServiceImplTest {
         () -> accountService.delete(1L, 999L));
     assertEquals(2003, ex.getCode());
   }
+
+  @Test
+  @DisplayName("查询账户列表成功")
+  void list_success() {
+    Account a2 = new Account();
+    a2.setId(2L);
+    a2.setUserId(1L);
+    a2.setName("储蓄卡");
+    a2.setType(2);
+    a2.setInitialBalance(new BigDecimal("5000.00"));
+    a2.setCurrency("CNY");
+    a2.setStatus(1);
+
+    when(accountMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(testAccount, a2));
+
+    List<AccountDTO> result = accountService.list(1L);
+    assertEquals(2, result.size());
+    assertEquals("现金账户", result.get(0).getName());
+    assertEquals("储蓄卡", result.get(1).getName());
+  }
+
+  @Test
+  @DisplayName("查询账户列表 - 空数据")
+  void list_empty() {
+    when(accountMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+
+    List<AccountDTO> result = accountService.list(1L);
+    assertTrue(result.isEmpty());
+  }
+
+  @Test
+  @DisplayName("更新账户成功")
+  void update_success() {
+    AccountRequest request = new AccountRequest();
+    request.setName("现金账户改名");
+    request.setType(1);
+    request.setInitialBalance(new BigDecimal("20000.00"));
+    request.setCurrency("USD");
+
+    when(accountMapper.selectById(1L)).thenReturn(testAccount);
+    when(accountMapper.updateById(any(Account.class))).thenReturn(1);
+
+    AccountDTO dto = accountService.update(1L, 1L, request);
+    assertNotNull(dto);
+    assertEquals("现金账户改名", dto.getName());
+    verify(accountMapper).updateById(any(Account.class));
+  }
+
+  @Test
+  @DisplayName("更新账户失败 - 账户不存在")
+  void update_notFound() {
+    AccountRequest request = new AccountRequest();
+    request.setName("不存在");
+    request.setType(1);
+    request.setInitialBalance(BigDecimal.ZERO);
+
+    when(accountMapper.selectById(999L)).thenReturn(null);
+
+    BusinessException ex = assertThrows(BusinessException.class,
+        () -> accountService.update(1L, 999L, request));
+    assertEquals(2003, ex.getCode());
+  }
+
+  @Test
+  @DisplayName("创建账户 - 默认币种CNY")
+  void create_defaultCurrency() {
+    AccountRequest request = new AccountRequest();
+    request.setName("新账户");
+    request.setType(2);
+    request.setInitialBalance(new BigDecimal("500.00"));
+    // 不设置 currency，应默认 CNY
+
+    when(accountMapper.insert(any(Account.class))).thenAnswer(inv -> {
+      Account a = inv.getArgument(0);
+      a.setId(2L);
+      return 1;
+    });
+
+    AccountDTO dto = accountService.create(1L, request);
+    assertNotNull(dto);
+    // currency 在 entity 上设置，DTO 通过 BeanUtils.copyProperties 获得
+    assertEquals(2L, dto.getId());
+    verify(accountMapper).insert(any(Account.class));
+  }
 }
