@@ -26,7 +26,9 @@ public class BudgetController {
    * 查询预算列表
    */
   @GetMapping
-  public Result<List<BudgetDTO>> list(@RequestParam String year, @RequestParam String month,
+  public Result<List<BudgetDTO>> list(
+      @RequestParam(required = false) String year,
+      @RequestParam(required = false) String month,
       HttpServletRequest request) {
     Long userId = (Long) request.getAttribute("userId");
     List<BudgetDTO> list = budgetService.list(userId, year, month);
@@ -49,7 +51,8 @@ public class BudgetController {
    */
   @GetMapping("/progress")
   public Result<List<BudgetProgressDTO>> getProgress(
-      @RequestParam String year, @RequestParam String month,
+      @RequestParam(required = false) String year,
+      @RequestParam(required = false) String month,
       HttpServletRequest request) {
     Long userId = (Long) request.getAttribute("userId");
     List<BudgetProgressDTO> list = budgetService.getProgress(userId, year, month);
@@ -61,7 +64,8 @@ public class BudgetController {
    */
   @GetMapping("/alert")
   public Result<List<BudgetProgressDTO>> getAlert(
-      @RequestParam String year, @RequestParam String month,
+      @RequestParam(required = false) String year,
+      @RequestParam(required = false) String month,
       HttpServletRequest request) {
     Long userId = (Long) request.getAttribute("userId");
     List<BudgetProgressDTO> list = budgetService.getAlert(userId, year, month);

@@ -45,6 +45,11 @@ public class BudgetServiceImpl implements BudgetService {
    */
   @Override
   public List<BudgetDTO> list(Long userId, String year, String month) {
+    if (year == null || month == null) {
+      LocalDateTime now = LocalDateTime.now();
+      year = String.valueOf(now.getYear());
+      month = String.valueOf(now.getMonthValue());
+    }
     // 构造 month 格式: yyyy-MM
     String monthStr = year + "-" + (month.length() == 1 ? "0" + month : month);
 
@@ -149,6 +154,11 @@ public class BudgetServiceImpl implements BudgetService {
    */
   @Override
   public List<BudgetProgressDTO> getProgress(Long userId, String year, String month) {
+    if (year == null || month == null) {
+      LocalDateTime now = LocalDateTime.now();
+      year = String.valueOf(now.getYear());
+      month = String.valueOf(now.getMonthValue());
+    }
     List<BudgetDTO> budgets = list(userId, year, month);
     int yearInt = Integer.parseInt(year);
     int monthInt = Integer.parseInt(month);

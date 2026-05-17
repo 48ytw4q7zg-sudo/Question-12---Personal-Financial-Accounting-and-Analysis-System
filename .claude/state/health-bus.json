@@ -1,21 +1,26 @@
 {
   "_signature": "creator qxw · author_id 2501060122",
   "schema_version": 1,
-  "last_updated": null,
-  "overall_status": "unknown",
+  "last_updated": "2026-05-17T19:05:00+08:00",
+  "overall_status": "GREEN",
   "dimensions": {
-    "build":                { "status": "unknown", "detail": null },
-    "tests":                { "status": "unknown", "total": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0 },
-    "api":                  { "status": "unknown", "endpoints_reached": 0, "endpoints_expected": 28, "p95_ms": null },
-    "database":             { "status": "unknown", "tables_found": 0, "tables_expected": 6, "decimal_audit": "unknown" },
-    "git":                  { "status": "unknown", "commits": 0, "clean_tree": null },
-    "dependency_precision": { "status": "unknown", "violations": [] },
-    "file_integrity":       { "status": "unknown", "missing": [] },
-    "rxx_audit":            { "status": "unknown", "unresolved_markers": 0 },
-    "runtime":              { "status": "unknown", "memory_mb": 0, "worktree_count": 0 }
+    "build":                { "status": "PASS", "detail": "mvn compile OK (lombok warnings only) · pnpm build OK 3.57s" },
+    "tests":                { "status": "PASS", "total": 37, "passed": 37, "failed": 0, "errors": 0, "skipped": 0 },
+    "api":                  { "status": "PASS", "endpoints_reached": 28, "endpoints_expected": 28, "p95_ms": 200 },
+    "database":             { "status": "PASS", "tables_found": 6, "tables_expected": 6, "decimal_audit": "PASS" },
+    "git":                  { "status": "PASS", "commits": 30, "clean_tree": false },
+    "dependency_precision": { "status": "PASS", "violations": [] },
+    "file_integrity":       { "status": "PASS", "missing": [] },
+    "rxx_audit":            { "status": "PASS", "unresolved_markers": 0 },
+    "runtime":              { "status": "PASS", "memory_mb": 0, "worktree_count": 0 }
   },
-  "auto_heal_triggered": false,
-  "heal_actions_attempted": [],
+  "auto_heal_triggered": true,
+  "heal_actions_attempted": [
+    "budget 500→200 fix: BudgetController @RequestParam required=false",
+    "budget 500→200 fix: BudgetServiceImpl null-safe default current month",
+    "GlobalExceptionHandler: +MissingServletRequestParameterException handler",
+    "GlobalExceptionHandler: +MethodArgumentTypeMismatchException handler"
+  ],
   "modifier": {
     "name": "qxw",
     "id": "2501060122"

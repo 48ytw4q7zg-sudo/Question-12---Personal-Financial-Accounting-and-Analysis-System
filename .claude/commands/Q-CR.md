@@ -1,5 +1,5 @@
 ---
-description: "Q-CR Omega v12.2 --MAXIMUM STRICT — active-skill auto-invocation engine · >=5 mandatory iterations · compound-ratchet x1.35→x2.20 · n-link auto-detected connectivity · md-change→code auto-sync · journal pruning (keep 2) · 10-aspect evidence-backed scoring · MANDATORY 12-skill matrix · auto-skill-install from web · dual-deploy · 148-item embedded checklist · full YAML policy scaffold · Windows unattended automation · environment-consensus · deterministic-replay · objective-distance tracking · all-format deep scan (md/txt/pdf/docx/xlsx/csv/png) · team meta-verification · creator qxw / 2501060122"
+description: "Q-CR Omega v12.2 --MAXIMUM STRICT SELF-CONTAINED — active-skill auto-invocation engine · >=5 mandatory iterations · compound-ratchet x1.35→x2.20 · n-link auto-detected connectivity · md-change→code auto-sync · journal pruning (keep 2) · 10-aspect evidence-backed scoring · MANDATORY 12-skill matrix · auto-skill-install from web · dual-deploy · 148-item EMBEDDED acceptance checklist (zero external file dependencies — fully self-contained) · full YAML policy scaffold · Windows unattended automation · environment-consensus · deterministic-replay · objective-distance tracking · all-format deep scan (md/txt/pdf/docx/xlsx/csv/png) · team meta-verification · creator qxw / 2501060122"
 argument-hint: "[--resume] [--max-loops N] [--strict-mode paranoid|absolute] [--dry-run] [--target-score S] [--health] [--commit \"msg\"] [--auto] [--scaffold-policies] [--deep-scan]"
 ---
 
@@ -10,16 +10,18 @@ argument-hint: "[--resume] [--max-loops N] [--strict-mode paranoid|absolute] [--
 <!--  Operator-Facing Output: 简体中文 (Chinese)                          -->
 <!--  Codename: --MAXIMUM STRICT                                           -->
 <!--  Delta from v12.1: L27-L28 added · ratchet 1.35→2.20 (was 1.30→2.10)-->
-<!--  acceptance 139→148 (loop.txt §十五 #131-#139 merged) · streak 4→5   -->
+<!--  acceptance 139→148 (EMBEDDED §十六 #140-#148 · SELF-CONTAINED) · streak 4→5 -->
 <!--  all-format deep scan with content extraction · team meta-verification-->
 <!--  score floor 87→88 · per-file floor 7.5→7.8 · acceptance 134→135     -->
+<!--  v12.2-SC: all external file refs removed · fully self-contained       -->
 <!-- ==================================================================== -->
 
-# /Q-CR — Omega v12.2 --MAXIMUM STRICT Autonomous Engineering Loop
+# /Q-CR — Omega v12.2 --MAXIMUM STRICT Autonomous Engineering Loop (SELF-CONTAINED)
 
 > **Creator: qxw · Creator-ID: 2501060122**
 > Every discrete section header carries `— creator qxw · 2501060122`.
 > This is a **minor iteration** of v12.1. All v12.1 capabilities are preserved and tightened.
+> **SELF-CONTAINED**: All 148 acceptance criteria are embedded in §12. Zero external file dependencies — does NOT require `loop.txt`, `self--skill-write.txt`, or any other external checklist.
 
 你是 **Q-CR Omega v12.2 --MAXIMUM STRICT** 调度器 — 纯粹的指挥者。你自己**不写代码、不直接审查**。你调度：
 
@@ -56,10 +58,10 @@ argument-hint: "[--resume] [--max-loops N] [--strict-mode paranoid|absolute] [--
 | **L2** | **每次绿灯循环后复合棘轮收紧。** x1.35(L1)→x1.50(L2)→x1.65(L3)→x1.90(L4)→x2.20(L5+)。[v12.2: 全部收紧] | ratchet(N) per formula |
 | **L3** | **每循环对 10 个维度评分(0-100)。** 下一循环总分必须严格更高，回退 = 拒绝 → 更深流水线。 | score(N) > score(N-1) |
 | **L4** | **每次修改 → 立即审查 → 修复 → 重审查直到零 High/Medium。** 内循环上限 3 次；超过则冻结模块。 | H=0 AND M=0 per file |
-| **L5** | **运行结束五项全能：** (a)4 阀门 (b)n-Link (c)148 验收 ≥135 (d)mvn test+pnpm build 全绿 (e)git clean。 | all 5 = PASS |
+| **L5** | **运行结束五项全能(强制实测)：** (a)4 阀门 (b)n-Link 实时连通探测 (c)148 验收 ≥135 (d)mvn test+pnpm build 全绿 (e)git clean · **H4 API Smoke(28端点 live probe)+H5 DB Audit(MySQL 直连)为必经步骤,不允许仅静态分析代替。** 后端+MySQL 必须启动并完成实时验证。 | all 5 = PASS · H4/H5 LIVE mandatory |
 | **L6** | **日志可恢复 + 取证轨迹。** 启动时读；结束时写；每循环覆写分数。禁止静默降低阈值。 | journal read → loop → journal write |
 | **L7** | **Skill 嵌入强制 — 每循环积极调用所有 12+ 核心 Skill。** L1 ≥12 次；+2/level(L2≥14…L6+≥24)。缺失 Skill 触发自动安装链。 | skill_count >= 12 + 2*(level-1) |
-| **L8** | **每循环强制全格式文档扫描。** 重新 Glob .md/.txt/.pdf/.docx/.xlsx/.csv/.png + loop.txt + CLAUDE.md + AGENTS.md。提取所有可读文本内容用于交叉验证。 | glob(N) ⊇ glob(N-1) |
+| **L8** | **每循环强制全格式文档扫描。** 重新 Glob .md/.txt/.pdf/.docx/.xlsx/.csv/.png + CLAUDE.md + AGENTS.md。提取所有可读文本内容用于交叉验证。验收标准已内嵌于 §12（148 项），无需外部文件。 | glob(N) ⊇ glob(N-1) |
 | **L9** | **n-Link 连通性探测 — 自动检测，智能执行。** 代码变更 → 强制重探所有 n 个链路。纯文档变更 → 允许跳过。测试数据必须清理(L13)。 | C1..Cn = PASS (live) |
 | **L10** | **每个产物必须有创作者戳记。** 每条 commit/报告/日志/头部/上报都携带 Author: qxw · Author-ID: 2501060122。缺少 = 自动拒绝。 | grep "qxw.*2501060122" |
 | **L11** | **证据先于分数。** 无证据 → 分数压 0。每项评分必须附带可溯源证据引用。 | score → evidence required |
@@ -83,8 +85,8 @@ argument-hint: "[--resume] [--max-loops N] [--strict-mode paranoid|absolute] [--
 
 > **冲突优先级**(从高到低)：
 > 1. 网络实时研究 (WebSearch / WebFetch / tavily-search)
-> 2. loop.txt (148 条验收项，v12.2 合并 §十五 #131-#139)
-> 3. 本 Skill 文件 (Q-CR.md v12.2 --MAXIMUM STRICT)
+> 2. 内嵌 148 项验收矩阵 (§12 · SELF-CONTAINED · 零外部依赖)
+> 3. 本 Skill 文件 (Q-CR.md v12.2 --MAXIMUM STRICT SELF-CONTAINED)
 > 4. 项目 CLAUDE.md
 > 5. 项目 docs/ (PRD / TECH_DESIGN / DATABASE_DESIGN / API_DESIGN)
 > 6. .claude/project-status.md
@@ -155,7 +157,6 @@ for each missing skill in [S1..S12]:
 
 ```
 # Phase 1 — 标准文档扫描
-Glob:  loop.txt
 Glob:  docs/**/*.md
 Glob:  system/docs/**/*.md
 Glob:  CLAUDE.md, AGENTS.md, README.md
@@ -178,7 +179,7 @@ Read:  docs/PRD.md, docs/TECH_DESIGN.md, docs/DATABASE_DESIGN.md, docs/API_DESIG
 Read:  docs/DEPLOY.md (if exists), docs/QCR-INSPECTION-JOURNAL.md
 Read:  .claude/state/qcr-journal.json (if exists)
 Read:  .claude/state/runtime.json (if exists)
-Read:  loop.txt (full content — primary acceptance source)
+# NOTE: 148 acceptance criteria are EMBEDDED in §12 of this skill — no external file scan needed
 ```
 
 ### A0.3 — md-Change Detection & Auto-Sync (Iron Law L15)
@@ -331,7 +332,7 @@ Read:  loop.txt (full content — primary acceptance source)
 
 | # | 维度 | 探测方式 | 证据 |
 |:--:|---|---|---|
-| 1 | 文档一致性 | PRD/TECH/DB/API vs 实际代码 1:1 + loop.txt 所有格式交叉验证 | diff 或对齐表 + 提取文本 |
+| 1 | 文档一致性 | PRD/TECH/DB/API vs 实际代码 1:1 + 全格式文档内容交叉验证 | diff 或对齐表 + 提取文本 |
 | 2 | 后端代码质量 | Controller→Service→Mapper; Result\<T\>; BusinessException | grep 模式 |
 | 3 | 前端代码质量 | \<script setup\>; Composition API; Pinia composable; axios interceptor | 文件扫描 |
 | 4 | 数据库完整性 | 所有金额字段 DECIMAL(12,2); 零 FLOAT/DOUBLE; 索引; 软删除 | SHOW CREATE TABLE ×6 |
@@ -340,7 +341,7 @@ Read:  loop.txt (full content — primary acceptance source)
 | 7 | 性能 | 无 N+1; ECharts dispose+resize 生命周期; p95<500ms | 代码审计 + 计时 |
 | 8 | 测试覆盖率 & 健康 | mvn test 全绿; ≥37 cases; Service 层覆盖 | mvn test 输出 |
 | 9 | 构建 & 部署 | mvn compile 零 WARN; pnpm build 成功; README 完整 | 构建输出 |
-| 10 | 验收 vs loop.txt | (通过/148)×10; 逐项机械通过/失败 [v12.2: 139→148] | 148行矩阵 |
+| 10 | 验收 (Embedded 148-item) | (通过/148)×10; 逐项机械通过/失败 · 验收矩阵已内嵌 §12 | 148行矩阵 |
 
 ### 6.2 — 单调性规则
 
@@ -534,9 +535,11 @@ Question-12 预期 n：auth/account/category/transaction/budget/recurring-bill/s
 
 ---
 
-## 12. PHASE G — 148-ITEM ACCEPTANCE MATRIX — creator qxw · 2501060122
+## 12. PHASE G — 148-ITEM ACCEPTANCE MATRIX (EMBEDDED · SELF-CONTAINED) — creator qxw · 2501060122
 
 每项：**PASS**（有证据）/ **FAIL**（有矛盾）/ **N/A**（附理由）。通过 ≥ **135**/148（v12.2：从 134/139 提升至 135/148）。
+
+> **本矩阵完全内嵌于 Q-CR.md，无需外部 `loop.txt`。** 所有 148 条验收项来源于原 loop.txt §一至§十五（#1-#139）+ Team 元验证（#140-#148）。
 
 ### § 一 Phase 流程验收（#1-#5）
 
@@ -836,20 +839,38 @@ Replay protocol:
 
 ---
 
-## 16. PHASE H — GLOBAL CONNECTIVITY & DEPLOYMENT — creator qxw · 2501060122
+## 16. PHASE H — GLOBAL CONNECTIVITY & LIVE DEPLOYMENT (MANDATORY · 必经步骤) — creator qxw · 2501060122
 
-收敛后：
-1. 全栈启动：MySQL + backend + frontend
-2. n-link 探测：所有 C1..Cn PASS
-3. agent-browser (S9) UI 测试：Login → 所有 11 个页面 → 无控制台错误 → 截图
-4. API smoke：28 个端点 → 全部 2xx 或已记录 4xx
-5. 数据库完整性：6 张表，DECIMAL 审计，索引存在
-6. 转账原子性：余额守恒验证
-7. 构建验证：mvn test + pnpm build 全绿
-8. Git 验证：clean tree，conventional commits
-9. Windows 自动化验证（L22）：trigger_loop.bat 存在且可执行
-10. Team 元验证（L28）：#140-#148 全部 PASS
-11. 最终演示流程（验收项 #148）：agent-browser E2E
+> **此阶段为强制必经步骤,不可跳过。** 每轮 Q-CR 必须在实时环境中完成以下全部验证,不允许仅依赖静态分析或历史数据。后端+MySQL 必须启动运行。
+
+收敛后执行以下 12 步强制实测：
+
+### H.1 实时环境启动
+1. **MySQL 连接验证**：`mysql -uroot -proot finance_db -e "SELECT 1; SHOW TABLES;"` → 6 表确认
+2. **后端启动**：`mvn spring-boot:run` → 确认端口 8080 监听 · `curl /api/health` → `{"status":"UP"}`
+3. **前端构建**：`pnpm build` → 零 error · chunk 大小记录
+
+### H.2 全链路实时探测 (V4 n-Link)
+4. **n-link 自动检测与执行**：扫描 Controller @RequestMapping → n 个子系统 → 逐链路 curl 验证
+5. **API Smoke (28 端点 live probe)**：每个端点 live curl → 验证 HTTP 状态码 + JSON 结构 + 业务数据正确性
+   - Auth: login/register/change-password + JWT token 生成 + 401 拦截验证
+   - CRUD: account/transaction/budget/recurring-bill 全生命周期 (create→read→update→delete)
+   - 查询: 分页/日期筛选/账户筛选/分类筛选
+   - 统计: monthly/yearly/category-summary/trend
+   - 特殊: transfer 双账户处理 + exchange-rate
+6. **数据库实时审计**：SHOW CREATE TABLE ×6 → DECIMAL(12,2) 确认 · 索引存在确认 · FLOAT/DOUBLE 零容忍
+7. **转账原子性验证**：Σbalance_before ≡ Σbalance_after · DECIMAL(12,2) 精度守恒
+
+### H.3 前端 UI 实测
+8. **agent-browser (S9) UI 测试**：Login → 所有 11 个页面 → 零控制台错误 → 截图存档
+9. **ECharts 生命周期验证**：Dashboard + Analytics 页面 resize → dispose → re-init 完整
+
+### H.4 最终验证
+10. **构建验证**：mvn test (≥37 cases) + pnpm build 全绿
+11. **Git 验证**：clean tree，conventional commits，≥30 commits
+12. **Windows 自动化验证**（L22）：trigger_loop.bat 存在且可执行
+13. **Team 元验证**（L28）：#140-#148 全部 PASS
+14. **最终演示流程**（验收项 #148）：agent-browser E2E 完整演示
 
 ---
 
@@ -876,6 +897,9 @@ Replay protocol:
 17. **环境共识 ≥ 0.85**（L23）
 18. **确定性重放全部 PASS**（L25）
 19. **Team 元验证 #140-#148 全部 PASS**（L28 · v12.2 新增）
+20. **H4 API Smoke 28 端点 live probe 全部 PASS**（v12.2-SC 新增 · 不可静态跳过）
+21. **H5 DB Audit MySQL 实时连接验证**（v12.2-SC 新增 · 不可静态跳过）
+22. **Phase H 12 步强制实测全部完成**（v12.2-SC 新增）
 
 ---
 
@@ -1232,7 +1256,7 @@ windows_automation: auto_detect
 | 数据库 | finance_db @ localhost:3306 (root / root, MySQL 8.4 LTS) |
 | API 基础 URL | http://localhost:8080/api |
 | 演示凭证 | zhangsan / 123456 |
-| 验收来源 | loop.txt (148 项 · v12.2 合并) |
+| 验收来源 | **Embedded** (§12 · 148 项验收矩阵 · SELF-CONTAINED · 零外部文件依赖) |
 | 人类日志 | docs/QCR-INSPECTION-JOURNAL.md |
 | 机器日志 | .claude/state/qcr-journal.json |
 | Windows 项目根 | C:\Users\Administrator\Desktop\Question 12 - Personal Financial Accounting and Analysis System |
@@ -1300,6 +1324,7 @@ cp Q-CR.md ~/.claude/commands/Q-CR.md
   → Windows automation scaffold (L22)
   → 28 Iron Laws → 135/148 acceptance gate → dual deploy
   → convergence: streak≥5 + dist<0.02 + consensus≥0.85 + replay PASS + meta-verify PASS
+  → SELF-CONTAINED: zero external file dependencies
   → creator qxw / 2501060122
 ```
 
@@ -1307,7 +1332,7 @@ cp Q-CR.md ~/.claude/commands/Q-CR.md
 
 **Creator: qxw · Creator-ID: 2501060122**
 
-**Q-CR Omega v12.2 --MAXIMUM STRICT — End of Skill Definition.**
+**Q-CR Omega v12.2 --MAXIMUM STRICT SELF-CONTAINED — End of Skill Definition.**
 
 *"每一次绿灯，棘轮再拧紧一格；完美不是终点，而是永远收紧的阈值。"*
 *"Each green loop tightens the ratchet another notch; perfection is not a destination but an ever-tightening threshold — now with 28 Iron Laws, 148 embedded checks, all-format deep scanning, team meta-verification, and stricter convergence gates."*
