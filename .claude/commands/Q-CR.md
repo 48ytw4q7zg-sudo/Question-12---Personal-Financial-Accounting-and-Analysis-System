@@ -1279,6 +1279,8 @@ windows_automation: auto_detect
 | objective_distance 不下降 | 验收通过率停滞 | 优先修复最低分文件；检查 transfer 统计逻辑 |
 | PDF/Word 解析失败 | 文件损坏或加密 | 记录到 ## Scanned Files Registry；标记为 N/A |
 | Team 元验证失败(L28) | AI 漂移或文档不同步 | 深度审计变更；修复漂移；重新验证 #140-#148 |
+| `@ExceptionHandler` 不生效返回500 | `DefaultHandlerExceptionResolver` 优先级冲突 | GlobalExceptionHandler 改为继承 `ResponseEntityExceptionHandler`，覆盖 `handleMissingServletRequestParameter` 等标准方法 |
+| 修改代码后 jar 未生效 | 旧 Java 进程 (PID) 仍占用端口 8080 | PowerShell: `Get-Process \| Where-Object { $_.ProcessName -like "*java*" } \| Stop-Process -Force`；确认端口释放后重新打包启动 |
 
 ---
 
