@@ -199,14 +199,28 @@ public class TransactionServiceImpl implements TransactionService {
     return dto;
   }
 
+  // PRD P2-3: 文件大小上限 5MB
+  private static final long CSV_MAX_FILE_SIZE = 5 * 1024 * 1024;
+  // PRD P2-3: 单次导入上限 1000 条
+  private static final int CSV_MAX_RECORDS = 1000;
+
   /**
    * 导入 CSV（@Transactional 保证批量插入原子性）
    */
   @Override
   @Transactional
   public String importCsv(Long userId, MultipartFile file, Long accountId) {
-    // 校验账户归属
     validateAccount(userId, accountId);
+
+    // PRD P2-3 异常流程①: 文件大小超过 5MB → 拒绝
+    if (file.getSize() > CSV_MAX_FILE_SIZE) {
+      throw new BusinessException(3001, "文件大小不能超过 5MB");
+    }
+    // PRD P2-3 异常流程①: 文件格式非 CSV → 拒绝
+    String filename = file.getOriginalFilename();
+    if (filename == null || !filename.toLowerCase().endsWith(".csv")) {
+      throw new BusinessException(3001, "仅支持 .csv 格式文件");
+    }
 
     int successCount = 0;
     int failCount = 0;
@@ -242,6 +256,12 @@ public class TransactionServiceImpl implements TransactionService {
 
           transactionMapper.insert(transaction);
           successCount++;
+          // PRD P2-3 业务规则①: 单次导入上限 1000 条
+          if (successCount > CSV_MAX_RECORDS) {
+            throw new BusinessException(3001, "单次导入不能超过 " + CSV_MAX_RECORDS + " 条记录");
+          }
+        } catch (BusinessException e) {
+          throw e;
         } catch (Exception e) {
           log.warn("导入 CSV 行失败: {}", String.join(",", line), e);
           failCount++;

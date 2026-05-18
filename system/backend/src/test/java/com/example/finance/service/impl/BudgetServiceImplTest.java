@@ -162,7 +162,7 @@ class BudgetServiceImplTest {
     var summary2 = new com.example.finance.entity.dto.CategorySummaryDTO();
     summary2.setCategoryId(2L);
     summary2.setTotalAmount(new BigDecimal("600.00"));
-    when(transactionMapper.selectCategorySummary(eq(1L), eq(2026), eq(5), eq(1)))
+    when(transactionMapper.selectCategorySummary(eq(1L), eq(2026), eq(5), eq(2)))
         .thenReturn(List.of(summary1, summary2));
 
     var alerts = budgetService.getAlert(1L, "2026", "5");
@@ -212,7 +212,7 @@ class BudgetServiceImplTest {
     var summary = new com.example.finance.entity.dto.CategorySummaryDTO();
     summary.setCategoryId(1L);
     summary.setTotalAmount(new BigDecimal("1200.00"));
-    when(transactionMapper.selectCategorySummary(eq(1L), eq(2026), eq(5), eq(1)))
+    when(transactionMapper.selectCategorySummary(eq(1L), eq(2026), eq(5), eq(2)))
         .thenReturn(List.of(summary));
 
     var progress = budgetService.getProgress(1L, "2026", "5");

@@ -128,11 +128,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getTransactionList, createTransaction, updateTransaction } from '../api/transaction'
 import { getAccountList } from '../api/account'
 import { getCategoryList } from '../api/category'
+
+const route = useRoute()
+const router = useRouter()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -228,8 +232,29 @@ async function loadOptions() {
   }
 }
 
+// PRD P1-1: 筛选条件持久化到 URL query params
+function syncFiltersToUrl() {
+  const q = {}
+  if (filters.dateRange) { q.startDate = filters.dateRange[0]; q.endDate = filters.dateRange[1] }
+  if (filters.accountId) q.accountId = filters.accountId
+  if (filters.categoryId) q.categoryId = filters.categoryId
+  if (filters.keyword) q.keyword = filters.keyword
+  if (pagination.pageNum > 1) q.page = pagination.pageNum
+  router.replace({ query: q })
+}
+
+function readFiltersFromUrl() {
+  const q = route.query
+  if (q.startDate && q.endDate) filters.dateRange = [q.startDate, q.endDate]
+  if (q.accountId) filters.accountId = Number(q.accountId)
+  if (q.categoryId) filters.categoryId = Number(q.categoryId)
+  if (q.keyword) filters.keyword = q.keyword
+  if (q.page) pagination.pageNum = Number(q.page)
+}
+
 function handleSearch() {
   pagination.pageNum = 1
+  syncFiltersToUrl()
   loadTransactions()
 }
 
@@ -238,6 +263,7 @@ function resetFilters() {
   filters.accountId = null
   filters.categoryId = null
   filters.keyword = ''
+  router.replace({ query: {} })
   handleSearch()
 }
 
@@ -284,6 +310,7 @@ async function handleSubmit() {
 }
 
 onMounted(() => {
+  readFiltersFromUrl();
   loadOptions()
   loadTransactions()
 })

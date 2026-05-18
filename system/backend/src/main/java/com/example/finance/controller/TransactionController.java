@@ -6,6 +6,7 @@ import com.example.finance.entity.dto.TransactionDTO;
 import com.example.finance.entity.dto.TransactionRequest;
 import com.example.finance.entity.dto.TransferDTO;
 import com.example.finance.entity.dto.TransferRequest;
+import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.TransactionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -37,7 +38,7 @@ public class TransactionController {
       @RequestParam(defaultValue = "1") int pageNum,
       @RequestParam(defaultValue = "10") int pageSize,
       HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     IPage<TransactionDTO> page = transactionService.list(
         userId, accountId, categoryId, startTime, endTime, keyword, sortBy, pageNum, pageSize);
     return Result.success(page);

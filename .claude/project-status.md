@@ -15,15 +15,15 @@
 
 ## 当前状态字段(9 个)
 
-- **当前 Phase**:Phase 7 (Q-CR v12.2 循环收敛 · 37/37 测试全绿 · 四阀门全 PASS · H4/H5 LIVE verified · 11 policies scaffolded)
-- **上次更新**:2026-05-17 (Q-CR v12.2 --MAXIMUM STRICT Loop 7)
-- **已完成文档**:PRD.md, TECH_DESIGN.md, DATABASE_DESIGN.md, API_DESIGN.md, DEPLOY.md
-- **数据库表**:user, account, category, transaction, budget, recurring_bill
-- **已有接口**:28 个接口:登录注册+改密码 / 账户CRUD / 分类列表 / 收支记录+转账 / 预算管理+预警 / 周期账单 / 仪表盘统计 / 汇率查询
-- **已完成的后端模块**:UserServiceImpl, AccountServiceImpl, CategoryServiceImpl, TransactionServiceImpl, BudgetServiceImpl, RecurringBillServiceImpl, StatisticsServiceImpl
-- **已完成的前端页面**:LoginPage, DashboardPage, AccountPage, CategoryPage, TransactionListPage, BudgetPage, RecurringBillPage, TransferPage, AnalyticsPage, ImportPage, UserSettingsPage
-- **已完成的对话记录数**:15+ <!-- /rules-updater 统计 docs/对话记录/ 下 .md 文件数 -->
-- **已完成的 commit 数(估)**:71 <!-- Q-CR v12.2 Loop 7 实际统计 -->
+- **当前 Phase**:Phase 8 (Q-CR v13 9轮优化 · 140/140 测试全绿 · 97.06/100 · 四阀门全 PASS)
+- **上次更新**:2026-05-18 (Q-CR v13 Round 9 — JaCoCo + JMeter + Swagger + Docker + CI/CD)
+- **已完成文档**:PRD.md, TECH_DESIGN.md, DATABASE_DESIGN.md, API_DESIGN.md, DEPLOY.md, PERFORMANCE-REPORT.md
+- **数据库表**:user(含role), account, category, transaction, budget, recurring_bill
+- **已有接口**:29 个接口 (含 /api/health + /api/exchange-rate) + @Scheduled 预算预警 + Swagger /swagger-ui.html
+- **已完成的后端模块**:UserServiceImpl, AccountServiceImpl, CategoryServiceImpl, TransactionServiceImpl, BudgetServiceImpl, RecurringBillServiceImpl, StatisticsServiceImpl, BudgetScheduler
+- **已完成的前端页面**:LoginPage, DashboardPage, AccountPage, CategoryPage, TransactionListPage(含URL筛选持久化), BudgetPage, RecurringBillPage, TransferPage, AnalyticsPage, ImportPage, UserSettingsPage
+- **Bug修复记录**:6 个 (generate账户校验/预算类型混淆/CSV文件校验/URL筛选持久化/@Transactional缺失/异常传播)
+- **测试**:140 用例 (12 test files · 白盒49+黑盒55+集成19+系统10+CSV7)
 
 ## 每 Phase 末该做的事
 

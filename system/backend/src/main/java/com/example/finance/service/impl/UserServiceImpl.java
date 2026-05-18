@@ -42,11 +42,12 @@ public class UserServiceImpl implements UserService {
     User user = new User();
     user.setUsername(request.getUsername());
     user.setPassword(bCryptEncoder.encode(request.getPassword()));
+    user.setRole(0);
     user.setCreateTime(LocalDateTime.now());
     user.setUpdateTime(LocalDateTime.now());
     userMapper.insert(user);
 
-    String token = JwtUtils.generateToken(user.getId());
+    String token = JwtUtils.generateToken(user.getId(), user.getRole());
     return new LoginResponse(token, user.getId(), user.getUsername());
   }
 
@@ -62,7 +63,7 @@ public class UserServiceImpl implements UserService {
       throw new BusinessException(1002, "用户名或密码错误");
     }
 
-    String token = JwtUtils.generateToken(user.getId());
+    String token = JwtUtils.generateToken(user.getId(), user.getRole());
     return new LoginResponse(token, user.getId(), user.getUsername());
   }
 

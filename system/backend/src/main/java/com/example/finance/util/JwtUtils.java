@@ -37,11 +37,12 @@ public class JwtUtils {
   }
 
   /**
-   * 生成 JWT token
+   * 生成 JWT token（含 userId + role）
    */
-  public static String generateToken(Long userId) {
+  public static String generateToken(Long userId, Integer role) {
     return Jwts.builder()
         .subject(String.valueOf(userId))
+        .claim("role", role)
         .issuedAt(new Date())
         .expiration(new Date(System.currentTimeMillis() + EXPIRE))
         .signWith(KEY)
@@ -49,7 +50,7 @@ public class JwtUtils {
   }
 
   /**
-   * 解析 JWT token，返回 userId（无效或过期返回 null）
+   * 解析 JWT token，返回 userId + role（无效或过期返回 null）
    */
   public static Long parseToken(String token) {
     try {
@@ -64,6 +65,23 @@ public class JwtUtils {
       return null;
     } catch (Exception e) {
       log.debug("JWT token 解析失败: {}", e.getMessage());
+      return null;
+    }
+  }
+
+  /**
+   * 解析 JWT token，返回 role（无效或过期返回 null）
+   */
+  public static Integer parseRole(String token) {
+    try {
+      Claims claims = Jwts.parser()
+          .verifyWith(KEY)
+          .build()
+          .parseSignedClaims(token)
+          .getPayload();
+      return claims.get("role", Integer.class);
+    } catch (Exception e) {
+      log.debug("JWT role 解析失败: {}", e.getMessage());
       return null;
     }
   }

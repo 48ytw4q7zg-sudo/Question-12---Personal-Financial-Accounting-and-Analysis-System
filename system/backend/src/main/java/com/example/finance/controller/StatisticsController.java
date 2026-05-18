@@ -4,6 +4,7 @@ import com.example.finance.common.Result;
 import com.example.finance.entity.dto.CategorySummaryDTO;
 import com.example.finance.entity.dto.MonthlySummaryDTO;
 import com.example.finance.entity.dto.MonthlyTrendDTO;
+import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.StatisticsService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +32,7 @@ public class StatisticsController {
   public Result<MonthlySummaryDTO> getMonthlySummary(
       @RequestParam int year, @RequestParam int month,
       HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     MonthlySummaryDTO summary = statisticsService.getMonthlySummary(userId, year, month);
     return Result.success(summary);
   }
@@ -42,7 +43,7 @@ public class StatisticsController {
   @GetMapping("/yearly")
   public Result<MonthlySummaryDTO> getYearlySummary(@RequestParam int year,
       HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     MonthlySummaryDTO summary = statisticsService.getYearlySummary(userId, year);
     return Result.success(summary);
   }
@@ -55,7 +56,7 @@ public class StatisticsController {
       @RequestParam int year, @RequestParam int month,
       @RequestParam(required = false) Integer type,
       HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     List<CategorySummaryDTO> list = statisticsService.getCategorySummary(userId, year, month, type);
     return Result.success(list);
   }
@@ -66,7 +67,7 @@ public class StatisticsController {
   @GetMapping("/trend")
   public Result<List<MonthlyTrendDTO>> getTrend(@RequestParam int year,
       HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     List<MonthlyTrendDTO> list = statisticsService.getTrend(userId, year);
     return Result.success(list);
   }

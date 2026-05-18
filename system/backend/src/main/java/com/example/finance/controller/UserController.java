@@ -4,6 +4,7 @@ import com.example.finance.common.Result;
 import com.example.finance.entity.dto.ChangePasswordRequest;
 import com.example.finance.entity.dto.LoginResponse;
 import com.example.finance.entity.dto.UserLoginRequest;
+import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -47,7 +48,7 @@ public class UserController {
   @PostMapping("/change-password")
   public Result<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request,
       HttpServletRequest httpRequest) {
-    Long userId = (Long) httpRequest.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(httpRequest);
     userService.changePassword(userId, request.getOldPassword(), request.getNewPassword());
     return Result.success(null, "密码修改成功");
   }

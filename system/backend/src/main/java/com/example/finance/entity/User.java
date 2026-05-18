@@ -26,6 +26,9 @@ public class User {
   @JsonIgnore
   private String password;
 
+  @TableField("role")
+  private Integer role;
+
   @TableField("create_time")
   private LocalDateTime createTime;
 

@@ -33,9 +33,18 @@ public class LoginInterceptor implements HandlerInterceptor {
       return false;
     }
 
-    // 将 userId 存入请求属性，供 Controller 使用
+    // 将 userId + role 存入请求属性，供 Controller 使用
     request.setAttribute("userId", userId);
+    Integer role = JwtUtils.parseRole(token);
+    request.setAttribute("role", role != null ? role : 0);
     return true;
+  }
+
+  /**
+   * 从请求中提取 userId（供 Controller 便捷调用）
+   */
+  public static Long getUserId(HttpServletRequest request) {
+    return (Long) request.getAttribute("userId");
   }
 
   /**

@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -89,9 +90,10 @@ public class AccountServiceImpl implements AccountService {
   }
 
   /**
-   * 删除账户（软删除）
+   * 删除账户（软删除 · @Transactional 保证检查和写入原子性）
    */
   @Override
+  @Transactional
   public void delete(Long userId, Long accountId) {
     Account account = getAccountById(userId, accountId);
 

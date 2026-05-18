@@ -4,6 +4,7 @@ import com.example.finance.common.Result;
 import com.example.finance.entity.dto.AccountBalanceDTO;
 import com.example.finance.entity.dto.AccountDTO;
 import com.example.finance.entity.dto.AccountRequest;
+import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.AccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -27,7 +28,7 @@ public class AccountController {
    */
   @GetMapping
   public Result<List<AccountDTO>> list(HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     List<AccountDTO> list = accountService.list(userId);
     return Result.success(list);
   }
@@ -60,7 +61,7 @@ public class AccountController {
    */
   @DeleteMapping("/{id}")
   public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     accountService.delete(userId, id);
     return Result.success(null, "账户删除成功");
   }
@@ -70,7 +71,7 @@ public class AccountController {
    */
   @GetMapping("/balance")
   public Result<List<AccountBalanceDTO>> getBalance(HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     List<AccountBalanceDTO> list = accountService.getBalance(userId);
     return Result.success(list);
   }

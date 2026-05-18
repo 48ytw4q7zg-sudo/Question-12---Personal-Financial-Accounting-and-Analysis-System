@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -35,6 +36,8 @@ public class BudgetServiceImpl implements BudgetService {
 
   // category.type=1 为支出分类
   private static final int CATEGORY_TYPE_EXPENSE = 1;
+  // transaction.type=2 为支出
+  private static final int TRANSACTION_TYPE_EXPENSE = 2;
 
   private final BudgetMapper budgetMapper;
   private final CategoryMapper categoryMapper;
@@ -80,9 +83,10 @@ public class BudgetServiceImpl implements BudgetService {
   }
 
   /**
-   * 保存预算（INSERT ON DUPLICATE KEY UPDATE）
+   * 保存预算（INSERT ON DUPLICATE KEY UPDATE · @Transactional 保证并发安全）
    */
   @Override
+  @Transactional
   public BudgetDTO save(Long userId, BudgetRequest request) {
     // 校验分类存在
     Category category = categoryMapper.selectById(request.getCategoryId());
@@ -164,7 +168,7 @@ public class BudgetServiceImpl implements BudgetService {
     int monthInt = Integer.parseInt(month);
 
     // R-05-issue-2: 已修复 - selectCategorySummary提到循环外消除N+1查询
-    var summaryList = transactionMapper.selectCategorySummary(userId, yearInt, monthInt, 1);
+    var summaryList = transactionMapper.selectCategorySummary(userId, yearInt, monthInt, TRANSACTION_TYPE_EXPENSE);
     java.util.Map<Long, java.math.BigDecimal> spentMap = summaryList.stream()
         .collect(java.util.stream.Collectors.toMap(
             com.example.finance.entity.dto.CategorySummaryDTO::getCategoryId,

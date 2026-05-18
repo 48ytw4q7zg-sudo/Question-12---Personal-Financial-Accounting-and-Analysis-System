@@ -1305,9 +1305,216 @@ cp Q-CR.md ~/.claude/commands/Q-CR.md
 
 ---
 
+---
+
+## 28. Q-CR TESTING METHODOLOGY — EMBEDDED — creator qxw · 2501060122
+
+> 本段定义 Q-CR 循环内强制执行的全谱系测试方法论。每轮循环必须覆盖以下全部测试类型，不可跳过。
+
+### 28.1 白盒测试 (White-Box Testing)
+
+#### 28.1.1 基本路径法 (Basic Path Testing)
+- **目标**: 每个 Service 方法至少 1 条正常路径 + 1 条异常路径
+- **执行**: 构造 mock 输入，验证方法返回值/异常类型/异常码
+- **证据**: 每条路径对应 1 个 `@Test` 方法，命名 `<method>_<scenario>`
+- **示例**: `register_success` + `register_duplicateUsername` 覆盖 UserServiceImpl.register 两条路径
+
+#### 28.1.2 逻辑覆盖法 (Logic Coverage)
+- **条件覆盖**: 每个 if/else/switch 分支至少 1 条测试
+- **判定覆盖**: 每个 Boolean 表达式真/假各 1 条
+- **目标模块**: Budget(收入分类拒绝)/Transaction(转账金额锁定)/RecurringBill(status 检查)
+- **检查点**: `if (category.getType() != 1)` → 测试 type=2 收入分类被拒绝
+
+#### 28.1.3 白盒静态测试 (Static Analysis)
+- **SQL 注入审计**: grep `\${` in XML mapper → 必须零匹配
+- **N+1 审计**: 检查 Service 循环内是否调用 `getById` → 必须用 `listByIds` 批量
+- **分层审计**: Controller 是否写业务逻辑 → grep 检查
+- **@Transactional 审计**: 写操作(insert/update/delete)必须加 @Transactional
+
+#### 28.1.4 插装测试 (Instrumentation Testing)
+- **Mock Verify**: 使用 `verify(mapper, times(N))` 确认关键方法调用次数
+- **批量验证**: `verify(mapper, times(1)).selectBatchXxx()` → 确保批量方法被调用
+- **禁止调用验证**: `verify(mapper, never()).selectPerAccount()` → 确保 N+1 已消除
+- **示例**: 转账接口验证 `verify(transactionMapper, times(2)).insert(any())`
+
+#### 28.1.5 变异测试 (Mutation Testing)
+- **输入变异**: 改变输入值→验证输出随之正确变化
+- **状态变异**: 改变对象状态→验证业务规则正确拒绝
+- **示例**: 转账记录金额从 200 改为 999→验证 3003 拒绝
+- **示例**: 账单 status 从 1 改为 0→验证 generate 拒绝 5004
+
+#### 28.1.6 循环语句测试 (Loop Testing)
+- **零次循环**: 空列表→不崩溃，返回空结果
+- **一次循环**: 单条记录→正确处理
+- **多次循环**: 多条记录→批量操作正确，无 N+1
+- **示例**: Account.balance: 0 账户/1 账户/10 账户
+
+### 28.2 黑盒测试 (Black-Box Testing)
+
+#### 28.2.1 等价类设计法 (Equivalence Class Partitioning)
+- **有效等价类**: 合法输入的代表值（如用户名 3-20 字符取 10 字符）
+- **无效等价类**: 非法输入（如用户名 <3 或 >20 字符）
+- **覆盖维度**: 用户名/密码/金额/类型/周期/币种
+- **每字段至少**: 1 有效等价类 + 2 无效等价类
+
+#### 28.2.2 边界值分析法 (Boundary Value Analysis)
+- **min-1 / min / max / max+1**: 每个长度约束字段测试 4 个边界
+- **DECIMAL(12,2) 边界**: 0.00 / 0.01 / 9999999999.99 / 10000000000.00
+- **日期边界**: 月份 1/12, 年份最小值/当前
+- **健壮边界值**: min-2 和 max+2 确保系统在超界输入时不崩溃
+
+#### 28.2.3 因果图与决策表 (Cause-Effect Graph & Decision Table)
+- **账户删除决策表**: (有交易 ∨ 有活跃账单) ∧ 账户存在 → 拒绝删除
+- **转账决策表**: (同账户 ∨ 余额不足 ∨ 越权) → 拒绝转账
+- **预算设置决策表**: 支出分类∧金额>0 → 成功; 收入分类 → 拒绝; 分类不存在 → 拒绝
+
+#### 28.2.4 正交实验设计法 (Orthogonal Array Testing)
+- **标准正交表 L8(2^5)** 用于多因素筛选测试
+- **5 因素**: accountId/categoryId/startTime/keyword/sortBy
+- **2 水平**: null(不限)/non-null(指定)
+- **8 实验**: 覆盖所有主效应，大幅减少全组合测试量
+
+### 28.3 集成测试 (Integration Testing)
+
+#### 28.3.1 跨模块数据链
+- **用户→JWT→拦截器链**: 注册→token→解析→userId+role 提取
+- **账户→交易→余额链**: 创建账户→记收支→余额=初始+收入-支出
+- **转账→统计链**: 转账生成双记录→月统计排除 transfer_id
+- **预算→消费→进度链**: 设置预算→消费→进度计算→超支标记
+- **周期→生成链**: 创建账单→一键生成→交易含账单名→到期日推进
+
+#### 28.3.2 组件通信验证
+- **userId 传递**: Interceptor→request.setAttribute→Controller→Service→Mapper
+- **DTO 完整性**: Request→Entity 字段零丢失
+- **错误码传播**: Service.throw→GlobalExceptionHandler→Result.error→axios→ElMessage
+- **JWT role 流**: token claim→parseRole→request attribute
+
+### 28.4 系统测试 (System Testing)
+
+#### 28.4.1 真实用户场景模拟 (User Journey Testing)
+- **完整旅程**: 注册→登录→创建2账户→记工资收入→记餐饮支出→记房租支出→设餐饮预算→设房租周期账单→查余额→查月度统计→查预算进度→生成周期交易→查流水→改密码
+- **年终结算**: 多账户×多交易 余额守恒验证(Σ初始+Σ收入-Σ支出=Σ当前余额)
+- **并发场景**: 快速连点注册(唯一索引兜底)/并发预算保存(DuplicateKeyException 兜底)
+
+#### 28.4.2 验收测试 (Acceptance Testing)
+- **148 项验收矩阵**: 每项 PASS/FAIL/N/A 机械判定
+- **阀门验证**: V1 文档一致性·V2 全局测试·V3 全局审查·V4 n-连通性
+
+### 28.5 性能测试 (Performance Testing)
+
+#### 28.5.1 N+1 检测
+- **批量查询验证**: verify(mapper, times(1)).selectBatchXxx()
+- **逐条查询禁止**: verify(mapper, never()).selectXxx() per account
+- **批量加载验证**: RecurringBill.list→1次 accountMapper.selectByIds + 1次 categoryMapper.selectByIds
+
+#### 28.5.2 构建性能
+- **mvn compile**: 零 ERROR · ≤3 WARN
+- **pnpm build**: <3s · vendor 拆分 echarts/element-plus
+- **测试执行**: <5s 全部 133 测试
+
+### 28.6 测试数据清理协议 (Test Data Cleanup)
+
+- **Mock 优先**: 所有单元测试使用 Mockito mock，不写入数据库
+- **集成测试**: 如涉及真实 DB，必须在 @AfterEach 中 DELETE 测试记录
+- **验证清理**: SELECT COUNT(*) FROM user WHERE username LIKE 'test%' → 0
+- **种子数据保护**: admin/zhangsan/lisi 为正常种子数据，不删除
+
+### 28.7 实战 Bug 模式库 (Bug Pattern Library · 从 Q-CR 实战中提炼)
+
+> 以下 Bug 模式是本系统 Q-CR 循环中发现并修复的真实问题。每类模式都是后续 Q-CR 运行必须优先检查的 Checklist。
+
+#### 模式 1: 缺失前置条件校验 (Missing Precondition Check)
+- **症状**: Service 方法直接执行业务操作，未校验关联实体状态
+- **案例**: `RecurringBillServiceImpl.generate()` — 校验了账单 status，但**未校验关联账户 status**
+- **PRD 依据**: P1-4 异常流程②: "一键生成时关联账户已禁用 → 拒绝生成并返回 5002"
+- **检测方法**: 审查每个涉及外键引用的写操作，确认是否校验了所有关联实体的状态
+- **修复**: 在业务操作前调用 `validateAccount()` 或等效的状态检查
+- **Q-CR 自动化检查**: grep 每个 `@Transactional` 方法 → 列出所有 `getXxxById` → 确认每个都做了 null+status 检查
+
+#### 模式 2: 类型语义混淆 (Type Semantic Confusion)
+- **症状**: 不同实体使用相同数值表示不同含义，代码中混用导致逻辑错误
+- **案例**: `BudgetServiceImpl.getProgress()` — `category.type=1` 是支出分类, `transaction.type=2` 是支出交易。代码传 `1` 给交易查询，实际过滤出的是**收入**而非支出
+- **PRD 影响**: P1-3 预算进度始终显示 spentAmount=0 (因为收入类型=1 的交易不会关联到支出分类)
+- **检测方法**: 
+  1. 审计所有跨实体的类型常量传递
+  2. 每个常量必须加注释标明对应的实体+字段
+  3. 单元测试验证实际数据而非仅 mock 返回值
+- **修复**: 定义独立常量 `TRANSACTION_TYPE_EXPENSE = 2` 并在调用时使用
+- **Q-CR 自动化检查**: grep `selectCategorySummary.*\btype\b` → 验证传入的 Integer 值是否对应该实体的正确语义
+
+#### 模式 3: 枚举值传递不一致 (Enum Value Propagation Inconsistency)
+- **症状**: 同一个概念在不同层使用不同表示 (如 status: 0/1 vs "active"/"inactive")
+- **检测方法**: 审查 Entity → DTO → Request → Response 链中所有状态字段的类型一致性
+- **Q-CR 验证**: 对比 DATABASE_DESIGN 的 TINYINT 字段与 Entity 的 Integer 字段，确认 DTO 使用相同类型
+
+#### 模式 4: 批量 vs 逐条查询 (N+1 Detection)
+- **症状**: Service 层在循环内调用 `getById`，产生 N+1 次数据库查询
+- **检测方法**: 
+  1. 审查所有 `for (X x : list)` 内是否有 mapper 调用
+  2. `verify(mapper, never()).selectXxx()` 在性能基线测试中使用
+  3. 确认批量方法 `selectByIds` / `selectXxxBatch` 存在且被调用
+- **已修复案例**: AccountServiceImpl.getBalance — 从逐账户查询改为 `selectAccountIncomeBatch` + `selectAccountExpenseBatch`
+
+#### 模式 5: 缺失输入边界校验 (Missing Input Boundary Validation)
+- **症状**: 方法接收外部输入但未校验大小/长度/格式上限
+- **案例**: `TransactionServiceImpl.importCsv()` — 校验了账户归属，但**未校验文件大小(≤5MB)**、**文件格式(.csv)**、**单次导入条数(≤1000)**
+- **PRD 依据**: P2-3 异常流程①: "文件格式非 CSV → 400; 文件大小超过 5MB → 400" + 业务规则①: "单次导入 ≤ 1000 条"
+- **检测方法**: 
+  1. 审计所有接收 MultipartFile 的方法 → 确认有 size 检查
+  2. 审计所有批量创建方法 → 确认有 maxRecords 上限
+  3. 审计所有接收外部文件路径的方法 → 确认有扩展名检查
+- **修复**: 在 importCsv 入口处添加三个校验: file.getSize() ≤ 5MB · filename.endsWith(".csv") · successCount ≤ 1000
+
+#### 模式 6: 并发安全漏洞 (Concurrency Vulnerability)
+- **症状**: 写操作未处理并发冲突
+- **案例**: `BudgetServiceImpl.save()` — INSERT 时可能触发 DuplicateKeyException，需 catch 后 selectOne 重查
+- **检测方法**: 对每个包含 `insert` + 唯一约束的方法，测试 `thenThrow(DuplicateKeyException)` 场景
+- **Q-CR 检查**: 所有含 `@Transactional` + `insert` 的方法需验证唯一约束冲突处理
+
+### 28.8 自动化测试执行协议 (Automated Test Execution Protocol)
+
+#### 28.8.1 每循环必执行
+```
+1. mvn -B clean compile     → 零 ERROR · ≤3 WARN (L1-L2) · 零 WARN (L3+)
+2. mvn -B test              → 全绿 · 零 skip
+3. pnpm install --frozen-lockfile && pnpm build → 成功 · 记录 chunk 大小
+4. grep -r "LATEST\|SNAPSHOT\|^\^" pom.xml package.json → 零匹配
+5. grep -r "TODO\|FIXME\|XXX" system/src/ → ≤0
+6. git status → clean (仅允许日志文件)
+```
+
+#### 28.8.2 后端可用时追加 (L3+)
+```
+7. curl /api/health → {"status":"UP"}
+8. curl POST /api/user/login → 200 + token
+9. curl GET /api/account (无token) → 401
+10. curl GET /api/account (有token) → 200 + 列表
+11. curl GET /api/statistics/monthly → 200 + 数据
+12. DELETE 所有测试记录 → SELECT COUNT(*)=0 验证
+```
+
+### 28.9 真实用户场景检查表 (Real User Scenario Checklist)
+
+每轮 Q-CR 至少模拟以下用户旅程:
+
+| # | 场景 | 验证点 | 预期 |
+|:--:|---|---|---|
+| 1 | 新用户注册→登录 | token 有效性·role 传递 | 200 + token |
+| 2 | 创建账户→记支出 | 余额=初始-支出 | DECIMAL(12,2) 精度 |
+| 3 | 设置预算→超额消费 | 超支标记=true | 进度>100% |
+| 4 | 创建周期账单→一键生成 | 交易含账单名·到期日推进 | transfer_id=NULL |
+| 5 | 转账→查看流水 | 两条记录·transferId 一致 | 转账标记 |
+| 6 | 导入CSV→查看结果 | 成功条数+失败条数 | 含格式说明 |
+| 7 | 修改密码→旧密码失效 | 旧密码登录→1002 | 新密码登录→200 |
+| 8 | 越权访问他人数据 | 不同 userId→拒绝 | 2003/3006 |
+| 9 | 空数据页面 | 不崩溃·零值展示 | code=200 |
+| 10 | 连点注册/并发预算 | 唯一索引兜底·DuplicateKeyException处理 | 1001/覆盖写入 |
+
+---
+
 **Creator: qxw · Creator-ID: 2501060122**
 
 **Q-CR Omega v12.2 --MAXIMUM STRICT — End of Skill Definition.**
 
 *"每一次绿灯，棘轮再拧紧一格；完美不是终点，而是永远收紧的阈值。"*
-*"Each green loop tightens the ratchet another notch; perfection is not a destination but an ever-tightening threshold — now with 28 Iron Laws, 148 embedded checks, all-format deep scanning, team meta-verification, and stricter convergence gates."*
+*"Each green loop tightens the ratchet another notch; perfection is not a destination but an ever-tightening threshold — now with 28 Iron Laws, 148 embedded checks, all-format deep scanning, team meta-verification, stricter convergence gates, and embedded testing methodology."*

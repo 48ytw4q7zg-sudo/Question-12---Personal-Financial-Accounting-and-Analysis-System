@@ -1,0 +1,16 @@
+{
+  "phase": "delivery",
+  "objective_distance": 1.0,
+  "review_iteration": 0,
+  "last_health": {},
+  "modifier_name": "qxw",
+  "modifier_id": "2501060122",
+  "consecutive_no_progress": 0,
+  "loop_counter": 0,
+  "consecutive_clean": 0,
+  "current_level": "L1",
+  "current_ratchet": 1.35,
+  "score_floor": 88.0,
+  "acceptance_min": 122,
+  "meta_verification_status": null
+}

@@ -1,0 +1,12 @@
+# Author: qxw · Author-ID: 2501060122
+failure_classes:
+  compile:      { strategy: "immediate_fix",    max_retries: 3, auto_escalate: false }
+  unit_test:    { strategy: "standard_fix",     max_retries: 3, auto_escalate: false }
+  integration:  { strategy: "deep_fix",         max_retries: 2, auto_escalate: true  }
+  semantic:     { strategy: "high_risk_fix",    max_retries: 2, auto_escalate: true  }
+  replay:       { strategy: "force_rollback",   max_retries: 2, auto_escalate: true  }
+  flaky:        { strategy: "retry_only",       max_retries: 3, auto_escalate: false }
+  architecture: { strategy: "blocked",          max_retries: 0, auto_escalate: true  }
+  resource:     { strategy: "cleanup_and_retry",max_retries: 3, auto_escalate: false }
+  consensus_fail: { strategy: "rebuild_env_retry", max_retries: 2, auto_escalate: true }
+  meta_verify_fail: { strategy: "deep_audit_retry", max_retries: 2, auto_escalate: true }

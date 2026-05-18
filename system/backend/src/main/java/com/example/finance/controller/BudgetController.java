@@ -4,6 +4,7 @@ import com.example.finance.common.Result;
 import com.example.finance.entity.dto.BudgetDTO;
 import com.example.finance.entity.dto.BudgetProgressDTO;
 import com.example.finance.entity.dto.BudgetRequest;
+import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.BudgetService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -30,7 +31,7 @@ public class BudgetController {
       @RequestParam(required = false) String year,
       @RequestParam(required = false) String month,
       HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     List<BudgetDTO> list = budgetService.list(userId, year, month);
     return Result.success(list);
   }
@@ -54,7 +55,7 @@ public class BudgetController {
       @RequestParam(required = false) String year,
       @RequestParam(required = false) String month,
       HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     List<BudgetProgressDTO> list = budgetService.getProgress(userId, year, month);
     return Result.success(list);
   }
@@ -67,7 +68,7 @@ public class BudgetController {
       @RequestParam(required = false) String year,
       @RequestParam(required = false) String month,
       HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     List<BudgetProgressDTO> list = budgetService.getAlert(userId, year, month);
     return Result.success(list);
   }

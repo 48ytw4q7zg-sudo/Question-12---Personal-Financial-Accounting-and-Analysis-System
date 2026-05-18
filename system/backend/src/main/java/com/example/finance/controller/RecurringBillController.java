@@ -4,6 +4,7 @@ import com.example.finance.common.Result;
 import com.example.finance.entity.dto.RecurringBillDTO;
 import com.example.finance.entity.dto.RecurringBillRequest;
 import com.example.finance.entity.dto.TransactionDTO;
+import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.RecurringBillService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -27,7 +28,7 @@ public class RecurringBillController {
    */
   @GetMapping
   public Result<List<RecurringBillDTO>> list(HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     List<RecurringBillDTO> list = recurringBillService.list(userId);
     return Result.success(list);
   }
@@ -60,7 +61,7 @@ public class RecurringBillController {
    */
   @DeleteMapping("/{id}")
   public Result<Void> deactivate(@PathVariable Long id, HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     recurringBillService.deactivate(userId, id);
     return Result.success(null, "周期性账单已停用");
   }
@@ -70,7 +71,7 @@ public class RecurringBillController {
    */
   @PostMapping("/{id}/generate")
   public Result<TransactionDTO> generate(@PathVariable Long id, HttpServletRequest request) {
-    Long userId = (Long) request.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(request);
     TransactionDTO transaction = recurringBillService.generate(userId, id);
     return Result.success(transaction, "交易记录已生成");
   }

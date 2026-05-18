@@ -139,9 +139,14 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   @Transactional
   public TransactionDTO generate(Long userId, Long billId) {
     RecurringBill bill = getBillById(userId, billId);
-    // 校验账单状态
     if (bill.getStatus() == STATUS_INACTIVE) {
       throw new BusinessException(5004, "周期性账单已停用");
+    }
+
+    // PRD P1-4 异常流程②: 一键生成时关联账户已禁用 → 拒绝生成
+    Account account = accountMapper.selectById(bill.getAccountId());
+    if (account == null || account.getStatus() != STATUS_ACTIVE) {
+      throw new BusinessException(5002, "关联账户已禁用不可生成");
     }
 
     // 创建交易记录
@@ -175,8 +180,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     dto.setCreateTime(transaction.getCreateTime());
     dto.setUpdateTime(transaction.getUpdateTime());
 
-    // 填充关联名称
-    Account account = accountMapper.selectById(bill.getAccountId());
+    // 填充关联名称（复用上方已验证的 account）
     if (account != null) {
       dto.setAccountName(account.getName());
     }
