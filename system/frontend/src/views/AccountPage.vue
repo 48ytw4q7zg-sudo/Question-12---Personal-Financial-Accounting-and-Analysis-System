@@ -1,3 +1,21 @@
+<!--
+  账户管理页面
+  路由：/account
+  对应 PRD 功能：P0 账户 CRUD（多账户管理：列表 + 增 + 改，软删除）+ 按账户汇总余额
+
+  功能说明：
+    - 账户列表表格（名称/类型/初始余额/币种/状态/创建时间/操作）
+    - 新增/编辑账户弹窗（el-dialog + el-form）
+    - 删除账户二次确认（ElMessageBox.confirm）
+    - 账户余额汇总卡片（按账户统计当前余额）
+
+  调用关系：
+    → 调用 api/account.js 的 getAccountList()（加载账户列表）
+    → 调用 api/account.js 的 createAccount()（新增账户）
+    → 调用 api/account.js 的 updateAccount()（编辑账户）
+    → 调用 api/account.js 的 deleteAccount()（删除账户）
+    → 调用 api/account.js 的 getAccountBalance()（加载余额汇总）
+-->
 <template>
   <div class="account-page">
     <div class="page-header">
@@ -7,9 +25,11 @@
       </el-button>
     </div>
 
+    <!-- 账户列表表格 -->
     <el-card shadow="hover">
       <el-table :data="accountList" v-loading="loading" stripe>
         <el-table-column prop="name" label="账户名称" min-width="120" />
+        <!-- 账户类型：数字映射为中文显示（1=现金, 2=银行卡, 3=支付宝, 4=微信） -->
         <el-table-column prop="type" label="账户类型" width="100">
           <template #default="{ row }">
             {{ accountTypeMap[row.type] || row.type }}
@@ -21,6 +41,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="currency" label="币种" width="80" />
+        <!-- 状态标签：1=启用(success绿色), 0=停用(info灰色) -->
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'info'">
@@ -33,6 +54,7 @@
             {{ formatTime(row.createTime) }}
           </template>
         </el-table-column>
+        <!-- 操作列：编辑 + 删除 -->
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openDialog(row)">编辑</el-button>
@@ -42,7 +64,7 @@
       </el-table>
     </el-card>
 
-    <!-- 余额汇总 -->
+    <!-- 余额汇总卡片：每个账户显示当前余额 -->
     <el-card shadow="hover" class="balance-card" v-if="balanceList.length > 0">
       <template #header>账户余额汇总</template>
       <el-row :gutter="16">
@@ -87,20 +109,23 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+// → 调用 api/account.js 的 5 个接口函数
 import { getAccountList, createAccount, updateAccount, deleteAccount, getAccountBalance } from '../api/account'
 
+// 账户类型数字 → 中文映射
 const accountTypeMap = { 1: '现金', 2: '银行卡', 3: '支付宝', 4: '微信' }
 
-const loading = ref(false)
-const submitting = ref(false)
-const dialogVisible = ref(false)
-const isEdit = ref(false)
-const editId = ref(null)
-const formRef = ref(null)
+const loading = ref(false)          // 列表 loading
+const submitting = ref(false)       // 表单提交 loading
+const dialogVisible = ref(false)    // 弹窗显隐
+const isEdit = ref(false)           // 是否编辑模式（true=编辑, false=新增）
+const editId = ref(null)            // 当前编辑的账户 ID
+const formRef = ref(null)           // 表单引用（用于校验）
 
-const accountList = ref([])
-const balanceList = ref([])
+const accountList = ref([])         // 账户列表数据
+const balanceList = ref([])         // 余额汇总数据
 
+// 新增/编辑表单数据
 const formData = reactive({
   name: '',
   type: null,
@@ -108,16 +133,22 @@ const formData = reactive({
   currency: 'CNY'
 })
 
+// 表单校验规则
 const formRules = {
   name: [{ required: true, message: '请输入账户名称', trigger: 'blur' }],
   type: [{ required: true, message: '请选择账户类型', trigger: 'change' }]
 }
 
+/** 格式化 ISO 时间字符串为可读格式 */
 function formatTime(time) {
   if (!time) return ''
   return time.replace('T', ' ').substring(0, 19)
 }
 
+/**
+ * 加载账户列表
+ * → 调用 api/account.js 的 getAccountList()
+ */
 async function loadAccounts() {
   loading.value = true
   try {
@@ -128,6 +159,10 @@ async function loadAccounts() {
   }
 }
 
+/**
+ * 加载账户余额汇总
+ * → 调用 api/account.js 的 getAccountBalance()
+ */
 async function loadBalance() {
   try {
     const data = await getAccountBalance()
@@ -137,15 +172,21 @@ async function loadBalance() {
   }
 }
 
+/**
+ * 打开新增/编辑弹窗
+ * @param {Object|null} row - 传入行数据为编辑模式，不传为新增模式
+ */
 function openDialog(row) {
   isEdit.value = !!row
   editId.value = row?.id || null
   if (row) {
+    // 编辑模式：回填表单数据
     formData.name = row.name
     formData.type = row.type
     formData.initialBalance = Number(row.initialBalance || 0)
     formData.currency = row.currency || 'CNY'
   } else {
+    // 新增模式：重置表单
     formData.name = ''
     formData.type = null
     formData.initialBalance = 0
@@ -154,6 +195,10 @@ function openDialog(row) {
   dialogVisible.value = true
 }
 
+/**
+ * 提交表单（新增或编辑）
+ * → 调用 api/account.js 的 createAccount() 或 updateAccount()
+ */
 async function handleSubmit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
@@ -161,13 +206,16 @@ async function handleSubmit() {
   submitting.value = true
   try {
     if (isEdit.value) {
+      // 编辑模式 → 调用 updateAccount(id, data)
       await updateAccount(editId.value, formData)
       ElMessage.success('更新成功')
     } else {
+      // 新增模式 → 调用 createAccount(data)
       await createAccount(formData)
       ElMessage.success('新增成功')
     }
     dialogVisible.value = false
+    // 操作成功后刷新列表和余额
     loadAccounts()
     loadBalance()
   } finally {
@@ -175,6 +223,10 @@ async function handleSubmit() {
   }
 }
 
+/**
+ * 删除账户（二次确认后执行）
+ * → 调用 api/account.js 的 deleteAccount(id)
+ */
 async function handleDelete(row) {
   await ElMessageBox.confirm('确定删除该账户吗？', '提示', { type: 'warning' }).catch(() => { return })
   await deleteAccount(row.id)
@@ -183,6 +235,7 @@ async function handleDelete(row) {
   loadBalance()
 }
 
+// 页面挂载时加载账户列表和余额汇总
 onMounted(() => {
   loadAccounts()
   loadBalance()

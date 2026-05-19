@@ -13,16 +13,40 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 汇率控制器（P2，硬编码参考汇率 · 可替换为外部 API）
+ * 汇率控制器（PRD P2 附加特色功能 · 硬编码参考汇率 · 可替换为外部 API）
+ *
+ * 职责：提供 6 种常用货币对 CNY 的参考汇率（硬编码，非实时）
+ * 路由前缀：/api/exchange-rate
+ * 无 Service/Mapper 依赖（独立实现，后续可接入 exchangerate-api.com 等实时源）
+ *
+ * 接口清单：
+ *   GET /api/exchange-rate — 获取参考汇率（6 种货币正向+反向汇率）
+ *
+ * 被前端调用：目前无独立页面（附加功能，可在 AccountPage 余额卡片中展示外币等值）
+ *
+ * 支持货币：USD / EUR / JPY / GBP / HKD / KRW
  */
 @RestController
 @RequestMapping("/api/exchange-rate")
 public class ExchangeRateController {
 
+  /** 日期格式化器：yyyy-MM-dd HH:mm:ss */
   private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
   /**
-   * 获取参考汇率（P2 硬编码占位实现 · 后续可接入 https://api.exchangerate-api.com 等实时源）
+   * 获取参考汇率接口（P2 硬编码占位实现）
+   *
+   * 返回结构：
+   *   source      — "static-reference" 表示静态参考值
+   *   base        — 基准货币 "CNY"
+   *   rates       — 1 CNY → X 外币（如 USD=0.1370）
+   *   ratesInverse — 1 外币 → X CNY（如 USD=7.3000）
+   *   count       — 支持货币数量（6）
+   *   updateTime  — 当前时间戳
+   *
+   * @return Result<Map<String, Object>> 汇率数据
+   *
+   * 后续优化方向：接入实时汇率 API，替换硬编码值
    */
   @GetMapping
   public Result<Map<String, Object>> getExchangeRates() {

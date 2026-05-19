@@ -1,3 +1,23 @@
+<!--
+  周期账单页面
+  路由：/recurring-bill
+  对应 PRD 功能：P1 周期性账单（周期性收支提醒）
+
+  功能说明：
+    - 周期账单列表表格（名称/账户/分类/金额/类型/周期/下次到期/状态/操作）
+    - 新增/编辑周期账单弹窗
+    - 停用操作（二次确认）
+    - 手动生成交易记录操作
+
+  调用关系：
+    → 调用 api/recurring-bill.js 的 getRecurringBillList()（加载列表）
+    → 调用 api/recurring-bill.js 的 createRecurringBill()（新增）
+    → 调用 api/recurring-bill.js 的 updateRecurringBill()（编辑）
+    → 调用 api/recurring-bill.js 的 deleteRecurringBill()（停用）
+    → 调用 api/recurring-bill.js 的 generateRecurringBill()（生成交易记录）
+    → 调用 api/account.js 的 getAccountList()（下拉选项）
+    → 调用 api/category.js 的 getCategoryList()（下拉选项）
+-->
 <template>
   <div class="recurring-bill-page">
     <div class="page-header">
@@ -7,11 +27,13 @@
       </el-button>
     </div>
 
+    <!-- 周期账单列表 -->
     <el-card shadow="hover">
       <el-table :data="billList" v-loading="loading" stripe>
         <el-table-column prop="name" label="名称" min-width="120" />
         <el-table-column prop="accountName" label="账户" width="100" />
         <el-table-column prop="categoryName" label="分类" width="100" />
+        <!-- 金额：收入+/支出- -->
         <el-table-column prop="amount" label="金额" width="110">
           <template #default="{ row }">
             <span :class="row.type === 1 ? 'amount-income' : 'amount-expense'">
@@ -26,6 +48,7 @@
             </el-tag>
           </template>
         </el-table-column>
+        <!-- 周期：monthly=每月, weekly=每周 -->
         <el-table-column prop="period" label="周期" width="100">
           <template #default="{ row }">
             {{ periodMap[row.period] || row.period }}
@@ -43,6 +66,7 @@
             </el-tag>
           </template>
         </el-table-column>
+        <!-- 操作列：编辑 / 停用 / 生成交易记录 -->
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openDialog(row)">编辑</el-button>
@@ -99,6 +123,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+// → 调用 api/recurring-bill.js 的 5 个接口函数
 import {
   getRecurringBillList,
   createRecurringBill,
@@ -106,9 +131,12 @@ import {
   deleteRecurringBill,
   generateRecurringBill
 } from '../api/recurring-bill'
+// → 调用 api/account.js 的 getAccountList()（下拉选项）
 import { getAccountList } from '../api/account'
+// → 调用 api/category.js 的 getCategoryList()（下拉选项）
 import { getCategoryList } from '../api/category'
 
+// 周期类型映射
 const periodMap = { monthly: '每月', weekly: '每周' }
 
 const loading = ref(false)
@@ -118,20 +146,22 @@ const isEdit = ref(false)
 const editId = ref(null)
 const formRef = ref(null)
 
-const billList = ref([])
-const accountList = ref([])
-const categoryList = ref([])
+const billList = ref([])         // 周期账单列表
+const accountList = ref([])      // 账户下拉选项
+const categoryList = ref([])     // 分类下拉选项
 
+// 新增/编辑表单数据
 const formData = reactive({
   name: '',
   accountId: null,
   categoryId: null,
   amount: null,
-  type: 2,
-  period: 'monthly',
+  type: 2,              // 默认支出
+  period: 'monthly',    // 默认每月
   nextDueDate: ''
 })
 
+// 表单校验规则（所有字段必填）
 const formRules = {
   name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
   accountId: [{ required: true, message: '请选择账户', trigger: 'change' }],
@@ -142,11 +172,16 @@ const formRules = {
   nextDueDate: [{ required: true, message: '请选择下次到期日期', trigger: 'change' }]
 }
 
+/** 格式化日期，只取前 10 位（YYYY-MM-DD） */
 function formatDate(date) {
   if (!date) return ''
   return date.substring(0, 10)
 }
 
+/**
+ * 加载周期账单列表
+ * → 调用 api/recurring-bill.js 的 getRecurringBillList()
+ */
 async function loadBills() {
   loading.value = true
   try {
@@ -157,6 +192,10 @@ async function loadBills() {
   }
 }
 
+/**
+ * 加载下拉选项（账户 + 分类， 并行请求）
+ * → 调用 api/account.js 的 getAccountList() + api/category.js 的 getCategoryList()
+ */
 async function loadOptions() {
   try {
     const [accounts, categories] = await Promise.all([getAccountList(), getCategoryList()])
@@ -167,10 +206,15 @@ async function loadOptions() {
   }
 }
 
+/**
+ * 打开新增/编辑弹窗
+ * @param {Object|null} row - 传入行数据为编辑模式
+ */
 function openDialog(row) {
   isEdit.value = !!row
   editId.value = row?.id || null
   if (row) {
+    // 编辑模式：回填表单
     formData.name = row.name
     formData.accountId = row.accountId
     formData.categoryId = row.categoryId
@@ -179,6 +223,7 @@ function openDialog(row) {
     formData.period = row.period
     formData.nextDueDate = row.nextDueDate?.substring(0, 10) || ''
   } else {
+    // 新增模式：重置表单
     formData.name = ''
     formData.accountId = null
     formData.categoryId = null
@@ -190,6 +235,10 @@ function openDialog(row) {
   dialogVisible.value = true
 }
 
+/**
+ * 提交表单（新增或编辑周期账单）
+ * → 调用 api/recurring-bill.js 的 createRecurringBill() 或 updateRecurringBill()
+ */
 async function handleSubmit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
@@ -210,6 +259,10 @@ async function handleSubmit() {
   }
 }
 
+/**
+ * 停用周期账单（二次确认后执行软删除）
+ * → 调用 api/recurring-bill.js 的 deleteRecurringBill(id)
+ */
 async function handleDeactivate(row) {
   await ElMessageBox.confirm('确定停用该周期账单吗？', '提示', { type: 'warning' }).catch(() => { return })
   await deleteRecurringBill(row.id)
@@ -217,6 +270,10 @@ async function handleDeactivate(row) {
   loadBills()
 }
 
+/**
+ * 手动生成该周期账单对应的交易记录（二次确认后执行）
+ * → 调用 api/recurring-bill.js 的 generateRecurringBill(id)
+ */
 async function handleGenerate(row) {
   await ElMessageBox.confirm('确定生成该周期账单的交易记录吗？', '提示', { type: 'info' }).catch(() => { return })
   await generateRecurringBill(row.id)
@@ -224,6 +281,7 @@ async function handleGenerate(row) {
   loadBills()
 }
 
+// 页面挂载时加载下拉选项和周期账单列表
 onMounted(() => {
   loadOptions()
   loadBills()

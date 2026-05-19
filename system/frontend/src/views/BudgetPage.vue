@@ -1,8 +1,25 @@
+<!--
+  预算管理页面
+  路由：/budget
+  对应 PRD 功能：P1 预算管理（月预算按分类设置 + 超支标记）
+
+  功能说明：
+    - 顶部月份选择器切换查看不同月份的预算
+    - 预算进度表格：分类 / 预算金额 / 已支出 / 进度条 / 状态
+    - 进度条颜色：绿色(<80%) / 橙色(80-100%) / 红色(>=100% 超支)
+    - 设置/编辑预算弹窗
+
+  调用关系：
+    → 调用 api/budget.js 的 getBudgetProgress()（加载预算执行进度）
+    → 调用 api/budget.js 的 saveBudget()（设置/更新预算）
+    → 调用 api/category.js 的 getCategoryList()（加载支出分类下拉选项）
+-->
 <template>
   <div class="budget-page">
     <div class="page-header">
       <h2>预算管理</h2>
       <div class="header-actions">
+        <!-- 月份选择器：切换月份后自动刷新预算进度 -->
         <el-date-picker
           v-model="selectedMonth"
           type="month"
@@ -16,6 +33,7 @@
       </div>
     </div>
 
+    <!-- 预算进度表格 -->
     <el-card shadow="hover">
       <el-table :data="budgetProgress" v-loading="loading" stripe>
         <el-table-column prop="categoryName" label="分类" min-width="120" />
@@ -29,6 +47,7 @@
             ¥ {{ Number(row.spentAmount || 0).toFixed(2) }}
           </template>
         </el-table-column>
+        <!-- 进度条：根据已支出/预算金额计算百分比，颜色随百分比变化 -->
         <el-table-column label="进度" min-width="200">
           <template #default="{ row }">
             <el-progress
@@ -38,6 +57,7 @@
             />
           </template>
         </el-table-column>
+        <!-- 状态标签：超支(红色) / 正常(绿色) -->
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag v-if="row.spentAmount > row.budgetAmount" type="danger" size="small">超支</el-tag>
@@ -56,6 +76,7 @@
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑预算' : '设置预算'" width="420px" destroy-on-close>
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="80px">
         <el-form-item label="分类" prop="categoryId">
+          <!-- 编辑时禁用分类选择（防止修改已有预算的分类） -->
           <el-select v-model="formData.categoryId" placeholder="请选择支出分类" style="width: 100%" :disabled="isEdit">
             <el-option
               v-for="cat in expenseCategories"
@@ -80,7 +101,9 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+// → 调用 api/budget.js 的 getBudgetProgress() 和 saveBudget()
 import { getBudgetProgress, saveBudget } from '../api/budget'
+// → 调用 api/category.js 的 getCategoryList()（加载支出分类选项）
 import { getCategoryList } from '../api/category'
 
 const loading = ref(false)
@@ -89,26 +112,39 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref(null)
 
+// 当前选中月份（默认当前月，格式 "YYYY-MM"）
 const selectedMonth = ref(new Date().toISOString().substring(0, 7))
-const budgetProgress = ref([])
-const expenseCategories = ref([])
+const budgetProgress = ref([])       // 预算进度列表
+const expenseCategories = ref([])    // 支出分类列表（下拉选项）
 
+// 新增/编辑表单数据
 const formData = reactive({
   categoryId: null,
   amount: null
 })
 
+// 表单校验规则
 const formRules = {
   categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }],
   amount: [{ required: true, message: '请输入预算金额', trigger: 'blur' }]
 }
 
+/**
+ * 计算预算进度百分比
+ * @returns {Number} 0-100 的整数
+ */
 function getProgress(row) {
   if (!row.budgetAmount || row.budgetAmount <= 0) return 0
   const pct = Math.round((row.spentAmount / row.budgetAmount) * 100)
-  return Math.min(pct, 100)
+  return Math.min(pct, 100)  // 上限 100%，超出部分仅在状态标签显示「超支」
 }
 
+/**
+ * 根据进度百分比返回进度条颜色
+ *   >=100% → 红色（超支）
+ *   >=80%  → 橙色（接近超支）
+ *   <80%   → 绿色（正常）
+ */
 function getProgressColor(row) {
   const pct = getProgress(row)
   if (pct >= 100) return '#f56c6c'
@@ -116,6 +152,10 @@ function getProgressColor(row) {
   return '#67c23a'
 }
 
+/**
+ * 加载预算进度数据
+ * → 调用 api/budget.js 的 getBudgetProgress({ year, month })
+ */
 async function loadData() {
   loading.value = true
   try {
@@ -127,6 +167,10 @@ async function loadData() {
   }
 }
 
+/**
+ * 加载支出分类列表（筛选 type=1 的支出分类）
+ * → 调用 api/category.js 的 getCategoryList()
+ */
 async function loadCategories() {
   try {
     const data = await getCategoryList()
@@ -136,6 +180,10 @@ async function loadCategories() {
   }
 }
 
+/**
+ * 打开设置/编辑弹窗
+ * @param {Object|null} row - 传入行数据为编辑模式，不传为新增
+ */
 function openDialog(row) {
   isEdit.value = !!row
   if (row) {
@@ -148,6 +196,10 @@ function openDialog(row) {
   dialogVisible.value = true
 }
 
+/**
+ * 提交预算设置/更新
+ * → 调用 api/budget.js 的 saveBudget({ categoryId, amount, month })
+ */
 async function handleSubmit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
@@ -167,6 +219,7 @@ async function handleSubmit() {
   }
 }
 
+// 页面挂载时加载分类选项和预算进度
 onMounted(() => {
   loadCategories()
   loadData()

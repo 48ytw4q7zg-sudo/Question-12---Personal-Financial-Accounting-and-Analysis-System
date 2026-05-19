@@ -25,22 +25,35 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 账户服务实现
+ * 账户服务实现（PRD P0-2 账户 CRUD + P0-5 账户余额汇总）
+ *
+ * 关键业务规则：
+ * - 删除前检查 transaction 和 recurring_bill 关联（拒绝级联删除）
+ * - 余额实时计算 = 初始余额 + 收入 - 支出（批量查询消除 N+1）
+ * - 软删除 status=0 后不可恢复
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AccountServiceImpl implements AccountService {
 
+  /** 账户状态常量：1=正常（活跃） */
   private static final int STATUS_ACTIVE = 1;
+  /** 账户状态常量：0=已删除（软删除，不可恢复） */
   private static final int STATUS_INACTIVE = 0;
 
+  /** → AccountMapper：账户 CRUD 数据访问 */
   private final AccountMapper accountMapper;
+  /** → TransactionMapper：删除时检查关联交易记录 + 余额批量查询 */
   private final TransactionMapper transactionMapper;
+  /** → RecurringBillMapper：删除时检查活跃周期性账单引用 */
   private final RecurringBillMapper recurringBillMapper;
 
   /**
-   * 查询用户所有账户（status=1）
+   * 查询用户所有活跃账户（status=1）
+   *
+   * @param userId 当前用户 ID（JWT 解码）
+   * @return 账户列表（按创建时间倒序）
    */
   @Override
   public List<AccountDTO> list(Long userId) {

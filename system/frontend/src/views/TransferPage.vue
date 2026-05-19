@@ -1,3 +1,16 @@
+<!--
+  转账页面
+  路由：/transfer
+  对应 PRD 功能：P1 转账（在两个账户间转移资金）
+
+  功能说明：
+    - 转账表单：选择转出账户、转入账户（互斥，不能选同一个）、输入金额、备注
+    - 提交后后端自动创建一对关联的收支记录（转出方支出 + 转入方收入）
+
+  调用关系：
+    → 调用 api/transaction.js 的 transfer()（转账接口）
+    → 调用 api/account.js 的 getAccountList()（加载账户下拉选项）
+-->
 <template>
   <div class="transfer-page">
     <h2>转账</h2>
@@ -5,6 +18,7 @@
     <el-card shadow="hover" class="transfer-card">
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="90px" style="max-width: 500px; margin: 0 auto;">
         <el-form-item label="转出账户" prop="fromAccountId">
+          <!-- 转出账户选择：已选的转入账户自动禁用，防止选同一个 -->
           <el-select v-model="formData.fromAccountId" placeholder="请选择转出账户" style="width: 100%">
             <el-option
               v-for="acc in accountList"
@@ -16,6 +30,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="转入账户" prop="toAccountId">
+          <!-- 转入账户选择：已选的转出账户自动禁用 -->
           <el-select v-model="formData.toAccountId" placeholder="请选择转入账户" style="width: 100%">
             <el-option
               v-for="acc in accountList"
@@ -43,26 +58,34 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+// → 调用 api/transaction.js 的 transfer()（转账接口）
 import { transfer } from '../api/transaction'
+// → 调用 api/account.js 的 getAccountList()（加载账户选项）
 import { getAccountList } from '../api/account'
 
-const submitting = ref(false)
-const formRef = ref(null)
-const accountList = ref([])
+const submitting = ref(false)       // 提交 loading
+const formRef = ref(null)           // 表单引用
+const accountList = ref([])         // 账户列表
 
+// 转账表单数据
 const formData = reactive({
-  fromAccountId: null,
-  toAccountId: null,
-  amount: null,
-  note: ''
+  fromAccountId: null,   // 转出账户 ID
+  toAccountId: null,     // 转入账户 ID
+  amount: null,          // 转账金额
+  note: ''               // 备注（可选）
 })
 
+// 表单校验规则
 const formRules = {
   fromAccountId: [{ required: true, message: '请选择转出账户', trigger: 'change' }],
   toAccountId: [{ required: true, message: '请选择转入账户', trigger: 'change' }],
   amount: [{ required: true, message: '请输入转账金额', trigger: 'blur' }]
 }
 
+/**
+ * 加载账户列表
+ * → 调用 api/account.js 的 getAccountList()
+ */
 async function loadAccounts() {
   try {
     const data = await getAccountList()
@@ -72,6 +95,11 @@ async function loadAccounts() {
   }
 }
 
+/**
+ * 提交转账
+ * → 调用 api/transaction.js 的 transfer({ fromAccountId, toAccountId, amount, note })
+ * 成功后重置表单
+ */
 async function handleSubmit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
@@ -80,6 +108,7 @@ async function handleSubmit() {
   try {
     await transfer(formData)
     ElMessage.success('转账成功')
+    // 重置表单
     formData.fromAccountId = null
     formData.toAccountId = null
     formData.amount = null
@@ -89,6 +118,7 @@ async function handleSubmit() {
   }
 }
 
+// 页面挂载时加载账户列表
 onMounted(() => {
   loadAccounts()
 })
