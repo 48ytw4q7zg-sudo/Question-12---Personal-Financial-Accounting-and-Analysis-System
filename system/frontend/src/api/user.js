@@ -13,7 +13,7 @@ import request from './request'
  * 用户登录
  * → 调用 POST /api/user/login
  * @param {Object} data - { username, password }
- * @returns {Object} - { token, userId, username }
+ * @returns {Object} - { token, userId, username, role }
  */
 export function login(data) {
   return request.post('/user/login', data)

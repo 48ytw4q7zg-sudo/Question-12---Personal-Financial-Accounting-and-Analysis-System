@@ -143,7 +143,7 @@ async function handleLogin() {
     // 登录成功：存储 JWT token 到 localStorage（→ api/request.js 请求拦截器读取此 token）
     localStorage.setItem('token', data.token)
     // → 调用 stores/user.js 的 setUser()：存储用户信息到 Pinia 状态
-    userStore.setUser({ userId: data.userId, username: data.username || loginForm.username })
+    userStore.setUser({ userId: data.userId, username: data.username || loginForm.username, role: data.role || 0 })
     ElMessage.success('登录成功')
     // 跳转：优先跳 redirect 参数指定的页面（路由守卫带过来的），否则跳首页
     const redirect = route.query.redirect || '/'

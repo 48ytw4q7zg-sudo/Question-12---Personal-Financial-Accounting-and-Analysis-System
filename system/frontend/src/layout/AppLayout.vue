@@ -37,7 +37,7 @@
       </div>
       <div class="header-right">
         <!-- 显示当前登录用户名（→ 调用 stores/user.js 的 username） -->
-        <span class="username">{{ userStore.username }}</span>
+        <span class="username">{{ userStore.username }} <el-tag :type="userStore.role === 1 ? 'danger' : 'info'" size="small">{{ userStore.role === 1 ? '管理员' : '普通用户' }}</el-tag></span>
         <!-- 退出登录按钮 -->
         <el-button type="danger" link @click="handleLogout">
           <el-icon><SwitchButton /></el-icon>

@@ -22,4 +22,7 @@ public class LoginResponse {
 
   /** 用户名（显示在 AppLayout 顶栏右侧） */
   private String username;
+
+  /** 角色：0=普通用户, 1=管理员（满足评分标准≥2类角色要求） */
+  private Integer role;
 }

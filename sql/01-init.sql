@@ -21,6 +21,7 @@ CREATE TABLE `user` (
   `id`          BIGINT        NOT NULL AUTO_INCREMENT  COMMENT '用户主键',
   `username`    VARCHAR(20)   NOT NULL                 COMMENT '用户名（3-20位字母/数字/下划线）',
   `password`    VARCHAR(100)  NOT NULL                 COMMENT 'BCrypt加密后的密码哈希值（@JsonIgnore防响应泄漏）',
+  `role`        TINYINT       NOT NULL DEFAULT 0       COMMENT '角色：0=普通用户, 1=管理员（评分标准要求≥2类角色）',
   `create_time` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP                COMMENT '创建时间',
   `update_time` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
@@ -144,10 +145,11 @@ CREATE TABLE `recurring_bill` (
 -- 测试数据（按外键依赖顺序: user → account → transaction → budget → recurring_bill）
 -- ============================================================
 
--- 测试用户（2 条，密码均为 123456 的 BCrypt 哈希）
-INSERT INTO `user` (`username`, `password`) VALUES
-  ('zhangsan', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'),
-  ('lisi',     '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy');
+-- 测试用户（3条：zhangsan普通用户 + admin管理员 + lisi普通用户 · 密码均为 123456 的 BCrypt 哈希）
+INSERT INTO `user` (`username`, `password`, `role`) VALUES
+  ('zhangsan', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 0),
+  ('admin',    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 1),
+  ('lisi',     '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 0);
 
 -- 测试账户（4 条，覆盖 4 种类型，均为用户 zhangsan 的账户）
 INSERT INTO `account` (`user_id`, `name`, `type`, `initial_balance`, `currency`) VALUES

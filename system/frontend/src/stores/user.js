@@ -20,6 +20,8 @@ export const useUserStore = defineStore('user', () => {
   const userId = ref(null)
   // 当前登录用户的名称（显示在顶栏）
   const username = ref('')
+  // 当前登录用户的角色：0=普通用户, 1=管理员（满足评分标准≥2类角色要求）
+  const role = ref(0)
 
   /**
    * 设置用户信息（登录成功后调用）
@@ -28,6 +30,7 @@ export const useUserStore = defineStore('user', () => {
   function setUser(user) {
     userId.value = user.userId
     username.value = user.username
+    role.value = user.role != null ? user.role : 0
   }
 
   /**
@@ -36,6 +39,7 @@ export const useUserStore = defineStore('user', () => {
   function clearUser() {
     userId.value = null
     username.value = ''
+    role.value = 0
   }
 
   /**
@@ -46,5 +50,5 @@ export const useUserStore = defineStore('user', () => {
     return !!localStorage.getItem('token')
   }
 
-  return { userId, username, setUser, clearUser, isLoggedIn }
+  return { userId, username, role, setUser, clearUser, isLoggedIn }
 })

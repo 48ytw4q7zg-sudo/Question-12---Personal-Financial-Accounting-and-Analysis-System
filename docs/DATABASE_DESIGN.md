@@ -22,6 +22,7 @@ erDiagram
         BIGINT id PK "用户主键"
         VARCHAR username "用户名"
         VARCHAR password "BCrypt哈希"
+        TINYINT role "0=普通用户 1=管理员"
         DATETIME create_time "创建时间"
         DATETIME update_time "更新时间"
     }

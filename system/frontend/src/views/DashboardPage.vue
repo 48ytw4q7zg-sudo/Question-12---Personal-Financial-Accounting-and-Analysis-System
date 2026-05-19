@@ -4,9 +4,11 @@
   对应 PRD 功能：
     - P0 按账户汇总余额 → 月度统计卡片（收入/支出/结余）
     - P1/P2 ECharts 图表 → 支出分类饼图 + 收支趋势折线图
+    - P2-2 预算预警 → 月度预算超支/接近阈值提示条
 
   功能说明：
     - 顶部 3 个统计卡片：本月收入、本月支出、月结余（正数绿色/负数红色）
+    - 预算预警条：超支分类红色警告 + 接近阈值分类黄色提示（P2-2）
     - 左侧饼图：本月支出分类分布
     - 右侧折线图：近 12 个月收支趋势
 
@@ -14,6 +16,7 @@
     → 调用 api/statistics.js 的 getMonthlySummary()（月度汇总数据 → 统计卡片）
     → 调用 api/statistics.js 的 getCategorySummary()（分类汇总数据 → 饼图）
     → 调用 api/statistics.js 的 getTrend()（趋势数据 → 折线图）
+    → 调用 api/budget.js 的 getBudgetAlert()（预算预警数据 → 警告条 · P2-2）
 -->
 <template>
   <div class="dashboard-page" v-loading="loading">
@@ -55,6 +58,19 @@
       </el-col>
     </el-row>
 
+    <!-- P2-2 预算预警条：超支分类红色警告 + 接近阈值分类黄色提示 -->
+    <div v-if="budgetAlerts.length > 0" class="budget-alert-section">
+      <el-alert
+        v-for="alert in budgetAlerts"
+        :key="alert.categoryId"
+        :title="formatAlertTitle(alert)"
+        :type="alert.overspent ? 'error' : 'warning'"
+        :closable="false"
+        show-icon
+        class="budget-alert-item"
+      />
+    </div>
+
     <!-- 图表区域：饼图 + 折线图 -->
     <el-row :gutter="20" class="chart-row">
       <!-- 支出分类分布饼图 -->
@@ -80,6 +96,11 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 // → 调用 api/statistics.js 的 3 个统计接口
 import { getMonthlySummary, getCategorySummary, getTrend } from '../api/statistics'
+// → 调用 api/budget.js 的 getBudgetAlert()（P2-2 预算预警）
+import { getBudgetAlert } from '../api/budget'
+
+/** 预算预警数据（P2-2）：{ categoryName, budgetAmount, spentAmount, percentage, overspent }[] */
+const budgetAlerts = ref([])
 
 const pieChartRef = ref(null)   // 饼图 DOM 引用
 const lineChartRef = ref(null)  // 折线图 DOM 引用
@@ -99,13 +120,46 @@ function formatAmount(val) {
   return Number(val || 0).toFixed(2)
 }
 
-/** 获取当前年月（用于 API 查询参数） */
+/**
+ * 获取当前年月（用于 API 查询参数中提取年份）
+ */
 function getCurrentYearMonth() {
   const now = new Date()
   return {
     year: now.getFullYear(),
     month: now.getMonth() + 1
   }
+}
+
+/**
+ * 加载预算预警数据（P2-2）
+ * → 调用 api/budget.js 的 getBudgetAlert({ year, month })
+ * 返回超支(overspent=true)和接近阈值(percentage≥80%)的预算项
+ * 无预警时 budgetAlerts 保持空数组，模板中 v-if 隐藏预警区域
+ */
+async function loadBudgetAlerts() {
+  const { year, month } = getCurrentYearMonth()
+  try {
+    const data = await getBudgetAlert({ year, month })
+    if (data && data.length > 0) {
+      // 只展示有实际已用金额的预警项（percentage > 0 且已接近阈值）
+      budgetAlerts.value = data.filter(a => a.percentage > 0)
+    }
+  } catch {
+    budgetAlerts.value = []
+  }
+}
+
+/**
+ * 格式化预警消息（P2-2）
+ * @param {Object} alert - { categoryName, budgetAmount, spentAmount, percentage, overspent }
+ * @returns {String} 预警标题文本
+ */
+function formatAlertTitle(alert) {
+  if (alert.overspent) {
+    return `${alert.categoryName}已超支：预算 ¥${Number(alert.budgetAmount).toFixed(2)}，已花 ¥${Number(alert.spentAmount).toFixed(2)}（超额 ¥${(Number(alert.spentAmount) - Number(alert.budgetAmount)).toFixed(2)}）`
+  }
+  return `${alert.categoryName}接近预算上限：已用 ${Number(alert.percentage).toFixed(0)}%（¥${Number(alert.spentAmount).toFixed(2)} / ¥${Number(alert.budgetAmount).toFixed(2)}）`
 }
 
 /**
@@ -191,7 +245,7 @@ function handleResize() {
 
 // 页面挂载时并行加载所有数据，加载完成后关闭 loading
 onMounted(async () => {
-  await Promise.all([loadMonthlySummary(), loadCategoryChart(), loadTrendChart()])
+  await Promise.all([loadMonthlySummary(), loadBudgetAlerts(), loadCategoryChart(), loadTrendChart()])
   loading.value = false
   window.addEventListener('resize', handleResize)
 })
@@ -216,6 +270,14 @@ onUnmounted(() => {
 
 .summary-cards .el-col {
   margin-bottom: 10px;
+}
+
+/* P2-2 预算预警区域 */
+.budget-alert-section {
+  margin-bottom: 20px;
+}
+.budget-alert-item {
+  margin-bottom: 8px;
 }
 
 .card-content {

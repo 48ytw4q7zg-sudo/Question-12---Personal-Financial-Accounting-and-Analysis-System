@@ -1,17 +1,19 @@
 <!--
   统计分析页面
   路由：/analytics
-  对应 PRD 功能：P1/P2 ECharts 图表（收支趋势图 + 分类饼图 + 月度对比）
+  对应 PRD 功能：P2-1 ECharts 多图联动 + drill-down
 
   功能说明：
     - 顶部年份/月份选择器
     - 左侧柱状图：月度收支对比（选定年份的 12 个月收入 vs 支出柱状图）
     - 右侧饼图：支出分类分布（选定月份的支出分类占比）
     - 底部折线图：收支趋势（选定年份的收入/支出趋势曲线）
+    - P2-1 drill-down：点击图表元素跳转到 TransactionListPage 带筛选参数
 
   调用关系：
     → 调用 api/statistics.js 的 getTrend()（月度趋势数据 → 柱状图 + 折线图）
     → 调用 api/statistics.js 的 getCategorySummary()（分类汇总数据 → 饼图）
+    → 点击柱状图月份/饼图分类/趋势图月份 → router.push('/transaction?...')（drill-down）
 -->
 <template>
   <div class="analytics-page" v-loading="loading">
@@ -69,9 +71,13 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 // → 调用 api/statistics.js 的 getTrend() 和 getCategorySummary()
 import { getTrend, getCategorySummary } from '../api/statistics'
+
+// Vue Router 实例（用于 P2-1 drill-down 跳转到 TransactionListPage）
+const router = useRouter()
 
 // 3 个图表的 DOM 引用
 const barChartRef = ref(null)
@@ -89,8 +95,27 @@ const selectedYear = ref(String(new Date().getFullYear()))
 const selectedMonth = ref(new Date().toISOString().substring(0, 7))
 
 /**
+ * P2-1 drill-down 处理：点击柱状图某月 → 跳转 TransactionListPage 带时间筛选
+ * @param {Object} params - ECharts click event params
+ */
+function handleBarClick(params) {
+  if (params.componentType === 'series') {
+    // 从月份字符串(如 "2026-05月")提取 YYYY-MM
+    const monthStr = params.name.replace('月', '')
+    const [year, month] = monthStr.split('-')
+    const startTime = `${year}-${month}-01 00:00:00`
+    // 计算月末（简单处理：下月1号前一天）
+    const endDate = new Date(Number(year), Number(month), 0)
+    const endTime = `${year}-${month}-${String(endDate.getDate()).padStart(2, '0')} 23:59:59`
+    // drill-down 跳转到交易列表页，带时间筛选参数
+    router.push({ path: '/transaction', query: { startTime, endTime } })
+  }
+}
+
+/**
  * 加载月度收支对比柱状图
  * → 调用 api/statistics.js 的 getTrend({ year })
+ * → P2-1: 绑定 click 事件支持 drill-down
  */
 async function loadBarChart() {
   try {
@@ -110,14 +135,37 @@ async function loadBarChart() {
         { name: '支出', type: 'bar', data: data.map(item => item.totalExpense), itemStyle: { color: '#f56c6c' } }
       ]
     })
+    // P2-1 drill-down: 点击柱状图某月 → 跳转交易列表带时间筛选
+    barChart.off('click')
+    barChart.on('click', handleBarClick)
   } catch {
     // 静默处理
   }
 }
 
 /**
+ * P2-1 drill-down 处理：点击饼图某分类 → 跳转 TransactionListPage 带分类筛选
+ * @param {Object} params - ECharts click event params
+ */
+function handlePieClick(params) {
+  if (params.componentType === 'series') {
+    // 从饼图数据中获取 categoryId（需要在 series data 中保留）
+    const categoryId = params.data?.categoryId
+    if (categoryId) {
+      // drill-down 跳转到交易列表页，带分类筛选参数
+      const [year, month] = selectedMonth.value.split('-')
+      const startTime = `${year}-${month}-01 00:00:00`
+      const endDate = new Date(Number(year), Number(month), 0)
+      const endTime = `${year}-${month}-${String(endDate.getDate()).padStart(2, '0')} 23:59:59`
+      router.push({ path: '/transaction', query: { categoryId, startTime, endTime } })
+    }
+  }
+}
+
+/**
  * 加载支出分类分布饼图
  * → 调用 api/statistics.js 的 getCategorySummary({ year, month })
+ * → P2-1: 绑定 click 事件支持 drill-down（点击分类 → 跳转交易列表）
  */
 async function loadCategoryChart() {
   try {
@@ -133,9 +181,13 @@ async function loadCategoryChart() {
       series: [{
         type: 'pie',
         radius: '60%',
-        data: data.map(item => ({ name: item.categoryName, value: item.totalAmount }))
+        // P2-1: data 中保留 categoryId 用于 drill-down 跳转
+        data: data.map(item => ({ name: item.categoryName, value: item.totalAmount, categoryId: item.categoryId }))
       }]
     })
+    // P2-1 drill-down: 点击饼图某分类 → 跳转交易列表带分类筛选
+    pieChart.off('click')
+    pieChart.on('click', handlePieClick)
   } catch {
     // 静默处理
   }
@@ -144,6 +196,7 @@ async function loadCategoryChart() {
 /**
  * 加载收支趋势折线图
  * → 调用 api/statistics.js 的 getTrend({ year })
+ * → P2-1: 绑定 click 事件支持 drill-down（点击月份 → 跳转交易列表）
  */
 async function loadTrendChart() {
   try {
@@ -162,6 +215,9 @@ async function loadTrendChart() {
         { name: '支出', type: 'line', data: data.map(item => item.totalExpense), smooth: true, itemStyle: { color: '#f56c6c' } }
       ]
     })
+    // P2-1 drill-down: 点击趋势图某月 → 跳转交易列表带时间筛选
+    trendChart.off('click')
+    trendChart.on('click', handleBarClick)
   } catch {
     // 静默处理
   }

@@ -33,6 +33,24 @@ import java.util.UUID;
 
 /**
  * 交易记录服务实现
+ *
+ * <p>对应 PRD 功能:</p>
+ * <ul>
+ *   <li>P0-4 收支记录: 记一笔(create) + 修改(update) + 分页列表(list)</li>
+ *   <li>P1-1 多条件筛选: list() 支持时间/账户/分类/关键词组合筛选</li>
+ *   <li>P1-5 转账: transfer() 生成一出一进两条关联记录, @Transactional 保证原子性</li>
+ *   <li>P2-3 CSV导入: importCsv() 解析银行CSV批量导入, 上限5MB/1000条</li>
+ * </ul>
+ *
+ * <p>关键业务规则:</p>
+ * <ul>
+ *   <li>转账记录(transferId非空)禁止修改金额, 仅允许修改备注 (PRD P0-4 异常流程②)</li>
+ *   <li>转账使用 @Transactional 包裹余额检查+两条INSERT, 利用InnoDB REPEATABLE READ防并发透支</li>
+ *   <li>CSV导入使用 @Transactional 包裹批量插入, 单行解析失败不影响已提交行</li>
+ *   <li>所有操作强制校验 user_id 归属, 确保数据隔离</li>
+ * </ul>
+ *
+ * <p>调用方: TransactionController (controller/TransactionController.java)</p>
  */
 @Slf4j
 @Service
@@ -50,7 +68,22 @@ public class TransactionServiceImpl implements TransactionService {
   private final CategoryMapper categoryMapper;
 
   /**
-   * 查询交易记录（分页 + 筛选）
+   * 查询交易记录（分页 + 多条件筛选）
+   *
+   * <p>对应 PRD P0-4(分页列表) + P1-1(多条件筛选)。</p>
+   * <p>使用 MyBatis XML 动态 SQL 拼接条件, RowBounds 物理分页。</p>
+   * <p>筛选条件: accountId / categoryId / startTime / endTime / keyword(模糊匹配备注) / sortBy。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param accountId 账户ID筛选(空=不过滤)
+   * @param categoryId 分类ID筛选(空=不过滤)
+   * @param startTime 起始时间(yyyy-MM-dd HH:mm:ss, 空=不过滤)
+   * @param endTime 结束时间(yyyy-MM-dd HH:mm:ss, 空=不过滤)
+   * @param keyword 关键词(模糊匹配备注, 空=不过滤)
+   * @param sortBy 排序字段(白名单: id/time/create_time, 默认time)
+   * @param pageNum 页码(从1开始)
+   * @param pageSize 每页条数(默认10)
+   * @return 分页结果(含total和records)
    */
   @Override
   public IPage<TransactionDTO> list(Long userId, Long accountId, Long categoryId,
@@ -71,7 +104,15 @@ public class TransactionServiceImpl implements TransactionService {
   }
 
   /**
-   * 创建交易记录
+   * 创建交易记录（记一笔）
+   *
+   * <p>对应 PRD P0-4 主流程: 用户填写金额/类型/分类/账户/时间/备注, 系统创建收支记录。</p>
+   * <p>前置校验: 账户归属当前用户且status=1(活跃), 分类存在。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param request 交易请求参数(含accountId/categoryId/type/amount/note/time)
+   * @return 创建后的交易记录DTO(含关联的账户名/分类名)
+   * @throws BusinessException 3002=账户不存在或已禁用 / 3002=分类不存在
    */
   @Override
   public TransactionDTO create(Long userId, TransactionRequest request) {
@@ -96,7 +137,17 @@ public class TransactionServiceImpl implements TransactionService {
   }
 
   /**
-   * 更新交易记录（转账记录仅允许修改备注）
+   * 更新交易记录
+   *
+   * <p>对应 PRD P0-4 修改操作。</p>
+   * <p>关键约束: 转账记录(transferId非空)禁止修改金额, 仅允许修改备注 (PRD P0-4 异常流程②)。</p>
+   * <p>普通交易记录允许更新全部字段(accountId/categoryId/type/amount/note/time)。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param transactionId 交易记录ID
+   * @param request 更新请求参数
+   * @return 更新后的交易记录DTO
+   * @throws BusinessException 3003=转账记录金额不可修改 / 3006=收支记录不存在
    */
   @Override
   public TransactionDTO update(Long userId, Long transactionId, TransactionRequest request) {
@@ -132,7 +183,22 @@ public class TransactionServiceImpl implements TransactionService {
   }
 
   /**
-   * 转账（@Transactional 保证原子性）
+   * 转账（在两个账户间生成一出一进两条关联记录）
+   *
+   * <p>对应 PRD P1-5 转账功能。</p>
+   * <p>业务流程:</p>
+   * <ol>
+   *   <li>校验转出/转入账户归属且status=1</li>
+   *   <li>校验转出账户 ≠ 转入账户</li>
+   *   <li>在 @Transactional 事务内: 检查转出账户余额充足 → 生成UUID作为transferId → INSERT转出(支出) → INSERT转入(收入)</li>
+   * </ol>
+   * <p>并发安全: 利用InnoDB REPEATABLE READ隔离级别, 事务内SELECT余额和INSERT共享同一快照, 防并发透支。</p>
+   * <p>教学简化: 不做后端幂等, 前端通过按钮loading状态防连点。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param request 转账请求参数(含fromAccountId/toAccountId/amount/note)
+   * @return 转账结果DTO(含transferId和两条关联记录)
+   * @throws BusinessException 3004=转出转入账户不可相同 / 3005=余额不足 / 3002=账户不存在或已禁用
    */
   @Override
   @Transactional
@@ -205,7 +271,18 @@ public class TransactionServiceImpl implements TransactionService {
   private static final int CSV_MAX_RECORDS = 1000;
 
   /**
-   * 导入 CSV（@Transactional 保证批量插入原子性）
+   * 批量导入 CSV 文件（银行流水导入）
+   *
+   * <p>对应 PRD P2-3 导入银行CSV。</p>
+   * <p>CSV格式: 日期(yyyy-MM-dd HH:mm:ss), 分类ID, 类型(1=收入/2=支出), 金额, 备注。</p>
+   * <p>限制: 文件≤5MB, 单次≤1000条, 仅支持UTF-8编码的.csv文件。</p>
+   * <p>容错: 单行解析失败跳过(failCount++), 不影响其他行; 全部在 @Transactional 事务内执行。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param file 上传的CSV文件
+   * @param accountId 导入目标账户ID
+   * @return 导入结果摘要("导入完成: 成功N条, 失败M条")
+   * @throws BusinessException 3001=文件大小超限 / 格式错误 / 单次导入超限
    */
   @Override
   @Transactional

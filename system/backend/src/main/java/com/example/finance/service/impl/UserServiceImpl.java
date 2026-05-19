@@ -61,7 +61,7 @@ public class UserServiceImpl implements UserService {
     userMapper.insert(user);
 
     String token = JwtUtils.generateToken(user.getId(), user.getRole());
-    return new LoginResponse(token, user.getId(), user.getUsername());
+    return new LoginResponse(token, user.getId(), user.getUsername(), user.getRole());
   }
 
   /**
@@ -84,7 +84,7 @@ public class UserServiceImpl implements UserService {
     }
 
     String token = JwtUtils.generateToken(user.getId(), user.getRole());
-    return new LoginResponse(token, user.getId(), user.getUsername());
+    return new LoginResponse(token, user.getId(), user.getUsername(), user.getRole());
   }
 
   /**

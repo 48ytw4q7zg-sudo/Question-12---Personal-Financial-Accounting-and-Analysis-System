@@ -2,12 +2,13 @@
   账户管理页面
   路由：/account
   对应 PRD 功能：P0 账户 CRUD（多账户管理：列表 + 增 + 改，软删除）+ 按账户汇总余额
+    + P2-4 多币种支持（余额卡片含 CNY 等值换算）
 
   功能说明：
     - 账户列表表格（名称/类型/初始余额/币种/状态/创建时间/操作）
     - 新增/编辑账户弹窗（el-dialog + el-form）
     - 删除账户二次确认（ElMessageBox.confirm）
-    - 账户余额汇总卡片（按账户统计当前余额）
+    - 账户余额汇总卡片（按账户统计当前余额 + 多币种CNY等值换算 · P2-4）
 
   调用关系：
     → 调用 api/account.js 的 getAccountList()（加载账户列表）
@@ -15,6 +16,7 @@
     → 调用 api/account.js 的 updateAccount()（编辑账户）
     → 调用 api/account.js 的 deleteAccount()（删除账户）
     → 调用 api/account.js 的 getAccountBalance()（加载余额汇总）
+    → 调用 request.js 的 axios 实例（GET /api/exchange-rate · P2-4 汇率换算）
 -->
 <template>
   <div class="account-page">
@@ -64,7 +66,7 @@
       </el-table>
     </el-card>
 
-    <!-- 余额汇总卡片：每个账户显示当前余额 -->
+    <!-- 余额汇总卡片：每个账户显示当前余额 + 非CNY币种显示CNY等值换算（P2-4） -->
     <el-card shadow="hover" class="balance-card" v-if="balanceList.length > 0">
       <template #header>账户余额汇总</template>
       <el-row :gutter="16">
@@ -72,6 +74,10 @@
           <div class="balance-item">
             <div class="balance-name">{{ item.accountName }}</div>
             <div class="balance-amount">¥ {{ Number(item.currentBalance || 0).toFixed(2) }}</div>
+            <!-- P2-4: 非CNY币种展示CNY等值换算 -->
+            <div v-if="accountCurrency(item.accountId) !== 'CNY'" class="balance-cny-equivalent">
+              折合 ≈ ¥ {{ formatCnyEquivalent(item) }}
+            </div>
           </div>
         </el-col>
       </el-row>
@@ -111,6 +117,11 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 // → 调用 api/account.js 的 5 个接口函数
 import { getAccountList, createAccount, updateAccount, deleteAccount, getAccountBalance } from '../api/account'
+// → P2-4 多币种：调用 axios 实例获取汇率数据（GET /api/exchange-rate）
+import request from '../api/request'
+
+/** P2-4: 汇率数据缓存（1外币→CNY），例 { USD: 7.3, EUR: 7.94, ... } */
+const exchangeRates = ref({})
 
 // 账户类型数字 → 中文映射
 const accountTypeMap = { 1: '现金', 2: '银行卡', 3: '支付宝', 4: '微信' }
@@ -143,6 +154,45 @@ const formRules = {
 function formatTime(time) {
   if (!time) return ''
   return time.replace('T', ' ').substring(0, 19)
+}
+
+/**
+ * P2-4: 根据 accountId 查找账户的币种
+ * @param {Number} accountId - 账户 ID
+ * @returns {String} 币种代码（如 CNY/USD/EUR）
+ */
+function accountCurrency(accountId) {
+  const acct = accountList.value.find(a => a.id === accountId)
+  return acct ? acct.currency : 'CNY'
+}
+
+/**
+ * P2-4: 将指定账户的余额换算为 CNY 等值（非 CNY 币种用硬编码汇率换算）
+ * @param {Object} balanceItem - 余额汇总项 { accountId, currentBalance }
+ * @returns {String} 格式化后的 CNY 等值金额
+ */
+function formatCnyEquivalent(balanceItem) {
+  const currency = accountCurrency(balanceItem.accountId)
+  if (currency === 'CNY') return Number(balanceItem.currentBalance || 0).toFixed(2)
+  const rate = exchangeRates.value[currency]
+  if (!rate) return 'N/A'
+  return (Number(balanceItem.currentBalance) * rate).toFixed(2)
+}
+
+/**
+ * P2-4: 加载汇率数据（GET /api/exchange-rate）
+ * 返回 { ratesInverse: { USD: "7.3000", ... } }
+ */
+async function loadExchangeRates() {
+  try {
+    const data = await request.get('/exchange-rate')
+    if (data && data.ratesInverse) {
+      // ratesInverse 是 1外币→CNY 的汇率（如 USD: 7.3 表示 1美元=7.3人民币）
+      exchangeRates.value = data.ratesInverse
+    }
+  } catch {
+    // 加载汇率失败时 exchangeRates 保持空，换算显示 N/A
+  }
 }
 
 /**
@@ -235,10 +285,11 @@ async function handleDelete(row) {
   loadBalance()
 }
 
-// 页面挂载时加载账户列表和余额汇总
+// 页面挂载时加载账户列表和余额汇总 + 汇率（P2-4）
 onMounted(() => {
   loadAccounts()
   loadBalance()
+  loadExchangeRates()
 })
 </script>
 

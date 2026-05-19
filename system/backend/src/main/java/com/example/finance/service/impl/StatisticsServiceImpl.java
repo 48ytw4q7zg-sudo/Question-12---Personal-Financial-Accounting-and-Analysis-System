@@ -13,6 +13,20 @@ import java.util.List;
 
 /**
  * 统计服务实现
+ *
+ * <p>对应 PRD 功能:</p>
+ * <ul>
+ *   <li>P0-5 按账户汇总余额(由AccountServiceImpl实现, 本类不涉及)</li>
+ *   <li>P0-6 分类浏览页: getCategorySummary() 各分类本月消费金额</li>
+ *   <li>P1-2 月度/年度汇总: getMonthlySummary() / getYearlySummary()</li>
+ *   <li>P1-6 ECharts基础图表: getCategorySummary() 饼图数据源</li>
+ *   <li>P2-1 多图联动: getTrend() 12个月收支趋势折线图数据源</li>
+ * </ul>
+ *
+ * <p>实现说明: 本类为薄Service层, 所有统计查询委托TransactionMapper的XML SQL执行聚合计算。
+ * 无数据时返回零值(收入=0/支出=0/结余=0), 不返回null。</p>
+ *
+ * <p>调用方: StatisticsController (controller/StatisticsController.java)</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -22,6 +36,15 @@ public class StatisticsServiceImpl implements StatisticsService {
 
   /**
    * 月度收支汇总
+   *
+   * <p>对应 PRD P1-2 GET /api/statistics/monthly。</p>
+   * <p>统计指定月份的收入总额/支出总额/结余(收入-支出)。</p>
+   * <p>无数据时返回零值, 不返回null。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param year 年份(如2026)
+   * @param month 月份(1-12)
+   * @return 月度汇总DTO(含totalIncome/totalExpense/balance)
    */
   @Override
   public MonthlySummaryDTO getMonthlySummary(Long userId, int year, int month) {
@@ -39,6 +62,13 @@ public class StatisticsServiceImpl implements StatisticsService {
 
   /**
    * 年度收支汇总
+   *
+   * <p>对应 PRD P1-2 GET /api/statistics/yearly。</p>
+   * <p>统计指定年份的收入总额/支出总额/结余。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param year 年份(如2026)
+   * @return 年度汇总DTO
    */
   @Override
   public MonthlySummaryDTO getYearlySummary(Long userId, int year) {
@@ -54,7 +84,16 @@ public class StatisticsServiceImpl implements StatisticsService {
   }
 
   /**
-   * 分类汇总（type 可选，为空时返回全部）
+   * 按分类汇总收支（饼图数据源 + 分类页本月消费金额）
+   *
+   * <p>对应 PRD P1-6(ECharts饼图) + P0-6(分类浏览页本月消费)。</p>
+   * <p>type参数: 1=支出汇总, 2=收入汇总, null=全部。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param year 年份
+   * @param month 月份(1-12)
+   * @param type 交易类型(1=支出/2=收入/null=全部)
+   * @return 各分类汇总列表(含categoryId/categoryName/totalAmount/transactionCount)
    */
   @Override
   public List<CategorySummaryDTO> getCategorySummary(Long userId, int year, int month, Integer type) {
@@ -62,7 +101,15 @@ public class StatisticsServiceImpl implements StatisticsService {
   }
 
   /**
-   * 月度趋势
+   * 月度收支趋势（12个月折线图数据源）
+   *
+   * <p>对应 PRD P2-1 GET /api/statistics/trend。</p>
+   * <p>返回指定年份12个月的收入/支出数据, 用于ECharts折线图。</p>
+   * <p>无数据月份返回totalIncome=0/totalExpense=0。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param year 年份(如2026)
+   * @return 12个月趋势数据列表(含month/totalIncome/totalExpense)
    */
   @Override
   public List<MonthlyTrendDTO> getTrend(Long userId, int year) {

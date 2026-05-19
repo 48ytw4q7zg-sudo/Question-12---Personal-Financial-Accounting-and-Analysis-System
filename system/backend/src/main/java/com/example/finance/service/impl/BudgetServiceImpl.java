@@ -28,6 +28,21 @@ import java.util.stream.Collectors;
 
 /**
  * 预算服务实现
+ *
+ * <p>对应 PRD 功能: P1-3 预算管理(月预算按分类设置 + 超支标记)。</p>
+ *
+ * <p>关键业务规则:</p>
+ * <ul>
+ *   <li>预算仅适用于支出分类(category.type=1), 收入分类不可设置预算 (PRD P1-3 异常流程②)</li>
+ *   <li>同一用户+同一分类+同一月份仅一条预算, 重复保存时覆盖写入(先查后改, 并发时DuplicateKeyException兜底)</li>
+ *   <li>预算进度 = 本月该分类实际支出 / 预算金额 × 100%, 超支标记(overspent=true)当已用>预算</li>
+ *   <li>getProgress() 使用批量查询消除N+1: 先查全部预算, 再一次性查各分类支出汇总, 最后内存聚合</li>
+ *   <li>预警(getAlert)仅返回超支项(overspent=true), 由前端BudgetPage展示红色警告</li>
+ * </ul>
+ *
+ * <p>并发安全: save() 使用 @Transactional + DuplicateKeyException 捕获并发插入冲突, 回退为更新。</p>
+ *
+ * <p>调用方: BudgetController (controller/BudgetController.java)</p>
  */
 @Slf4j
 @Service
@@ -44,7 +59,15 @@ public class BudgetServiceImpl implements BudgetService {
   private final TransactionMapper transactionMapper;
 
   /**
-   * 查询用户预算列表
+   * 查询用户指定月份的预算列表
+   *
+   * <p>对应 PRD P1-3 GET /api/budget。</p>
+   * <p>批量加载分类名称(避免N+1查询), 无预算的支出分类不返回。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param year 年份(如"2026"), 空时默认当前年
+   * @param month 月份(如"5"), 空时默认当前月
+   * @return 该月所有预算列表(含分类名称)
    */
   @Override
   public List<BudgetDTO> list(Long userId, String year, String month) {
@@ -83,7 +106,18 @@ public class BudgetServiceImpl implements BudgetService {
   }
 
   /**
-   * 保存预算（INSERT ON DUPLICATE KEY UPDATE · @Transactional 保证并发安全）
+   * 保存预算（有则更新, 无则插入 · @Transactional 保证并发安全）
+   *
+   * <p>对应 PRD P1-3 POST /api/budget。</p>
+   * <p>幂等策略: 先查询是否存在同用户+同分类+同月预算, 存在则updateById, 不存在则insert。</p>
+   * <p>并发安全: insert时若被唯一索引uk_budget_user_category_month拦截(DuplicateKeyException),
+   * 重新查询已存在记录并转为updateById, 确保并发场景下不报错。</p>
+   * <p>校验: 分类必须存在且为支出分类(type=1)。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param request 预算请求参数(含categoryId/month/amount)
+   * @return 保存后的预算DTO(含分类名称)
+   * @throws BusinessException 4001=分类不存在 / 4001=预算仅可设置在支出分类上
    */
   @Override
   @Transactional
@@ -154,7 +188,17 @@ public class BudgetServiceImpl implements BudgetService {
   }
 
   /**
-   * 获取预算进度
+   * 获取预算消耗进度（含已用金额/百分比/超支标记）
+   *
+   * <p>对应 PRD P1-3 GET /api/budget/progress。</p>
+   * <p>性能优化(R-05-issue-2): 将selectCategorySummary提到循环外, 一次性查询所有分类的支出汇总,
+   * 再在内存中聚合, 消除N+1查询。</p>
+   * <p>计算公式: percentage = (spentAmount / budgetAmount) × 100%, overspent = spentAmount > budgetAmount。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param year 年份(如"2026"), 空时默认当前年
+   * @param month 月份(如"5"), 空时默认当前月
+   * @return 各分类预算进度列表(含预算金额/已用金额/百分比/是否超支)
    */
   @Override
   public List<BudgetProgressDTO> getProgress(Long userId, String year, String month) {
@@ -202,7 +246,16 @@ public class BudgetServiceImpl implements BudgetService {
   }
 
   /**
-   * 获取预算预警（仅返回超支项）
+   * 获取预算预警列表（仅返回超支项）
+   *
+   * <p>对应 PRD P2-2 GET /api/budget/alert。</p>
+   * <p>复用getProgress()结果, 过滤overspent=true的项。</p>
+   * <p>教学简化: 当前仅返回超支项, 日预警(日均150%)和月预警(月耗80%)由BudgetScheduler定时任务日志输出。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param year 年份, 空时默认当前年
+   * @param month 月份, 空时默认当前月
+   * @return 超支的分类预算列表(空集合表示无预警)
    */
   @Override
   public List<BudgetProgressDTO> getAlert(Long userId, String year, String month) {

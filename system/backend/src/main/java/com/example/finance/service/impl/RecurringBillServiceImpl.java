@@ -29,6 +29,21 @@ import java.util.stream.Collectors;
 
 /**
  * 周期性账单服务实现
+ *
+ * <p>对应 PRD 功能: P1-4 周期性账单提醒(月房租/月工资等周期收支模板)。</p>
+ *
+ * <p>关键业务规则:</p>
+ * <ul>
+ *   <li>status=1(活跃) / status=0(停用), 停用后不可恢复(教学简化, 同账户禁用模式)</li>
+ *   <li>一键生成(generate): 校验关联账户status=1 → INSERT交易记录 → 更新next_due_date(推进一个周期)</li>
+ *   <li>到期日计算: monthly=+1月, weekly=+1周, daily=+1天, yearly=+1年</li>
+ *   <li>活跃账单(status=1)引用的账户被禁用后, 该账单在列表中标记异常; 已停用账单(status=0)不受影响</li>
+ *   <li>性能优化: list()使用批量查询(selectByIds)加载账户/分类名称, 消除N+1</li>
+ * </ul>
+ *
+ * <p>事务保护: generate()使用@Transactional包裹INSERT交易+UPDATE到期日, 保证原子性。</p>
+ *
+ * <p>调用方: RecurringBillController (controller/RecurringBillController.java)</p>
  */
 @Slf4j
 @Service
@@ -73,6 +88,14 @@ public class RecurringBillServiceImpl implements RecurringBillService {
 
   /**
    * 创建周期性账单
+   *
+   * <p>对应 PRD P1-4 主流程: 用户填写名称/金额/类型/分类/账户/周期/下次到期日, 系统创建模板。</p>
+   * <p>前置校验: 账户归属当前用户且status=1, 分类存在。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param request 账单请求参数(含name/amount/type/period/accountId/categoryId/nextDueDate)
+   * @return 创建后的账单DTO(含账户名/分类名)
+   * @throws BusinessException 5006=账户不存在 / 5007=分类不存在
    */
   @Override
   public RecurringBillDTO create(Long userId, RecurringBillRequest request) {
@@ -100,6 +123,15 @@ public class RecurringBillServiceImpl implements RecurringBillService {
 
   /**
    * 更新周期性账单
+   *
+   * <p>对应 PRD P1-4 PUT /api/recurring-bill/{id}。</p>
+   * <p>仅允许更新活跃账单(status=1), 已停用的账单由getBillById()抛出5004。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param billId 账单ID
+   * @param request 更新请求参数
+   * @return 更新后的账单DTO
+   * @throws BusinessException 5005=账单不存在 / 5004=账单已停用
    */
   @Override
   public RecurringBillDTO update(Long userId, Long billId, RecurringBillRequest request) {
@@ -119,7 +151,14 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   }
 
   /**
-   * 停用周期性账单（软删除）
+   * 停用周期性账单（软删除, 改status=0, 不可恢复）
+   *
+   * <p>对应 PRD P1-4 DELETE /api/recurring-bill/{id}。</p>
+   * <p>教学简化: 停用后不可恢复, 与账户禁用模式一致。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param billId 账单ID
+   * @throws BusinessException 5005=账单不存在 / 5004=账单已停用
    */
   @Override
   public void deactivate(Long userId, Long billId) {
@@ -133,7 +172,21 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   }
 
   /**
-   * 生成交易记录（@Transactional 保证原子性）
+   * 根据周期性账单模板一键生成收支记录
+   *
+   * <p>对应 PRD P1-4 POST /api/recurring-bill/{id}/generate。</p>
+   * <p>业务流程:</p>
+   * <ol>
+   *   <li>校验账单存在且status=1(活跃)</li>
+   *   <li>校验关联账户status=1(活跃), 已禁用则拒绝生成(PRDP1-4 异常流程②)</li>
+   *   <li>在 @Transactional 事务内: INSERT交易记录 → UPDATE账单next_due_date(推进一个周期)</li>
+   * </ol>
+   * <p>教学简化: 一键手动触发生成, 不做自动扣款; @Scheduled仅日志记录, 不自动创建。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param billId 账单ID
+   * @return 生成的交易记录DTO
+   * @throws BusinessException 5005=账单不存在 / 5004=账单已停用 / 5002=关联账户已禁用
    */
   @Override
   @Transactional
@@ -193,7 +246,14 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   }
 
   /**
-   * 计算下次到期日
+   * 计算下次到期日（根据周期推进）
+   *
+   * <p>周期映射: daily=+1天, weekly=+1周, monthly=+1月, yearly=+1年。</p>
+   * <p>默认兜底: 未知周期按monthly处理。</p>
+   *
+   * @param current 当前到期日
+   * @param period 周期(monthly/weekly/daily/yearly)
+   * @return 新的到期日
    */
   private LocalDate calculateNextDueDate(LocalDate current, String period) {
     return switch (period) {
