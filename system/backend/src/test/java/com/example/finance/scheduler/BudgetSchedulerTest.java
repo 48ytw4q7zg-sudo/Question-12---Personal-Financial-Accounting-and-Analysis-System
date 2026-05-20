@@ -50,7 +50,7 @@ class BudgetSchedulerTest {
     budgetScheduler.checkBudgetAlerts();
 
     verify(budgetMapper, times(1)).selectList(any(LambdaQueryWrapper.class));
-    verify(transactionMapper, never()).selectCategorySummary(anyLong(), anyInt(), anyInt(), anyInt());
+    verify(transactionMapper, never()).selectCategorySummary(any(), anyInt(), anyInt(), anyInt());
   }
 
   /**
@@ -70,13 +70,14 @@ class BudgetSchedulerTest {
     summary.setTotalAmount(new BigDecimal("500.00"));
 
     when(budgetMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(budget));
-    when(transactionMapper.selectCategorySummary(anyLong(), anyInt(), anyInt(), anyInt()))
+    when(transactionMapper.selectCategorySummary(any(), anyInt(), anyInt(), anyInt()))
         .thenReturn(List.of(summary));
 
     budgetScheduler.checkBudgetAlerts();
 
     verify(budgetMapper, times(1)).selectList(any(LambdaQueryWrapper.class));
-    verify(transactionMapper, times(1)).selectCategorySummary(anyLong(), anyInt(), anyInt(), anyInt());
+    // Scheduler 调用 2 次 selectCategorySummary：一次全量查询(null userId) + 一次按用户查询
+    verify(transactionMapper, times(2)).selectCategorySummary(any(), anyInt(), anyInt(), anyInt());
   }
 
   /**
@@ -96,11 +97,12 @@ class BudgetSchedulerTest {
     summary.setTotalAmount(new BigDecimal("1200.00"));
 
     when(budgetMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(budget));
-    when(transactionMapper.selectCategorySummary(anyLong(), anyInt(), anyInt(), anyInt()))
+    when(transactionMapper.selectCategorySummary(any(), anyInt(), anyInt(), anyInt()))
         .thenReturn(List.of(summary));
 
     budgetScheduler.checkBudgetAlerts();
 
-    verify(transactionMapper, times(1)).selectCategorySummary(anyLong(), anyInt(), anyInt(), anyInt());
+    // Scheduler 调用 2 次 selectCategorySummary：一次全量查询(null userId) + 一次按用户查询
+    verify(transactionMapper, times(2)).selectCategorySummary(any(), anyInt(), anyInt(), anyInt());
   }
 }

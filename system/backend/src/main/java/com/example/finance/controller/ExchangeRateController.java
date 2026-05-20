@@ -6,9 +6,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -30,9 +27,6 @@ import java.util.Map;
 @RequestMapping("/api/exchange-rate")
 public class ExchangeRateController {
 
-  /** 日期格式化器：yyyy-MM-dd HH:mm:ss */
-  private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
   /**
    * 获取参考汇率接口（P2 硬编码占位实现）
    *
@@ -42,7 +36,7 @@ public class ExchangeRateController {
    *   rates       — 1 CNY → X 外币（如 USD=0.1370）
    *   ratesInverse — 1 外币 → X CNY（如 USD=7.3000）
    *   count       — 支持货币数量（6）
-   *   updateTime  — 当前时间戳
+   *   updateTime  — 固定时间戳（硬编码汇率对应固定时间，非实时更新）
    *
    * @return Result<Map<String, Object>> 汇率数据
    *
@@ -70,7 +64,8 @@ public class ExchangeRateController {
         "KRW", new BigDecimal("0.0054")
     ));
     data.put("count", 6);
-    data.put("updateTime", LocalDateTime.now().format(FMT));
+    // 硬编码静态汇率，updateTime 使用固定时间戳（避免误导为实时更新）
+    data.put("updateTime", "2026-05-20 00:00:00");
     return Result.success(data);
   }
 }

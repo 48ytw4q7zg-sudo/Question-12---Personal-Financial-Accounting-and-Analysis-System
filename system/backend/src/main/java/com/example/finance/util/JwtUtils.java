@@ -12,6 +12,9 @@ import java.util.Date;
 
 /**
  * JWT 工具类
+ *
+ * 性能优化：parseTokenPayload() 一次解析同时返回 userId + role，
+ * 避免 LoginInterceptor 中调用 parseToken() + parseRole() 各解析一次 token（原 Issue 2.2）
  */
 @Slf4j
 public class JwtUtils {
@@ -22,6 +25,22 @@ public class JwtUtils {
   private static long EXPIRE = 7 * 24 * 60 * 60 * 1000L;
 
   private static SecretKey KEY = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+
+  /**
+   * JWT payload 封装（一次解析返回 userId + role，避免双重解析）
+   */
+  public static class JwtPayload {
+    private final Long userId;
+    private final Integer role;
+
+    public JwtPayload(Long userId, Integer role) {
+      this.userId = userId;
+      this.role = role;
+    }
+
+    public Long getUserId() { return userId; }
+    public Integer getRole() { return role; }
+  }
 
   /**
    * 初始化密钥配置（由配置类调用）
@@ -50,16 +69,21 @@ public class JwtUtils {
   }
 
   /**
-   * 解析 JWT token，返回 userId + role（无效或过期返回 null）
+   * 解析 JWT token，一次提取 userId + role（性能优化：替代 parseToken + parseRole 双重解析）
+   *
+   * @param token JWT token 字符串
+   * @return JwtPayload（userId + role），token 无效或过期时返回 null
    */
-  public static Long parseToken(String token) {
+  public static JwtPayload parseTokenPayload(String token) {
     try {
       Claims claims = Jwts.parser()
           .verifyWith(KEY)
           .build()
           .parseSignedClaims(token)
           .getPayload();
-      return Long.parseLong(claims.getSubject());
+      Long userId = Long.parseLong(claims.getSubject());
+      Integer role = claims.get("role", Integer.class);
+      return new JwtPayload(userId, role);
     } catch (ExpiredJwtException e) {
       log.debug("JWT token 已过期");
       return null;
@@ -70,19 +94,18 @@ public class JwtUtils {
   }
 
   /**
-   * 解析 JWT token，返回 role（无效或过期返回 null）
+   * 解析 JWT token，返回 userId（向后兼容，内部调用 parseTokenPayload）
+   */
+  public static Long parseToken(String token) {
+    JwtPayload payload = parseTokenPayload(token);
+    return payload != null ? payload.getUserId() : null;
+  }
+
+  /**
+   * 解析 JWT token，返回 role（向后兼容，内部调用 parseTokenPayload）
    */
   public static Integer parseRole(String token) {
-    try {
-      Claims claims = Jwts.parser()
-          .verifyWith(KEY)
-          .build()
-          .parseSignedClaims(token)
-          .getPayload();
-      return claims.get("role", Integer.class);
-    } catch (Exception e) {
-      log.debug("JWT role 解析失败: {}", e.getMessage());
-      return null;
-    }
+    JwtPayload payload = parseTokenPayload(token);
+    return payload != null ? payload.getRole() : null;
   }
 }

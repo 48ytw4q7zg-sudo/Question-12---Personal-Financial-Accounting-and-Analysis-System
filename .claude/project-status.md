@@ -15,14 +15,14 @@
 
 ## 当前状态字段(9 个)
 
-- **当前 Phase**:Phase 8 (Q-CR v13 9轮优化 · 140/140 测试全绿 · 97.06/100 · 四阀门全 PASS)
-- **上次更新**:2026-05-18 (Q-CR v13 Round 9 — JaCoCo + JMeter + Swagger + Docker + CI/CD)
+- **当前 Phase**:Phase 8 (Q-CR v16 终极审计 · JWT双重解析修复 · ErrorCode枚举 · 枚举替代魔法值 · ExchangeRate修复 · 测试修复)
+- **上次更新**:2026-05-20 (Q-CR v16 — JWT双重解析消除 + ErrorCode集中管理 + 4枚举类 + ExchangeRate updateTime修复 + BudgetSchedulerTest修复 + 149 tests全绿)
 - **已完成文档**:PRD.md, TECH_DESIGN.md, DATABASE_DESIGN.md, API_DESIGN.md, DEPLOY.md, PERFORMANCE-REPORT.md
-- **数据库表**:user(含role), account, category, transaction, budget, recurring_bill
-- **已有接口**:29 个接口 (含 /api/health + /api/exchange-rate) + @Scheduled 预算预警 + Swagger /swagger-ui.html
-- **已完成的后端模块**:UserServiceImpl, AccountServiceImpl, CategoryServiceImpl, TransactionServiceImpl, BudgetServiceImpl, RecurringBillServiceImpl, StatisticsServiceImpl, BudgetScheduler
-- **已完成的前端页面**:LoginPage, DashboardPage, AccountPage, CategoryPage, TransactionListPage(含URL筛选持久化), BudgetPage, RecurringBillPage, TransferPage, AnalyticsPage, ImportPage, UserSettingsPage
-- **Bug修复记录**:6 个 (generate账户校验/预算类型混淆/CSV文件校验/URL筛选持久化/@Transactional缺失/异常传播)
+- **数据库表**:user(含role: 0=普通用户/1=管理员), account, category, transaction, budget, recurring_bill
+- **已有接口**:30 个接口 (含 /api/health + /api/exchange-rate + 3 个 /api/admin 管理员接口)
+- **已完成的后端模块**:UserServiceImpl, AccountServiceImpl, CategoryServiceImpl, TransactionServiceImpl, BudgetServiceImpl, RecurringBillServiceImpl, StatisticsServiceImpl, BudgetScheduler, AdminController
+- **已完成的前端页面**:LoginPage, DashboardPage, AccountPage, CategoryPage, TransactionListPage(含URL筛选持久化), BudgetPage, RecurringBillPage, TransferPage, AnalyticsPage, ImportPage, UserSettingsPage, AdminPage
+- **Bug修复记录**:11 个 (generate账户校验/预算类型混淆/CSV文件校验/URL筛选持久化/@Transactional缺失/异常传播/AdminService分层/userId统一7处/admin路由守卫/401 redirect/索引重命名)
 - **测试**:140 用例 (12 test files · 白盒49+黑盒55+集成19+系统10+CSV7)
 
 ## 每 Phase 末该做的事
