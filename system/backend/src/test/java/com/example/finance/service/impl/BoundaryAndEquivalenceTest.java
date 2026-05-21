@@ -111,7 +111,7 @@ class BoundaryAndEquivalenceTest {
       when(userMapper.selectById(1L)).thenReturn(u);
       BusinessException ex = assertThrows(BusinessException.class,
           () -> userService.changePassword(1L, "oldpass", "oldpass"));
-      assertEquals(1003, ex.getCode());
+      assertEquals(1006, ex.getCode());
     }
   }
 
@@ -177,23 +177,23 @@ class BoundaryAndEquivalenceTest {
       assertTrue(ex.getMessage().contains("5 条收支记录"));
     }
 
-    @Test @DisplayName("等价类: 删除-账户有关联活跃周期账单 → 拒绝[2002]")
+    @Test @DisplayName("等价类: 删除-账户有关联活跃周期账单 → 拒绝[2003]")
     void delete_withActiveRecurringBills() {
       when(accountMapper.selectById(1L)).thenReturn(acct);
       when(transactionMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
       when(recurringBillMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(3L);
       BusinessException ex = assertThrows(BusinessException.class,
           () -> accountService.delete(1L, 1L));
-      assertEquals(2002, ex.getCode());
+      assertEquals(2003, ex.getCode());
       assertTrue(ex.getMessage().contains("活跃周期性账单"));
     }
 
-    @Test @DisplayName("等价类: 账户不存在 → [2003]")
+    @Test @DisplayName("等价类: 账户不存在 → [2004]")
     void getAccount_notFound() {
       when(accountMapper.selectById(999L)).thenReturn(null);
       BusinessException ex = assertThrows(BusinessException.class,
           () -> accountService.delete(1L, 999L));
-      assertEquals(2003, ex.getCode());
+      assertEquals(2004, ex.getCode());
     }
 
     @Test @DisplayName("边界: 余额=初始+收入-支出 — 计算精度验证")
@@ -270,30 +270,30 @@ class BoundaryAndEquivalenceTest {
       assertEquals(2, dto.getType());
     }
 
-    @Test @DisplayName("等价类: 账户禁用 → [3002]")
+    @Test @DisplayName("等价类: 账户禁用 → [3004]")
     void create_disabledAccount() {
       acct.setStatus(0);
       when(accountMapper.selectById(1L)).thenReturn(acct);
       TransactionRequest req = buildReq(1L, 1L, 2, new BigDecimal("100.00"));
       BusinessException ex = assertThrows(BusinessException.class,
           () -> transactionService.create(1L, req));
-      assertEquals(3002, ex.getCode());
+      assertEquals(3004, ex.getCode());
     }
 
     @Test @DisplayName("等价类: 转账-出/入不同用户 → 越权拒绝")
     void transfer_crossUser() {
       Account otherUserAccount = new Account();
       otherUserAccount.setId(2L); otherUserAccount.setUserId(999L); otherUserAccount.setStatus(1);
-      when(accountMapper.selectById(1L)).thenReturn(acct);
+      when(accountMapper.selectByIdForUpdate(1L)).thenReturn(acct);
       when(accountMapper.selectById(2L)).thenReturn(otherUserAccount);
       TransferRequest req = new TransferRequest();
       req.setFromAccountId(1L); req.setToAccountId(2L); req.setAmount(new BigDecimal("100.00"));
       BusinessException ex = assertThrows(BusinessException.class,
           () -> transactionService.transfer(1L, req));
-      assertEquals(3002, ex.getCode());
+      assertEquals(3004, ex.getCode());
     }
 
-    @Test @DisplayName("路径: 转账记录-仅可改备注,修改金额→拒绝[3003]")
+    @Test @DisplayName("路径: 转账记录-仅可改备注,修改金额→拒绝[3006]")
     void update_transfer_amountBlocked() {
       Transaction t = new Transaction(); t.setId(1L); t.setUserId(1L);
       t.setAccountId(1L); t.setCategoryId(13L); t.setType(2);
@@ -302,7 +302,7 @@ class BoundaryAndEquivalenceTest {
       TransactionRequest req = buildReq(1L, 13L, 2, new BigDecimal("999.00"), "hack", LocalDateTime.now());
       BusinessException ex = assertThrows(BusinessException.class,
           () -> transactionService.update(1L, 1L, req));
-      assertEquals(3003, ex.getCode());
+      assertEquals(3006, ex.getCode());
     }
 
     private TransactionRequest buildReq(Long acctId, Long catId, int type, BigDecimal amount) {
@@ -334,14 +334,14 @@ class BoundaryAndEquivalenceTest {
       incomeCat = new Category(); incomeCat.setId(10L); incomeCat.setName("工资"); incomeCat.setType(2);
     }
 
-    @Test @DisplayName("等价类: 预算仅可设支出分类 — 收入分类拒绝[4001]")
+    @Test @DisplayName("等价类: 预算仅可设支出分类 — 收入分类拒绝[4002]")
     void save_incomeCategoryRejected() {
       when(categoryMapper.selectById(10L)).thenReturn(incomeCat);
       BudgetRequest req = new BudgetRequest();
       req.setCategoryId(10L); req.setMonth("2026-05"); req.setAmount(new BigDecimal("1000.00"));
       BusinessException ex = assertThrows(BusinessException.class,
           () -> budgetService.save(1L, req));
-      assertEquals(4001, ex.getCode());
+      assertEquals(4002, ex.getCode());
     }
 
     @Test @DisplayName("边界: 预算金额=0.01 — 最小正值,有效")
@@ -355,14 +355,14 @@ class BoundaryAndEquivalenceTest {
       assertEquals(new BigDecimal("0.01"), dto.getAmount());
     }
 
-    @Test @DisplayName("等价类: 分类不存在 → [4001]")
+    @Test @DisplayName("等价类: 分类不存在 → [4003]")
     void save_categoryNotFound() {
       when(categoryMapper.selectById(999L)).thenReturn(null);
       BudgetRequest req = new BudgetRequest();
       req.setCategoryId(999L); req.setMonth("2026-05"); req.setAmount(new BigDecimal("1000.00"));
       BusinessException ex = assertThrows(BusinessException.class,
           () -> budgetService.save(1L, req));
-      assertEquals(4001, ex.getCode());
+      assertEquals(4003, ex.getCode());
     }
 
     @Test @DisplayName("路径: 已有预算更新(覆盖写入)")
@@ -418,24 +418,24 @@ class BoundaryAndEquivalenceTest {
       assertEquals("weekly", dto.getPeriod());
     }
 
-    @Test @DisplayName("等价类: 停用已停用账单 → [5004]")
+    @Test @DisplayName("等价类: 停用已停用账单 → [5005]")
     void deactivate_alreadyInactive() {
       RecurringBill bill = new RecurringBill();
       bill.setId(1L); bill.setUserId(1L); bill.setStatus(0);
       when(recurringBillMapper.selectById(1L)).thenReturn(bill);
       BusinessException ex = assertThrows(BusinessException.class,
           () -> recurringBillService.deactivate(1L, 1L));
-      assertEquals(5004, ex.getCode());
+      assertEquals(5005, ex.getCode());
     }
 
-    @Test @DisplayName("等价类: 生成交易-账单已停用 → [5004]")
+    @Test @DisplayName("等价类: 生成交易-账单已停用 → [5005]")
     void generate_inactiveBill() {
       RecurringBill bill = new RecurringBill();
       bill.setId(1L); bill.setUserId(1L); bill.setStatus(0);
       when(recurringBillMapper.selectById(1L)).thenReturn(bill);
       BusinessException ex = assertThrows(BusinessException.class,
           () -> recurringBillService.generate(1L, 1L));
-      assertEquals(5004, ex.getCode());
+      assertEquals(5005, ex.getCode());
     }
 
     @Test @DisplayName("边界: 账单名称最大30字符 — 有效")

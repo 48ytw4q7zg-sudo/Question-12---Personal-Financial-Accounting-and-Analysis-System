@@ -20,18 +20,22 @@ export default defineConfig({
   },
   build: {
     // 单个 chunk 超过 800KB 时发出警告(避免打包过大影响首屏加载)
-    chunkSizeWarningLimit: 800,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
         // 手动分包策略: 将大型第三方库拆分为独立 chunk, 利用浏览器并行加载
-        // vendor-echarts: ECharts 图表库(~800KB), 仅 AnalyticsPage/DashboardPage 使用
-        // vendor-element: Element Plus UI 库 + 图标(~500KB), 全局使用
-        // vendor-vue: Vue Router + Pinia(~100KB), 路由和状态管理
+        // vendor-echarts: ECharts 图表库, 仅 AnalyticsPage/DashboardPage 使用
+        // vendor-element: Element Plus UI 库, 全局使用
+        // vendor-icons: Element Plus 图标库, 按需加载
+        // vendor-vue: Vue Router + Pinia, 路由和状态管理
+        // vendor-axios: Axios HTTP 库
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('echarts')) return 'vendor-echarts'
-            if (id.includes('element-plus') || id.includes('@element-plus/icons-vue')) return 'vendor-element'
+            if (id.includes('@element-plus/icons-vue')) return 'vendor-icons'
+            if (id.includes('element-plus')) return 'vendor-element'
             if (id.includes('vue-router') || id.includes('/pinia/')) return 'vendor-vue'
+            if (id.includes('axios')) return 'vendor-axios'
           }
         }
       }

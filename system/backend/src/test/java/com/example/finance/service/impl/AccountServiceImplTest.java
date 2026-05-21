@@ -95,7 +95,7 @@ class AccountServiceImplTest {
 
     BusinessException ex = assertThrows(BusinessException.class,
         () -> accountService.delete(1L, 999L));
-    assertEquals(2003, ex.getCode());
+    assertEquals(2004, ex.getCode());
   }
 
   @Test
@@ -157,7 +157,7 @@ class AccountServiceImplTest {
 
     BusinessException ex = assertThrows(BusinessException.class,
         () -> accountService.update(1L, 999L, request));
-    assertEquals(2003, ex.getCode());
+    assertEquals(2004, ex.getCode());
   }
 
   @Test

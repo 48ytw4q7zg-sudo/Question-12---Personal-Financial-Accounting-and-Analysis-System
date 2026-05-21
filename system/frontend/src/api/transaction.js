@@ -9,7 +9,7 @@
  *   - P2 数据导入
  *
  * 调用方：
- *   - TransactionListPage.vue → getTransactionList / createTransaction / updateTransaction
+ *   - TransactionListPage.vue → getTransactionList / createTransaction / updateTransaction / deleteTransaction
  *   - TransferPage.vue → transfer
  *   - ImportPage.vue → importCsv
  */
@@ -42,6 +42,15 @@ export function createTransaction(data) {
  */
 export function updateTransaction(id, data) {
   return request.put(`/transaction/${id}`, data)
+}
+
+/**
+ * 删除交易记录
+ * → 调用 DELETE /api/transaction/:id
+ * @param {Number} id - 交易记录 ID
+ */
+export function deleteTransaction(id) {
+  return request.delete(`/transaction/${id}`)
 }
 
 /**

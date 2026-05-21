@@ -113,6 +113,13 @@
       <version>5.9</version>
     </dependency>
 
+    <!-- Guava RateLimiter (用于登录限流防暴力破解) -->
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>33.4.8-jre</version>
+    </dependency>
+
     <!-- Swagger/OpenAPI 3 文档自动生成 -->
     <dependency>
       <groupId>org.springdoc</groupId>

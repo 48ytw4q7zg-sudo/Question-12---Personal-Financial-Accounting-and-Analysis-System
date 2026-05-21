@@ -11,7 +11,10 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.stream.Collectors;
@@ -63,6 +66,35 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   public Result<?> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
     log.warn("参数类型不匹配: {}", e.getMessage());
     return Result.error(400, "参数格式错误: " + e.getName());
+  }
+
+  /**
+   * 文件上传大小超限异常（CSV 导入等场景）
+   */
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public Result<?> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
+    log.warn("文件大小超限: max={}, actual={}", e.getMaxUploadSize(), e.getMessage());
+    return Result.error(400, "文件大小超过限制（最大 5MB）");
+  }
+
+  /**
+   * 不支持的媒体类型 — 覆盖父类以使用统一 Result 格式
+   */
+  @Override
+  protected ResponseEntity<Object> handleHttpMediaTypeNotSupported(
+      HttpMediaTypeNotSupportedException e, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+    log.warn("不支持的媒体类型: {}", e.getContentType());
+    return new ResponseEntity<>(Result.error(415, "不支持的媒体类型"), HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+  }
+
+  /**
+   * 请求方法不支持 — 覆盖父类以使用统一 Result 格式
+   */
+  @Override
+  protected ResponseEntity<Object> handleHttpRequestMethodNotSupported(
+      HttpRequestMethodNotSupportedException e, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+    log.warn("请求方法不支持: {}", e.getMethod());
+    return new ResponseEntity<>(Result.error(405, "请求方法不支持: " + e.getMethod()), HttpStatus.METHOD_NOT_ALLOWED);
   }
 
   /**

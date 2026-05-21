@@ -1,5 +1,7 @@
 package com.example.finance.controller;
 
+import com.example.finance.common.BusinessException;
+import com.example.finance.common.ErrorCode;
 import com.example.finance.common.Result;
 import com.example.finance.entity.dto.CategorySummaryDTO;
 import com.example.finance.entity.dto.MonthlySummaryDTO;
@@ -41,13 +43,31 @@ public class StatisticsController {
   /** → StatisticsService：处理各类统计汇总的业务逻辑 */
   private final StatisticsService statisticsService;
 
+  /** 年份有效范围 */
+  private static final int YEAR_MIN = 2000;
+  private static final int YEAR_MAX = 2100;
+
+  /**
+   * 校验年份和月份参数范围（提取公共校验逻辑，避免4处重复）
+   * @param year 年份
+   * @param month 月份（null 表示不需要校验月份，如年度/趋势接口）
+   */
+  private void validateYearMonth(int year, Integer month) {
+    if (year < YEAR_MIN || year > YEAR_MAX) {
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "year需在" + YEAR_MIN + "-" + YEAR_MAX + "之间");
+    }
+    if (month != null && (month < 1 || month > 12)) {
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "month需在1-12之间");
+    }
+  }
+
   /**
    * 月度收支汇总接口（Dashboard 月度卡片数据源）
    *
    * 流程：→ TransactionMapper.xml selectMonthlySummary
    *     → SUM(CASE WHEN type=1 THEN amount) AS totalIncome
    *     → SUM(CASE WHEN type=2 THEN amount) AS totalExpense
-     *     → balance = totalIncome - totalExpense
+   *     → balance = totalIncome - totalExpense
    *     → 排除 transfer_id 非空的转账记录
    *
    * @param year    年份（必填，如 2026）
@@ -61,6 +81,7 @@ public class StatisticsController {
   public Result<MonthlySummaryDTO> getMonthlySummary(
       @RequestParam int year, @RequestParam int month,
       HttpServletRequest request) {
+    validateYearMonth(year, month);
     Long userId = LoginInterceptor.getUserId(request);
     // → StatisticsService.getMonthlySummary() → TransactionMapper.selectMonthlySummary()
     MonthlySummaryDTO summary = statisticsService.getMonthlySummary(userId, year, month);
@@ -82,6 +103,7 @@ public class StatisticsController {
   @GetMapping("/yearly")
   public Result<MonthlySummaryDTO> getYearlySummary(@RequestParam int year,
       HttpServletRequest request) {
+    validateYearMonth(year, null);
     Long userId = LoginInterceptor.getUserId(request);
     // → StatisticsService.getYearlySummary() → TransactionMapper.selectYearlySummary()
     MonthlySummaryDTO summary = statisticsService.getYearlySummary(userId, year);
@@ -108,6 +130,7 @@ public class StatisticsController {
       @RequestParam int year, @RequestParam int month,
       @RequestParam(required = false) Integer type,
       HttpServletRequest request) {
+    validateYearMonth(year, month);
     Long userId = LoginInterceptor.getUserId(request);
     // → StatisticsService.getCategorySummary() → TransactionMapper.selectCategorySummary()
     List<CategorySummaryDTO> list = statisticsService.getCategorySummary(userId, year, month, type);
@@ -130,6 +153,7 @@ public class StatisticsController {
   @GetMapping("/trend")
   public Result<List<MonthlyTrendDTO>> getTrend(@RequestParam int year,
       HttpServletRequest request) {
+    validateYearMonth(year, null);
     Long userId = LoginInterceptor.getUserId(request);
     // → StatisticsService.getTrend() → TransactionMapper.selectTrend()
     List<MonthlyTrendDTO> list = statisticsService.getTrend(userId, year);

@@ -24,6 +24,7 @@ public class JwtUtils {
   // 默认过期时间：7天（可通过 JWT_EXPIRE 环境变量覆盖，单位毫秒）
   private static long EXPIRE = 7 * 24 * 60 * 60 * 1000L;
 
+  /** HMAC-SHA256 签名密钥（由 init() 方法从配置文件初始化） */
   private static SecretKey KEY = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
 
   /**
@@ -85,10 +86,10 @@ public class JwtUtils {
       Integer role = claims.get("role", Integer.class);
       return new JwtPayload(userId, role);
     } catch (ExpiredJwtException e) {
-      log.debug("JWT token 已过期");
+      log.warn("JWT token 已过期, subject: {}", e.getClaims().getSubject());
       return null;
     } catch (Exception e) {
-      log.debug("JWT token 解析失败: {}", e.getMessage());
+      log.warn("JWT token 解析失败: {}", e.getMessage());
       return null;
     }
   }

@@ -90,11 +90,12 @@ const registerForm = reactive({
   confirmPassword: ''
 })
 
-// 登录表单校验规则（el-form rules）
+// 登录表单校验规则（el-form rules · 对齐 PRD P0-1: 用户名3-20字符字母数字下划线）
 const loginRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度为 3-20 个字符', trigger: 'blur' }
+    { min: 3, max: 20, message: '用户名长度为 3-20 个字符', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -102,11 +103,12 @@ const loginRules = {
   ]
 }
 
-// 注册表单校验规则（多一个确认密码的自定义校验器）
+// 注册表单校验规则（多一个确认密码的自定义校验器 + 用户名正则）
 const registerRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度为 3-20 个字符', trigger: 'blur' }
+    { min: 3, max: 20, message: '用户名长度为 3-20 个字符', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -146,8 +148,10 @@ async function handleLogin() {
     userStore.setUser({ userId: data.userId, username: data.username || loginForm.username, role: data.role || 0 })
     ElMessage.success('登录成功')
     // 跳转：优先跳 redirect 参数指定的页面（路由守卫带过来的），否则跳首页
+    // 安全校验：防止开放重定向攻击，只允许站内相对路径（以 / 开头且不含 ://）
     const redirect = route.query.redirect || '/'
-    router.push(redirect)
+    const safeRedirect = (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.includes('://')) ? redirect : '/'
+    router.push(safeRedirect)
   } finally {
     loginLoading.value = false
   }

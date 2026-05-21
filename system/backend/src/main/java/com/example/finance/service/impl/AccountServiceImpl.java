@@ -2,6 +2,7 @@ package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.finance.common.BusinessException;
+import com.example.finance.common.ErrorCode;
 import com.example.finance.entity.Account;
 import com.example.finance.entity.RecurringBill;
 import com.example.finance.entity.Transaction;
@@ -14,7 +15,6 @@ import com.example.finance.mapper.TransactionMapper;
 import com.example.finance.service.AccountService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +41,8 @@ public class AccountServiceImpl implements AccountService {
   private static final int STATUS_ACTIVE = 1;
   /** 账户状态常量：0=已删除（软删除，不可恢复） */
   private static final int STATUS_INACTIVE = 0;
+  /** 默认币种 */
+  private static final String DEFAULT_CURRENCY = "CNY";
 
   /** → AccountMapper：账户 CRUD 数据访问 */
   private final AccountMapper accountMapper;
@@ -68,15 +70,20 @@ public class AccountServiceImpl implements AccountService {
 
   /**
    * 创建账户
+   *
+   * @param userId  当前用户 ID（JWT 解码获取）
+   * @param request 账户创建请求（含名称、类型、初始余额、币种）
+   * @return 新创建的账户 DTO
    */
   @Override
+  @Transactional
   public AccountDTO create(Long userId, AccountRequest request) {
     Account account = new Account();
     account.setUserId(userId);
     account.setName(request.getName());
     account.setType(request.getType());
     account.setInitialBalance(request.getInitialBalance());
-    account.setCurrency(request.getCurrency() != null ? request.getCurrency() : "CNY");
+    account.setCurrency(request.getCurrency() != null ? request.getCurrency() : DEFAULT_CURRENCY);
     account.setStatus(STATUS_ACTIVE);
     account.setCreateTime(LocalDateTime.now());
     account.setUpdateTime(LocalDateTime.now());
@@ -87,8 +94,15 @@ public class AccountServiceImpl implements AccountService {
 
   /**
    * 更新账户
+   *
+   * @param userId    当前用户 ID（JWT 解码获取）
+   * @param accountId 要更新的账户 ID
+   * @param request   账户更新请求（含名称、类型、初始余额、币种）
+   * @return 更新后的账户 DTO
+   * @throws BusinessException 2003 账户不存在
    */
   @Override
+  @Transactional
   public AccountDTO update(Long userId, Long accountId, AccountRequest request) {
     Account account = getAccountById(userId, accountId);
 
@@ -117,7 +131,7 @@ public class AccountServiceImpl implements AccountService {
             .eq(Transaction::getUserId, userId)
     );
     if (transactionCount > 0) {
-      throw new BusinessException(2002, "该账户下有 " + transactionCount + " 条收支记录，请先处理后再禁用");
+      throw new BusinessException(ErrorCode.ACCOUNT_HAS_TRANSACTIONS.getCode(), "该账户下有 " + transactionCount + " 条收支记录，请先处理后再禁用");
     }
 
     // 检查是否有启用的周期性账单
@@ -128,7 +142,7 @@ public class AccountServiceImpl implements AccountService {
             .eq(RecurringBill::getStatus, STATUS_ACTIVE)
     );
     if (billCount > 0) {
-      throw new BusinessException(2002, "该账户下有 " + billCount + " 个活跃周期性账单，请先停用后再禁用");
+      throw new BusinessException(ErrorCode.ACCOUNT_HAS_RECURRING_BILLS.getCode(), "该账户下有 " + billCount + " 个活跃周期性账单，请先停用后再禁用");
     }
 
     // 软删除
@@ -138,7 +152,13 @@ public class AccountServiceImpl implements AccountService {
   }
 
   /**
-   * 获取账户余额统计
+   * 获取账户余额统计（批量查询消除 N+1）
+   *
+   * 当前余额 = 初始余额 + 总收入 - 总支出（实时计算）
+   * 优化策略：2 次 DB 查询（GROUP BY 批量聚合）+ Map 索引匹配
+   *
+   * @param userId 当前用户 ID（JWT 解码获取）
+   * @return 各账户余额统计列表（含初始余额、总收入、总支出、当前余额）
    */
   @Override
   public List<AccountBalanceDTO> getBalance(Long userId) {
@@ -186,22 +206,37 @@ public class AccountServiceImpl implements AccountService {
   }
 
   /**
-   * 根据ID查询账户（校验归属）
+   * 根据ID查询账户（校验归属权）
+   *
+   * @param userId    当前用户ID
+   * @param accountId 要查询的账户ID
+   * @return 账户实体
+   * @throws BusinessException 2004 账户不存在
    */
   private Account getAccountById(Long userId, Long accountId) {
     Account account = accountMapper.selectById(accountId);
     if (account == null || !account.getUserId().equals(userId)) {
-      throw new BusinessException(2003, "账户不存在");
+      throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND.getCode(), ErrorCode.ACCOUNT_NOT_FOUND.getMsg());
     }
     return account;
   }
 
   /**
    * Entity → DTO 转换
+   *
+   * @param account 账户实体
+   * @return 账户DTO
    */
   private AccountDTO toDTO(Account account) {
     AccountDTO dto = new AccountDTO();
-    BeanUtils.copyProperties(account, dto);
+    dto.setId(account.getId());
+    dto.setName(account.getName());
+    dto.setType(account.getType());
+    dto.setInitialBalance(account.getInitialBalance());
+    dto.setCurrency(account.getCurrency());
+    dto.setStatus(account.getStatus());
+    dto.setCreateTime(account.getCreateTime());
+    dto.setUpdateTime(account.getUpdateTime());
     return dto;
   }
 }

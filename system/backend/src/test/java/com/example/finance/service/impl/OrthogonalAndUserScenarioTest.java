@@ -446,7 +446,7 @@ class OrthogonalAndUserScenarioTest {
     void transfer_uuid_linksTwoRecords() {
       Account from = new Account(); from.setId(1L); from.setUserId(1L); from.setName("A"); from.setInitialBalance(new BigDecimal("5000.00")); from.setStatus(1);
       Account to = new Account(); to.setId(2L); to.setUserId(1L); to.setName("B"); to.setInitialBalance(new BigDecimal("1000.00")); to.setStatus(1);
-      when(accountMapper.selectById(1L)).thenReturn(from);
+      when(accountMapper.selectByIdForUpdate(1L)).thenReturn(from);
       when(accountMapper.selectById(2L)).thenReturn(to);
       when(transactionMapper.selectAccountIncome(anyLong(), anyLong())).thenReturn(BigDecimal.ZERO);
       when(transactionMapper.selectAccountExpense(anyLong(), anyLong())).thenReturn(BigDecimal.ZERO);

@@ -2,6 +2,7 @@ package com.example.finance.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.example.finance.common.Result;
+import com.example.finance.entity.dto.ImportResultDTO;
 import com.example.finance.entity.dto.TransactionDTO;
 import com.example.finance.entity.dto.TransactionRequest;
 import com.example.finance.entity.dto.TransferDTO;
@@ -25,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
  *   GET    /api/transaction              — 查询交易记录（分页 + 多条件筛选）
  *   POST   /api/transaction              — 创建收支记录（记一笔）
  *   PUT    /api/transaction/{id}         — 更新收支记录
+ *   DELETE /api/transaction/{id}         — 删除收支记录（转账记录禁止删除）
  *   POST   /api/transaction/transfer     — 转账（生成两条关联记录）
  *   POST   /api/transaction/import       — CSV 批量导入（≤5MB，≤1000 条）
  *
@@ -94,7 +96,7 @@ public class TransactionController {
   @PostMapping
   public Result<TransactionDTO> create(@Valid @RequestBody TransactionRequest request,
       HttpServletRequest httpRequest) {
-    Long userId = (Long) httpRequest.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(httpRequest);
     // → TransactionService.create()：校验账户状态 + 插入数据库
     TransactionDTO transaction = transactionService.create(userId, request);
     return Result.success(transaction, "记录创建成功");
@@ -117,10 +119,30 @@ public class TransactionController {
   public Result<TransactionDTO> update(@PathVariable Long id,
       @Valid @RequestBody TransactionRequest request,
       HttpServletRequest httpRequest) {
-    Long userId = (Long) httpRequest.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(httpRequest);
     // → TransactionService.update()：校验归属权 + 转账记录限制 + 更新数据库
     TransactionDTO transaction = transactionService.update(userId, id, request);
     return Result.success(transaction, "记录更新成功");
+  }
+
+  /**
+   * 删除交易记录接口（PRD P0-4）
+   *
+   * 流程：校验记录归属权 → 转账记录禁止删除 → 物理删除
+   *
+   * @param id 交易记录 ID（URL 路径参数）
+   * @param httpRequest HTTP 请求
+   * @return Result<Void> 删除结果
+   *
+   * 被前端 TransactionListPage.vue 删除按钮调用
+   * 注意：转账产生的记录（transferId 非空）禁止删除，避免破坏转账配对完整性
+   */
+  @DeleteMapping("/{id}")
+  public Result<Void> delete(@PathVariable Long id, HttpServletRequest httpRequest) {
+    Long userId = LoginInterceptor.getUserId(httpRequest);
+    // → TransactionService.delete()：校验归属权 + 转账记录限制 + 删除数据库记录
+    transactionService.delete(userId, id);
+    return Result.success(null, "记录已删除");
   }
 
   /**
@@ -140,7 +162,7 @@ public class TransactionController {
   @PostMapping("/transfer")
   public Result<TransferDTO> transfer(@Valid @RequestBody TransferRequest request,
       HttpServletRequest httpRequest) {
-    Long userId = (Long) httpRequest.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(httpRequest);
     // → TransactionService.transfer()：
     //   1. 校验 fromAccountId != toAccountId
     //   2. 校验转出账户余额 ≥ 转账金额
@@ -153,27 +175,28 @@ public class TransactionController {
    * CSV 批量导入接口（PRD P2-3）
    *
    * 流程：校验文件大小（≤5MB）→ 校验文件类型（.csv）→ 解析 CSV 内容
-   *     → 校验记录数（≤1000 条）→ 逐条校验 + 插入 → 返回导入结果统计
+   *     → 校验记录数（≤1000 条）→ 逐条校验 + 插入 → 返回结构化导入结果
    *
    * @param file      CSV 文件（multipart/form-data）
    * @param accountId 目标账户 ID（所有导入记录归属此账户）
    * @param httpRequest HTTP 请求
-   * @return Result<String> 导入结果（如"成功导入 50 条，失败 2 条"）
+   * @return Result<ImportResultDTO> 结构化导入结果（成功/失败条数 + 失败明细行号+原因）
    *
-   * 被前端 ImportPage.vue 调用
-   * CSV 格式：type,categoryName,amount,note,time
-   * 业务异常码：1007 = 文件过大 / 1008 = 记录数超限
+   * 被前端 ImportPage.vue 调用，展示导入结果表格 + 失败详情
+   * CSV 格式：time,categoryName,type,amount,note
+   * 业务异常码：3001 = 文件过大 / 格式错误 / 记录数超限
    */
   @PostMapping("/import")
-  public Result<String> importCsv(@RequestParam("file") MultipartFile file,
+  public Result<ImportResultDTO> importCsv(@RequestParam("file") MultipartFile file,
       @RequestParam("accountId") Long accountId,
       HttpServletRequest httpRequest) {
-    Long userId = (Long) httpRequest.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(httpRequest);
     // → TransactionService.importCsv()：
     //   1. 校验文件 ≤ 5MB + .csv 后缀
-    //   2. OpenCSV 解析 → 逐条校验（分类名匹配、金额格式、时间格式）
+    //   2. OpenCSV 解析 → 逐条校验（分类ID、金额、时间格式）
     //   3. 批量插入 transaction 表（≤1000 条）
-    String result = transactionService.importCsv(userId, file, accountId);
+    //   4. 返回 ImportResultDTO（successCount + failCount + failRows）
+    ImportResultDTO result = transactionService.importCsv(userId, file, accountId);
     return Result.success(result);
   }
 }

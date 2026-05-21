@@ -15,14 +15,14 @@
 
 ## 当前状态字段(9 个)
 
-- **当前 Phase**:Phase 8 (Q-CR v16 终极审计 · JWT双重解析修复 · ErrorCode枚举 · 枚举替代魔法值 · ExchangeRate修复 · 测试修复)
-- **上次更新**:2026-05-20 (Q-CR v16 — JWT双重解析消除 + ErrorCode集中管理 + 4枚举类 + ExchangeRate updateTime修复 + BudgetSchedulerTest修复 + 149 tests全绿)
+- **当前 Phase**:Phase 8 (Q-CR v20 终极审计 · 错误码17处修正 + PRD编号4处修正 + 行为描述3处修正 + P2-4多币种Dashboard补充 + DELETE接口文档补充)
+- **上次更新**:2026-05-20 (Q-CR v20 — v19遗留3项全修复 + v20新发现24项全修复: Service接口/Controller Javadoc错误码全部对齐ErrorCode枚举 + PRD功能编号修正 + 行为描述与代码一致性修正 + DashboardPage多币种展示补充 + API_DESIGN.md补充DELETE接口)
 - **已完成文档**:PRD.md, TECH_DESIGN.md, DATABASE_DESIGN.md, API_DESIGN.md, DEPLOY.md, PERFORMANCE-REPORT.md
-- **数据库表**:user(含role: 0=普通用户/1=管理员), account, category, transaction, budget, recurring_bill
-- **已有接口**:30 个接口 (含 /api/health + /api/exchange-rate + 3 个 /api/admin 管理员接口)
-- **已完成的后端模块**:UserServiceImpl, AccountServiceImpl, CategoryServiceImpl, TransactionServiceImpl, BudgetServiceImpl, RecurringBillServiceImpl, StatisticsServiceImpl, BudgetScheduler, AdminController
-- **已完成的前端页面**:LoginPage, DashboardPage, AccountPage, CategoryPage, TransactionListPage(含URL筛选持久化), BudgetPage, RecurringBillPage, TransferPage, AnalyticsPage, ImportPage, UserSettingsPage, AdminPage
-- **Bug修复记录**:11 个 (generate账户校验/预算类型混淆/CSV文件校验/URL筛选持久化/@Transactional缺失/异常传播/AdminService分层/userId统一7处/admin路由守卫/401 redirect/索引重命名)
+- **数据库表**:user(含role: 0=普通用户/1=管理员), account, category, transaction, budget, recurring_bill, budget_alert(P2-2 预警持久化)
+- **已有接口**:31 个接口 (含 /api/health + /api/exchange-rate + 3 个 /api/admin 管理员接口 + GET /api/budget/alert 改为持久化预警)
+- **已完成的后端模块**:UserServiceImpl(含LoginRateLimiter限流), AccountServiceImpl, CategoryServiceImpl, TransactionServiceImpl(含ImportResultDTO结构化预览), BudgetServiceImpl, BudgetAlertServiceImpl(P2-2), RecurringBillServiceImpl, StatisticsServiceImpl, BudgetScheduler(预警持久化), AdminController
+- **已完成的前端页面**:LoginPage, DashboardPage, AccountPage, CategoryPage, TransactionListPage(含URL筛选持久化), BudgetPage, RecurringBillPage, TransferPage, AnalyticsPage, ImportPage(含ImportResultDTO预览表格), UserSettingsPage, AdminPage
+- **Bug修复记录**:16 个 (generate账户校验/预算类型混淆/CSV文件校验/URL筛选持久化/@Transactional缺失/异常传播/AdminService分层/userId统一7处/admin路由守卫/401 redirect/索引重命名/登录限流/预算预警持久化/CSV导入预览/ErrorCode全覆盖)
 - **测试**:140 用例 (12 test files · 白盒49+黑盒55+集成19+系统10+CSV7)
 
 ## 每 Phase 末该做的事

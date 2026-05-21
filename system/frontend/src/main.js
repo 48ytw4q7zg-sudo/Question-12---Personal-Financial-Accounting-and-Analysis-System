@@ -5,7 +5,11 @@
 import { createApp } from 'vue'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
-import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import {
+  Plus, Wallet, Menu, List, Money, Calendar, Sort,
+  TrendCharts, Upload, Setting, SwitchButton,
+  HomeFilled, UserFilled, Expand, Fold
+} from '@element-plus/icons-vue'
 import App from './App.vue'
 import router from './router'
 import { createPinia } from 'pinia'
@@ -22,8 +26,14 @@ app.use(router)
 // 注册 Pinia 状态管理
 app.use(createPinia())
 
-// 批量注册 Element Plus 图标组件为全局组件，模板中可直接 <el-icon><Xxx /></el-icon> 使用
-for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+// 按需注册 Element Plus 图标组件（仅注册项目中实际使用的图标，减少打包体积）
+// 使用图标: SidebarMenu(8) + AppLayout(3: Expand/Fold) + 各页面Plus(4) + Dashboard(3)
+const icons = {
+  Plus, Wallet, Menu, List, Money, Calendar, Sort,
+  TrendCharts, Upload, Setting, SwitchButton,
+  HomeFilled, UserFilled, Expand, Fold
+}
+for (const [key, component] of Object.entries(icons)) {
   app.component(key, component)
 }
 

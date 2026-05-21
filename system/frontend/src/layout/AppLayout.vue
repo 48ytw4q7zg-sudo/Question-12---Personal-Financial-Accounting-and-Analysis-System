@@ -37,7 +37,7 @@
       </div>
       <div class="header-right">
         <!-- 显示当前登录用户名（→ 调用 stores/user.js 的 username） -->
-        <span class="username">{{ userStore.username }} <el-tag :type="userStore.role === 1 ? 'danger' : 'info'" size="small">{{ userStore.role === 1 ? '管理员' : '普通用户' }}</el-tag></span>
+        <span class="username">{{ userStore.username }} <el-tag :type="userStore.role === ROLE_ADMIN ? 'warning' : 'info'" size="small">{{ ROLE_LABELS[userStore.role] || '普通用户' }}</el-tag></span>
         <!-- 退出登录按钮 -->
         <el-button type="danger" link @click="handleLogout">
           <el-icon><SwitchButton /></el-icon>
@@ -76,6 +76,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { ROLE_ADMIN, ROLE_LABELS } from '../constants/role'
 import SidebarMenu from '../components/SidebarMenu.vue'
 
 const route = useRoute()
@@ -186,11 +187,6 @@ onUnmounted(() => {
   border-right: 1px solid #e6e6e6;
   transition: width 0.3s;
   overflow: hidden;
-}
-
-.aside-menu {
-  height: 100%;
-  border-right: none;
 }
 
 .app-main {

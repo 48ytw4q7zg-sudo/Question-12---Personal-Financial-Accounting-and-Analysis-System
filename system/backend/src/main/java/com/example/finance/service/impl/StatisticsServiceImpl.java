@@ -32,6 +32,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class StatisticsServiceImpl implements StatisticsService {
 
+  /** → TransactionMapper：所有统计聚合查询委托 TransactionMapper XML SQL 执行 */
   private final TransactionMapper transactionMapper;
 
   /**
@@ -93,11 +94,13 @@ public class StatisticsServiceImpl implements StatisticsService {
    * @param year 年份
    * @param month 月份(1-12)
    * @param type 交易类型(1=支出/2=收入/null=全部)
-   * @return 各分类汇总列表(含categoryId/categoryName/totalAmount/transactionCount)
+   * @return 各分类汇总列表(含categoryId/categoryName/totalAmount/transactionCount), 无数据时返回空列表
    */
   @Override
   public List<CategorySummaryDTO> getCategorySummary(Long userId, int year, int month, Integer type) {
-    return transactionMapper.selectCategorySummary(userId, year, month, type);
+    List<CategorySummaryDTO> result = transactionMapper.selectCategorySummary(userId, year, month, type);
+    // null保护: Mapper返回null时(无数据), 返回空列表而非null, 防止前端NPE
+    return result != null ? result : List.of();
   }
 
   /**
@@ -109,10 +112,12 @@ public class StatisticsServiceImpl implements StatisticsService {
    *
    * @param userId 当前用户ID(从JWT token解析)
    * @param year 年份(如2026)
-   * @return 12个月趋势数据列表(含month/totalIncome/totalExpense)
+   * @return 12个月趋势数据列表(含month/totalIncome/totalExpense), 无数据时返回空列表
    */
   @Override
   public List<MonthlyTrendDTO> getTrend(Long userId, int year) {
-    return transactionMapper.selectTrend(userId, year);
+    List<MonthlyTrendDTO> result = transactionMapper.selectTrend(userId, year);
+    // null保护: Mapper返回null时(无数据), 返回空列表而非null, 防止前端NPE
+    return result != null ? result : List.of();
   }
 }

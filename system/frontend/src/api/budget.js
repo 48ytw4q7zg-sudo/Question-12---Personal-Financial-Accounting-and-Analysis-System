@@ -1,11 +1,12 @@
 /**
  * 预算模块 API
- * 职责：封装预算管理相关的 HTTP请求（查询、设置、进度、告警）
+ * 职责：封装预算管理相关的 HTTP请求（查询、设置、删除、进度、告警）
  * 对应后端接口：/api/budget/*
  * 对应 PRD 功能：P1 预算管理（月预算按分类设置 + 超支标记）
  *
  * 调用方：
- *   - BudgetPage.vue → getBudgetProgress / saveBudget
+ *   - BudgetPage.vue → getBudgetProgress / getBudgetAlert / saveBudget / deleteBudget
+ *   - DashboardPage.vue → getBudgetAlert（P2-2 预算预警展示）
  */
 import request from './request'
 
@@ -26,6 +27,15 @@ export function getBudgetList(params) {
  */
 export function saveBudget(data) {
   return request.post('/budget', data)
+}
+
+/**
+ * 删除预算
+ * → 调用 DELETE /api/budget/:id
+ * @param {Number} id - 预算 ID
+ */
+export function deleteBudget(id) {
+  return request.delete(`/budget/${id}`)
 }
 
 /**

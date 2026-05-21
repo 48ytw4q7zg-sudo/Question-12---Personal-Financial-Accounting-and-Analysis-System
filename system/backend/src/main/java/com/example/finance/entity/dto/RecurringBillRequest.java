@@ -18,9 +18,9 @@ import java.math.BigDecimal;
 @Data
 public class RecurringBillRequest {
 
-  /** 账单名称（1-50 字符，如「月房租」「月工资」） */
+  /** 账单名称（1-30 字符，如「月房租」「月工资」，对齐 PRD P1-4 数据约束） */
   @NotBlank(message = "名称不能为空")
-  @Size(min = 1, max = 50, message = "名称长度须在1-50之间")
+  @Size(min = 1, max = 30, message = "名称长度须在1-30之间")
   private String name;
 
   /** 关联账户 ID（必须存在且 status=1） */

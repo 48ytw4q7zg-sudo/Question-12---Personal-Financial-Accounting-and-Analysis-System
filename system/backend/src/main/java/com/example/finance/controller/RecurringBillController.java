@@ -30,7 +30,8 @@ import java.util.List;
  * 被前端调用：→ api/recurring-bill.js 的 list/create/update/deactivate/generate
  * 被 RecurringBillPage.vue 调用
  *
- * 自动执行：→ BudgetScheduler 每日 2:00 检查到期账单并自动生成（@Scheduled）
+ * 教学简化：账单生成由用户手动触发（POST /{id}/generate），BudgetScheduler 不自动生成交
+ * 易记录（BudgetScheduler 仅负责预算预警检查）。
  */
 @RestController
 @RequestMapping("/api/recurring-bill")
@@ -43,7 +44,7 @@ public class RecurringBillController {
   /**
    * 查询周期性账单列表接口
    *
-   * 流程：按 userId 查询所有账单（含已停用）→ JOIN account/category 获取名称
+   * 流程：按 userId 查询活跃账单（status=1）→ JOIN account/category 获取名称
    *     → 如果关联账户已禁用，在列表中标记异常状态
    *
    * @param request HTTP 请求
@@ -71,12 +72,12 @@ public class RecurringBillController {
    *
    * 被前端 RecurringBillPage.vue 新建弹窗调用
    * period 可选值：monthly=每月 / weekly=每周
-   * 业务异常码：1010 = 关联账户已禁用
+   * 业务异常码：5006 = 账户不存在 / 5002 = 关联账户已禁用
    */
   @PostMapping
   public Result<RecurringBillDTO> create(@Valid @RequestBody RecurringBillRequest request,
       HttpServletRequest httpRequest) {
-    Long userId = (Long) httpRequest.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(httpRequest);
     // → RecurringBillService.create()：校验账户状态 + 计算下次到期日 + 插入数据库
     RecurringBillDTO bill = recurringBillService.create(userId, request);
     return Result.success(bill, "周期性账单创建成功");
@@ -98,7 +99,7 @@ public class RecurringBillController {
   public Result<RecurringBillDTO> update(@PathVariable Long id,
       @Valid @RequestBody RecurringBillRequest request,
       HttpServletRequest httpRequest) {
-    Long userId = (Long) httpRequest.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(httpRequest);
     // → RecurringBillService.update()：校验归属权 + 更新数据库
     RecurringBillDTO bill = recurringBillService.update(userId, id, request);
     return Result.success(bill, "周期性账单更新成功");
@@ -136,7 +137,7 @@ public class RecurringBillController {
    * @return Result<TransactionDTO> 生成的交易记录
    *
    * 被前端 RecurringBillPage.vue「生成」按钮调用
-   * 业务异常码：1011 = 账单已停用 / 1010 = 关联账户已禁用
+   * 业务异常码：5004 = 账单已停用 / 5002 = 关联账户已禁用
    */
   @PostMapping("/{id}/generate")
   public Result<TransactionDTO> generate(@PathVariable Long id, HttpServletRequest request) {

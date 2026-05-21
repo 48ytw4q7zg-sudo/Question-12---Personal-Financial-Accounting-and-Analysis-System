@@ -92,7 +92,8 @@ let trendChart = null
 
 // 当前选中的年份/月份（默认当前年月）
 const selectedYear = ref(String(new Date().getFullYear()))
-const selectedMonth = ref(new Date().toISOString().substring(0, 7))
+const analyticsNow = new Date()
+const selectedMonth = ref(`${analyticsNow.getFullYear()}-${String(analyticsNow.getMonth() + 1).padStart(2, '0')}`)
 
 /**
  * P2-1 drill-down 处理：点击柱状图某月 → 跳转 TransactionListPage 带时间筛选
@@ -103,12 +104,12 @@ function handleBarClick(params) {
     // 从月份字符串(如 "2026-05月")提取 YYYY-MM
     const monthStr = params.name.replace('月', '')
     const [year, month] = monthStr.split('-')
-    const startTime = `${year}-${month}-01 00:00:00`
+    const startDate = `${year}-${month}-01`
     // 计算月末（简单处理：下月1号前一天）
-    const endDate = new Date(Number(year), Number(month), 0)
-    const endTime = `${year}-${month}-${String(endDate.getDate()).padStart(2, '0')} 23:59:59`
-    // drill-down 跳转到交易列表页，带时间筛选参数
-    router.push({ path: '/transaction', query: { startTime, endTime } })
+    const endDay = new Date(Number(year), Number(month), 0)
+    const endDate = `${year}-${month}-${String(endDay.getDate()).padStart(2, '0')}`
+    // drill-down 跳转到交易列表页，带时间筛选参数（用 startDate/endDate 对齐 TransactionListPage 的 URL 参数名）
+    router.push({ path: '/transaction', query: { startDate, endDate } })
   }
 }
 
@@ -122,9 +123,11 @@ async function loadBarChart() {
     const data = await getTrend({ year: Number(selectedYear.value) })
     if (!data || data.length === 0) return
 
-    // 销毁旧实例再创建新实例（切换年份时需要重建）
-    if (barChart) barChart.dispose()
-    barChart = echarts.init(barChartRef.value)
+    // 复用已有实例，仅 setOption 更新数据（避免每次 dispose+reinit 导致闪烁）
+    if (!barChart && barChartRef.value) {
+      barChart = echarts.init(barChartRef.value)
+    }
+    if (!barChart) return
     barChart.setOption({
       tooltip: { trigger: 'axis' },
       legend: { data: ['收入', '支出'] },
@@ -138,8 +141,8 @@ async function loadBarChart() {
     // P2-1 drill-down: 点击柱状图某月 → 跳转交易列表带时间筛选
     barChart.off('click')
     barChart.on('click', handleBarClick)
-  } catch {
-    // 静默处理
+  } catch (e) {
+    console.warn('加载柱状图失败:', e)
   }
 }
 
@@ -154,27 +157,30 @@ function handlePieClick(params) {
     if (categoryId) {
       // drill-down 跳转到交易列表页，带分类筛选参数
       const [year, month] = selectedMonth.value.split('-')
-      const startTime = `${year}-${month}-01 00:00:00`
-      const endDate = new Date(Number(year), Number(month), 0)
-      const endTime = `${year}-${month}-${String(endDate.getDate()).padStart(2, '0')} 23:59:59`
-      router.push({ path: '/transaction', query: { categoryId, startTime, endTime } })
+      const startDate = `${year}-${month}-01`
+      const endDay = new Date(Number(year), Number(month), 0)
+      const endDate = `${year}-${month}-${String(endDay.getDate()).padStart(2, '0')}`
+      router.push({ path: '/transaction', query: { categoryId, startDate, endDate } })
     }
   }
 }
 
 /**
  * 加载支出分类分布饼图
- * → 调用 api/statistics.js 的 getCategorySummary({ year, month })
+ * → 调用 api/statistics.js 的 getCategorySummary({ year, month, type: 2 })
+ * type=2 只查支出分类（1=收入, 2=支出，对齐 TransactionType 枚举）
  * → P2-1: 绑定 click 事件支持 drill-down（点击分类 → 跳转交易列表）
  */
 async function loadCategoryChart() {
   try {
     const [year, month] = selectedMonth.value.split('-')
-    const data = await getCategorySummary({ year: Number(year), month: Number(month) })
+    const data = await getCategorySummary({ year: Number(year), month: Number(month), type: 2 })
     if (!data || data.length === 0) return
 
-    if (pieChart) pieChart.dispose()
-    pieChart = echarts.init(pieChartRef.value)
+    if (!pieChart && pieChartRef.value) {
+      pieChart = echarts.init(pieChartRef.value)
+    }
+    if (!pieChart) return
     pieChart.setOption({
       tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
       legend: { orient: 'vertical', left: 'left' },
@@ -188,8 +194,8 @@ async function loadCategoryChart() {
     // P2-1 drill-down: 点击饼图某分类 → 跳转交易列表带分类筛选
     pieChart.off('click')
     pieChart.on('click', handlePieClick)
-  } catch {
-    // 静默处理
+  } catch (e) {
+    console.warn('加载饼图失败:', e)
   }
 }
 
@@ -203,8 +209,10 @@ async function loadTrendChart() {
     const data = await getTrend({ year: Number(selectedYear.value) })
     if (!data || data.length === 0) return
 
-    if (trendChart) trendChart.dispose()
-    trendChart = echarts.init(trendChartRef.value)
+    if (!trendChart && trendChartRef.value) {
+      trendChart = echarts.init(trendChartRef.value)
+    }
+    if (!trendChart) return
     trendChart.setOption({
       tooltip: { trigger: 'axis' },
       legend: { data: ['收入', '支出'] },
@@ -218,8 +226,8 @@ async function loadTrendChart() {
     // P2-1 drill-down: 点击趋势图某月 → 跳转交易列表带时间筛选
     trendChart.off('click')
     trendChart.on('click', handleBarClick)
-  } catch {
-    // 静默处理
+  } catch (e) {
+    console.warn('加载趋势图失败:', e)
   }
 }
 

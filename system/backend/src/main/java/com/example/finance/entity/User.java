@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 /**
  * 用户实体（对应 user 表，PRD P0-1 登录/JWT）
  *
- * 单一用户角色系统，所有数据按 user_id 隔离
+ * 双角色系统：0=普通用户, 1=管理员。所有业务数据按 user_id 隔离，管理员通过 AdminController 管理用户
  * 密码通过 @JsonIgnore 禁止序列化到响应中（登录响应走 LoginResponse DTO）
  */
 @Data
@@ -32,7 +32,7 @@ public class User {
   @JsonIgnore
   private String password;
 
-  /** 角色：0=普通用户（教学简化，单一角色预留扩展） */
+  /** 角色：0=普通用户, 1=管理员（对应 AdminController 管理员功能） */
   @TableField("role")
   private Integer role;
 

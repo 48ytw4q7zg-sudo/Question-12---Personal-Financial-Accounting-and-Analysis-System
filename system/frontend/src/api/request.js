@@ -41,14 +41,15 @@ request.interceptors.request.use(config => {
  *   其他 code     → 业务错误，ElMessage 提示 + reject（组件层可通过 catch 捕获）
  */
 request.interceptors.response.use(res => {
-  const { code, message, data } = res.data
+  // 可选链保护：防止后端返回非 Result<T> 结构时解构报错
+  const { code, message, data } = res.data || {}
   if (code === 200) {
     // 成功 → 返回 data，所有 API 函数拿到的返回值就是 data 部分
     return data
   } else if (code === 401) {
-    // token 过期或未登录 → 清除本地 token，跳转登录页
+    // token 过期或未登录 → 清除本地 token，跳转登录页并保留当前路径用于登录后回跳
     localStorage.removeItem('token')
-    router.push('/login')
+    router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
     ElMessage.error('未登录')
     return Promise.reject(new Error(message))
   } else {

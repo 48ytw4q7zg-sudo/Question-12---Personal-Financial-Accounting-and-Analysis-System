@@ -47,6 +47,9 @@ public class RecurringBillDTO {
   /** 状态：1=活跃 0=停用（停用后不可恢复） */
   private Integer status;
 
+  /** 关联账户是否已禁用（true=账户已禁用, 账单标记为异常 · PRD P1-4 业务规则③） */
+  private Boolean accountDisabled;
+
   /** 创建时间 */
   private LocalDateTime createTime;
 

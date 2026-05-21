@@ -1,17 +1,20 @@
 <!--
   预算管理页面
   路由：/budget
-  对应 PRD 功能：P1 预算管理（月预算按分类设置 + 超支标记）
+  对应 PRD 功能：P1 预算管理（月预算按分类设置 + 超支标记）+ P2-2 预算预警
 
   功能说明：
     - 顶部月份选择器切换查看不同月份的预算
     - 预算进度表格：分类 / 预算金额 / 已支出 / 进度条 / 状态
     - 进度条颜色：绿色(<80%) / 橙色(80-100%) / 红色(>=100% 超支)
-    - 设置/编辑预算弹窗
+    - P2-2 预警标签：OVERSPENT(红) / MONTHLY_WARN(橙) / DAILY_WARN(黄) / NORMAL(绿)
+    - 设置/编辑/删除预算弹窗
 
   调用关系：
     → 调用 api/budget.js 的 getBudgetProgress()（加载预算执行进度）
+    → 调用 api/budget.js 的 getBudgetAlert()（加载预警级别 · P2-2）
     → 调用 api/budget.js 的 saveBudget()（设置/更新预算）
+    → 调用 api/budget.js 的 deleteBudget()（删除预算）
     → 调用 api/category.js 的 getCategoryList()（加载支出分类下拉选项）
 -->
 <template>
@@ -39,12 +42,12 @@
         <el-table-column prop="categoryName" label="分类" min-width="120" />
         <el-table-column prop="budgetAmount" label="预算金额" width="120">
           <template #default="{ row }">
-            ¥ {{ Number(row.budgetAmount || 0).toFixed(2) }}
+            ¥ {{ formatAmount(row.budgetAmount) }}
           </template>
         </el-table-column>
         <el-table-column prop="spentAmount" label="已支出" width="120">
           <template #default="{ row }">
-            ¥ {{ Number(row.spentAmount || 0).toFixed(2) }}
+            ¥ {{ formatAmount(row.spentAmount) }}
           </template>
         </el-table-column>
         <!-- 进度条：根据已支出/预算金额计算百分比，颜色随百分比变化 -->
@@ -57,16 +60,19 @@
             />
           </template>
         </el-table-column>
-        <!-- 状态标签：超支(红色) / 正常(绿色) -->
-        <el-table-column label="状态" width="100">
+        <!-- 状态标签：P2-2 四级预警颜色映射 -->
+        <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            <el-tag v-if="row.spentAmount > row.budgetAmount" type="danger" size="small">超支</el-tag>
+            <el-tag v-if="row.alertLevel === 'OVERSPENT'" type="danger" size="small">已超支</el-tag>
+            <el-tag v-else-if="row.alertLevel === 'MONTHLY_WARN'" type="warning" size="small">月预警</el-tag>
+            <el-tag v-else-if="row.alertLevel === 'DAILY_WARN'" type="warning" size="small">日预警</el-tag>
             <el-tag v-else type="success" size="small">正常</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="80" fixed="right">
+        <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openDialog(row)">编辑</el-button>
+            <el-button type="danger" link @click="handleDeleteBudget(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -100,10 +106,10 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-// → 调用 api/budget.js 的 getBudgetProgress() 和 saveBudget()
-import { getBudgetProgress, saveBudget } from '../api/budget'
-// → 调用 api/category.js 的 getCategoryList()（加载支出分类选项）
+import { ElMessage, ElMessageBox } from 'element-plus'
+// → 调用 api/budget.js 的 getBudgetProgress()、getBudgetAlert()、saveBudget()、deleteBudget()
+import { getBudgetProgress, getBudgetAlert, saveBudget, deleteBudget } from '../api/budget'
+import { formatAmount } from '../utils/format'
 import { getCategoryList } from '../api/category'
 
 const loading = ref(false)
@@ -112,8 +118,9 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref(null)
 
-// 当前选中月份（默认当前月，格式 "YYYY-MM"）
-const selectedMonth = ref(new Date().toISOString().substring(0, 7))
+// 当前选中月份（默认当前月，格式 "YYYY-MM" · 使用本地时间而非 UTC）
+const now = new Date()
+const selectedMonth = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
 const budgetProgress = ref([])       // 预算进度列表
 const expenseCategories = ref([])    // 支出分类列表（下拉选项）
 
@@ -136,7 +143,7 @@ const formRules = {
 function getProgress(row) {
   if (!row.budgetAmount || row.budgetAmount <= 0) return 0
   const pct = Math.round((row.spentAmount / row.budgetAmount) * 100)
-  return Math.min(pct, 100)  // 上限 100%，超出部分仅在状态标签显示「超支」
+  return pct  // 允许超过100%显示超支程度，el-progress会自动渲染
 }
 
 /**
@@ -153,15 +160,34 @@ function getProgressColor(row) {
 }
 
 /**
- * 加载预算进度数据
- * → 调用 api/budget.js 的 getBudgetProgress({ year, month })
+ * 加载预算进度 + 预警数据（P2-2）
+ * → 调用 api/budget.js 的 getBudgetProgress({ year, month })（进度数据）
+ * → 调用 api/budget.js 的 getBudgetAlert({ year, month })（预警级别 · P2-2）
+ * 合并逻辑：按 categoryId 匹配，将 alertLevel 注入到进度行中
  */
 async function loadData() {
   loading.value = true
   try {
     const [year, month] = selectedMonth.value.split('-')
-    const data = await getBudgetProgress({ year: Number(year), month: Number(month) })
-    budgetProgress.value = data || []
+    const params = { year: Number(year), month: Number(month) }
+
+    // 并行加载进度和预警数据
+    const [progress, alerts] = await Promise.all([
+      getBudgetProgress(params),
+      getBudgetAlert(params)
+    ])
+
+    // 构建 categoryId → alertLevel 映射
+    const alertMap = {}
+    if (alerts) {
+      alerts.forEach(a => { alertMap[a.categoryId] = a.alertLevel })
+    }
+
+    // 将 alertLevel 注入到进度数据中
+    budgetProgress.value = (progress || []).map(item => ({
+      ...item,
+      alertLevel: alertMap[item.categoryId] || null
+    }))
   } finally {
     loading.value = false
   }
@@ -175,8 +201,8 @@ async function loadCategories() {
   try {
     const data = await getCategoryList()
     expenseCategories.value = (data || []).filter(item => item.type === 1)
-  } catch {
-    // 静默处理
+  } catch (e) {
+    console.warn('加载分类列表失败:', e)
   }
 }
 
@@ -216,6 +242,23 @@ async function handleSubmit() {
     loadData()
   } finally {
     submitting.value = false
+  }
+}
+
+/**
+ * 删除预算
+ * → 调用 api/budget.js 的 deleteBudget(id)
+ */
+async function handleDeleteBudget(row) {
+  try {
+    await ElMessageBox.confirm(`确定删除「${row.categoryName}」的预算吗？`, '确认删除', {
+      type: 'warning'
+    })
+    await deleteBudget(row.id)
+    ElMessage.success('预算已删除')
+    loadData()
+  } catch {
+    // 用户取消删除，静默处理
   }
 }
 

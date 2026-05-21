@@ -153,7 +153,7 @@ class CrossModuleIntegrationTest {
 
     @Test @DisplayName("链: 转账成功→两账户余额守恒(转出-支出+转入+收入=0)")
     void transfer_balanceConservation() {
-      when(accountMapper.selectById(1L)).thenReturn(fromAcct);
+      when(accountMapper.selectByIdForUpdate(1L)).thenReturn(fromAcct);
       when(accountMapper.selectById(2L)).thenReturn(toAcct);
       when(transactionMapper.selectAccountIncome(eq(1L), eq(1L))).thenReturn(new BigDecimal("3000.00"));
       when(transactionMapper.selectAccountExpense(eq(1L), eq(1L))).thenReturn(new BigDecimal("1000.00"));
@@ -423,7 +423,7 @@ class CrossModuleIntegrationTest {
       assertEquals(new BigDecimal("32.26"), daily);
     }
 
-    @Test @DisplayName("场景: 越权—用户A修改用户B的账户→拒绝[2003]")
+    @Test @DisplayName("场景: 越权—用户A修改用户B的账户→拒绝[2004]")
     void crossUserAccountAccess_denied() {
       Account otherUserAccount = new Account();
       otherUserAccount.setId(1L); otherUserAccount.setUserId(999L); otherUserAccount.setStatus(1);
@@ -432,7 +432,7 @@ class CrossModuleIntegrationTest {
       req.setInitialBalance(BigDecimal.ZERO);
       BusinessException ex = assertThrows(BusinessException.class,
           () -> accountService.update(1L, 1L, req));
-      assertEquals(2003, ex.getCode());
+      assertEquals(2004, ex.getCode());
     }
   }
 }

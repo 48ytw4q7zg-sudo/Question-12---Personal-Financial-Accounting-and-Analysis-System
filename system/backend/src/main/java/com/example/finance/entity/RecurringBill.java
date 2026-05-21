@@ -45,7 +45,7 @@ public class RecurringBill {
   private BigDecimal amount;
 
   /**
-   * 类型：1=支出 2=收入
+   * 类型：1=收入 2=支出（与 Transaction.type 语义一致，generate()直接透传）
    */
   @TableField("type")
   private Integer type;

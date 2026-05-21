@@ -16,6 +16,7 @@
     → 调用 api/transaction.js 的 getTransactionList()（加载交易列表，支持筛选+分页）
     → 调用 api/transaction.js 的 createTransaction()（记一笔）
     → 调用 api/transaction.js 的 updateTransaction()（编辑记录）
+    → 调用 api/transaction.js 的 deleteTransaction()（删除记录，转账记录不显示删除按钮）
     → 调用 api/account.js 的 getAccountList()（加载账户下拉选项）
     → 调用 api/category.js 的 getCategoryList()（加载分类下拉选项）
 -->
@@ -83,7 +84,7 @@
         <el-table-column prop="amount" label="金额" width="120">
           <template #default="{ row }">
             <span :class="row.type === 1 ? 'amount-income' : 'amount-expense'">
-              {{ row.type === 1 ? '+' : '-' }}¥ {{ Number(row.amount || 0).toFixed(2) }}
+              {{ row.type === 1 ? '+' : '-' }}¥ {{ formatAmount(row.amount) }}
             </span>
           </template>
         </el-table-column>
@@ -94,9 +95,15 @@
             <el-tag v-if="row.transferId" type="warning" size="small">转账</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openDialog(row)">编辑</el-button>
+            <el-button
+              v-if="!row.transferId"
+              type="danger"
+              link
+              @click="handleDelete(row)"
+            >删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -109,8 +116,8 @@
           :page-sizes="[10, 20, 50, 100]"
           :total="pagination.total"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="loadTransactions"
-          @current-change="loadTransactions"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
         />
       </div>
     </el-card>
@@ -157,13 +164,14 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-// → 调用 api/transaction.js 的 3 个接口
-import { getTransactionList, createTransaction, updateTransaction } from '../api/transaction'
+import { ElMessage, ElMessageBox } from 'element-plus'
+// → 调用 api/transaction.js 的 4 个接口
+import { getTransactionList, createTransaction, updateTransaction, deleteTransaction } from '../api/transaction'
 // → 调用 api/account.js 的 getAccountList()（下拉选项）
 import { getAccountList } from '../api/account'
 // → 调用 api/category.js 的 getCategoryList()（下拉选项）
 import { getCategoryList } from '../api/category'
+import { formatTime, formatDateTime, formatAmount } from '../utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -227,16 +235,17 @@ const filteredCategories = computed(() => {
   return categoryList.value.filter(item => item.type === categoryType)
 })
 
-/** 格式化 ISO 时间字符串 */
-function formatTime(time) {
-  if (!time) return ''
-  return time.replace('T', ' ').substring(0, 19)
+/** 分页 pageSize 变化处理（重置到第1页并加载） */
+function handleSizeChange(size) {
+  pagination.pageSize = size
+  pagination.pageNum = 1
+  loadTransactions()
 }
 
-/** 格式化 Date 对象为 'YYYY-MM-DD HH:mm:ss' 字符串（新增记录时默认当前时间） */
-function formatDateTime(date) {
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+/** 分页页码变化处理 */
+function handlePageChange(page) {
+  pagination.pageNum = page
+  loadTransactions()
 }
 
 /**
@@ -279,8 +288,8 @@ async function loadOptions() {
     const [accounts, categories] = await Promise.all([getAccountList(), getCategoryList()])
     accountList.value = accounts || []
     categoryList.value = categories || []
-  } catch {
-    // 静默处理
+  } catch (e) {
+    console.warn('加载选项数据失败:', e)
   }
 }
 
@@ -351,6 +360,24 @@ function openDialog(row) {
     formData.time = formatDateTime(new Date())
   }
   dialogVisible.value = true
+}
+
+/**
+ * 删除交易记录
+ * → 调用 api/transaction.js 的 deleteTransaction(id)
+ * 转账记录不显示删除按钮（已在模板中 v-if="!row.transferId" 隐藏）
+ */
+async function handleDelete(row) {
+  try {
+    await ElMessageBox.confirm(`确定删除这条${row.type === 1 ? '收入' : '支出'}记录吗？`, '确认删除', {
+      type: 'warning'
+    })
+    await deleteTransaction(row.id)
+    ElMessage.success('记录已删除')
+    loadTransactions()
+  } catch {
+    // 用户取消删除，静默处理
+  }
 }
 
 /**

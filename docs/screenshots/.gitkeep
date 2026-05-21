@@ -1,0 +1,23 @@
+# 项目截图占位
+
+本目录用于存放项目核心页面的运行截图。
+
+## 截图清单
+
+| 文件名 | 页面对应 | 截图方式 |
+|--------|---------|---------|
+| login.png | LoginPage (`/login`) | Chrome 1920×1080 全屏 |
+| dashboard.png | DashboardPage (`/`) | 含汇总卡片 + ECharts 图表 |
+| account.png | AccountPage (`/account`) | 含余额汇总列 |
+| transaction.png | TransactionListPage (`/transaction`) | 含筛选器 + 记一笔弹窗 |
+| budget.png | BudgetPage (`/budget`) | 含进度条 + 超支预警 |
+| analytics.png | AnalyticsPage (`/analytics`) | 含多图表联动 |
+
+## 截图步骤
+
+1. 启动前后端服务: `mvn spring-boot:run` + `pnpm dev`
+2. 使用测试账号 `zhangsan / 123456` 登录
+3. 确保每个页面有测试数据（执行 `sql/01-init.sql`）
+4. Chrome 浏览器 F11 全屏，1920×1080 分辨率
+5. 使用系统截图工具截取完整页面（非视口）
+6. 将 PNG 文件放入本目录

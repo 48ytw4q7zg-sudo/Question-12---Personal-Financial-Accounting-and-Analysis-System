@@ -39,7 +39,7 @@
         </el-table-column>
         <el-table-column prop="initialBalance" label="初始余额" width="120">
           <template #default="{ row }">
-            ¥ {{ Number(row.initialBalance || 0).toFixed(2) }}
+            ¥ {{ formatAmount(row.initialBalance) }}
           </template>
         </el-table-column>
         <el-table-column prop="currency" label="币种" width="80" />
@@ -73,7 +73,7 @@
         <el-col v-for="item in balanceList" :key="item.accountId" :xs="12" :sm="6">
           <div class="balance-item">
             <div class="balance-name">{{ item.accountName }}</div>
-            <div class="balance-amount">¥ {{ Number(item.currentBalance || 0).toFixed(2) }}</div>
+            <div class="balance-amount">¥ {{ formatAmount(item.currentBalance) }}</div>
             <!-- P2-4: 非CNY币种展示CNY等值换算 -->
             <div v-if="accountCurrency(item.accountId) !== 'CNY'" class="balance-cny-equivalent">
               折合 ≈ ¥ {{ formatCnyEquivalent(item) }}
@@ -101,7 +101,14 @@
           <el-input-number v-model="formData.initialBalance" :precision="2" :step="100" style="width: 100%" />
         </el-form-item>
         <el-form-item label="币种" prop="currency">
-          <el-input v-model="formData.currency" placeholder="CNY" />
+          <el-select v-model="formData.currency" placeholder="请选择币种" style="width: 100%">
+            <el-option label="人民币 (CNY)" value="CNY" />
+            <el-option label="美元 (USD)" value="USD" />
+            <el-option label="欧元 (EUR)" value="EUR" />
+            <el-option label="日元 (JPY)" value="JPY" />
+            <el-option label="英镑 (GBP)" value="GBP" />
+            <el-option label="港币 (HKD)" value="HKD" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -117,8 +124,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 // → 调用 api/account.js 的 5 个接口函数
 import { getAccountList, createAccount, updateAccount, deleteAccount, getAccountBalance } from '../api/account'
-// → P2-4 多币种：调用 axios 实例获取汇率数据（GET /api/exchange-rate）
-import request from '../api/request'
+// → P2-4 多币种：调用 api/exchange-rate.js 的 getExchangeRates()（汇率数据）
+import { getExchangeRates } from '../api/exchange-rate'
+import { formatTime, formatAmount } from '../utils/format'
 
 /** P2-4: 汇率数据缓存（1外币→CNY），例 { USD: 7.3, EUR: 7.94, ... } */
 const exchangeRates = ref({})
@@ -147,13 +155,9 @@ const formData = reactive({
 // 表单校验规则
 const formRules = {
   name: [{ required: true, message: '请输入账户名称', trigger: 'blur' }],
-  type: [{ required: true, message: '请选择账户类型', trigger: 'change' }]
-}
-
-/** 格式化 ISO 时间字符串为可读格式 */
-function formatTime(time) {
-  if (!time) return ''
-  return time.replace('T', ' ').substring(0, 19)
+  type: [{ required: true, message: '请选择账户类型', trigger: 'change' }],
+  initialBalance: [{ type: 'number', min: 0, message: '初始余额不能为负数', trigger: 'blur' }],
+  currency: [{ required: true, message: '请选择币种', trigger: 'change' }]
 }
 
 /**
@@ -173,25 +177,26 @@ function accountCurrency(accountId) {
  */
 function formatCnyEquivalent(balanceItem) {
   const currency = accountCurrency(balanceItem.accountId)
-  if (currency === 'CNY') return Number(balanceItem.currentBalance || 0).toFixed(2)
+  if (currency === 'CNY') return formatAmount(balanceItem.currentBalance)
   const rate = exchangeRates.value[currency]
   if (!rate) return 'N/A'
-  return (Number(balanceItem.currentBalance) * rate).toFixed(2)
+  return formatAmount(Number(balanceItem.currentBalance) * Number(rate))
 }
 
 /**
- * P2-4: 加载汇率数据（GET /api/exchange-rate）
+ * P2-4: 加载汇率数据（通过 api/exchange-rate.js 封装函数调用 GET /api/exchange-rate）
  * 返回 { ratesInverse: { USD: "7.3000", ... } }
  */
 async function loadExchangeRates() {
   try {
-    const data = await request.get('/exchange-rate')
+    const data = await getExchangeRates()
     if (data && data.ratesInverse) {
       // ratesInverse 是 1外币→CNY 的汇率（如 USD: 7.3 表示 1美元=7.3人民币）
       exchangeRates.value = data.ratesInverse
     }
-  } catch {
-    // 加载汇率失败时 exchangeRates 保持空，换算显示 N/A
+  } catch (e) {
+    console.warn('加载汇率数据失败:', e)
+    // exchangeRates 保持空，换算显示 N/A
   }
 }
 
@@ -217,7 +222,8 @@ async function loadBalance() {
   try {
     const data = await getAccountBalance()
     balanceList.value = data || []
-  } catch {
+  } catch (e) {
+    console.warn('加载账户余额失败:', e)
     balanceList.value = []
   }
 }
@@ -278,11 +284,15 @@ async function handleSubmit() {
  * → 调用 api/account.js 的 deleteAccount(id)
  */
 async function handleDelete(row) {
-  await ElMessageBox.confirm('确定删除该账户吗？', '提示', { type: 'warning' }).catch(() => { return })
-  await deleteAccount(row.id)
-  ElMessage.success('删除成功')
-  loadAccounts()
-  loadBalance()
+  try {
+    await ElMessageBox.confirm('确定删除该账户吗？', '提示', { type: 'warning' })
+    await deleteAccount(row.id)
+    ElMessage.success('删除成功')
+    loadAccounts()
+    loadBalance()
+  } catch {
+    // 用户取消删除，静默处理
+  }
 }
 
 // 页面挂载时加载账户列表和余额汇总 + 汇率（P2-4）

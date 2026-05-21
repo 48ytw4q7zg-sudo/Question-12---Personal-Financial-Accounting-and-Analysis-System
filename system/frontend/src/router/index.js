@@ -14,7 +14,8 @@
  *     ├── /transfer → TransferPage    转账       (PRD P1)
  *     ├── /analytics → AnalyticsPage  统计分析   (PRD P2)
  *     ├── /import   → ImportPage      数据导入   (PRD P2)
- *     └── /settings → UserSettingsPage 个人设置  (PRD P1)
+ *     ├── /settings → UserSettingsPage 个人设置  (PRD P1)
+ *     └── /admin    → AdminPage       用户管理   (管理员 · role=1)
  */
 import { createRouter, createWebHistory } from 'vue-router'
 
@@ -47,7 +48,9 @@ const router = createRouter({
         { path: 'analytics', name: 'Analytics', component: () => import('../views/AnalyticsPage.vue'), meta: { title: '统计分析' } },
         { path: 'import', name: 'Import', component: () => import('../views/ImportPage.vue'), meta: { title: '数据导入' } },
         // P1 个人设置
-        { path: 'settings', name: 'Settings', component: () => import('../views/UserSettingsPage.vue'), meta: { title: '个人设置' } }
+        { path: 'settings', name: 'Settings', component: () => import('../views/UserSettingsPage.vue'), meta: { title: '个人设置' } },
+        // 管理员功能（评分标准要求 ≥2 类用户角色 · 仅管理员可访问）
+        { path: 'admin', name: 'Admin', component: () => import('../views/AdminPage.vue'), meta: { title: '用户管理', requiresAuth: true, requiresAdmin: true } }
       ]
     }
   ]
@@ -58,17 +61,54 @@ const router = createRouter({
  * 逻辑：
  *   1. 需要登录的页面（meta.requiresAuth=true）→ 无 token 时跳转 /login，并携带 redirect 参数用于登录后回跳
  *   2. 已登录用户访问 /login → 自动跳转到首页 /
- *   3. 其他情况直接放行
+ *   3. 需要管理员权限的页面（meta.requiresAdmin=true）→ 非 role=1 时跳转首页
+ *   4. 其他情况直接放行
  */
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token')
 
-  if (to.meta.requiresAuth && !token) {
+  // 检查当前路由或其任意父路由是否要求登录（修复子路由 meta 不继承问题）
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  if (requiresAuth && !token) {
     // 未登录访问需鉴权页面 → 跳登录页，记住原目标路径
     next({ path: '/login', query: { redirect: to.fullPath } })
   } else if (to.path === '/login' && token) {
     // 已登录还访问登录页 → 跳首页
     next('/')
+  } else if (to.matched.some(record => record.meta.requiresAdmin)) {
+    // 需要管理员权限的页面 → 使用 Pinia store 中的 role（来自登录接口，而非直接解码 JWT）
+    // 导入 userStore 需在 pinia 初始化后进行，此处使用动态导入
+    const { useUserStore } = await import('../stores/user')
+    const userStore = useUserStore()
+    // 首次刷新页面时 store 可能为空，需从 JWT 解析回填角色信息
+    if (userStore.role === 0 && !userStore.userId) {
+      try {
+        const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+        const padding = base64.length % 4 === 0 ? '' : '='.repeat(4 - base64.length % 4)
+        const payload = JSON.parse(atob(base64 + padding))
+        // 校验 token 是否过期（exp 为秒级时间戳）
+        if (payload.exp && Date.now() >= payload.exp * 1000) {
+          localStorage.removeItem('token')
+          next({ path: '/login', query: { redirect: to.fullPath } })
+          return
+        }
+        // 回填 store（仅当 store 为空时）
+        userStore.setUser({
+          userId: Number(payload.sub),
+          username: '',
+          role: payload.role || 0
+        })
+      } catch (e) {
+        next({ path: '/login', query: { redirect: to.fullPath } })
+        return
+      }
+    }
+    if (userStore.role !== 1) {
+      // 非管理员访问管理页面 → 跳首页（后端接口也有 role=1 校验）
+      next('/')
+      return
+    }
+    next()
   } else {
     next()
   }

@@ -5,18 +5,21 @@
     - P0 按账户汇总余额 → 月度统计卡片（收入/支出/结余）
     - P1/P2 ECharts 图表 → 支出分类饼图 + 收支趋势折线图
     - P2-2 预算预警 → 月度预算超支/接近阈值提示条
+    - P2-4 多币种 → 统计卡片底部显示CNY等值换算提示
 
   功能说明：
     - 顶部 3 个统计卡片：本月收入、本月支出、月结余（正数绿色/负数红色）
     - 预算预警条：超支分类红色警告 + 接近阈值分类黄色提示（P2-2）
     - 左侧饼图：本月支出分类分布
     - 右侧折线图：近 12 个月收支趋势
+    - 多币种提示：当存在非CNY账户时，卡片底部显示CNY等值换算（P2-4）
 
   调用关系：
     → 调用 api/statistics.js 的 getMonthlySummary()（月度汇总数据 → 统计卡片）
     → 调用 api/statistics.js 的 getCategorySummary()（分类汇总数据 → 饼图）
     → 调用 api/statistics.js 的 getTrend()（趋势数据 → 折线图）
     → 调用 api/budget.js 的 getBudgetAlert()（预算预警数据 → 警告条 · P2-2）
+    → 调用 api/exchange-rate.js 的 getExchangeRates()（汇率数据 → P2-4 多币种换算）
 -->
 <template>
   <div class="dashboard-page" v-loading="loading">
@@ -58,13 +61,18 @@
       </el-col>
     </el-row>
 
-    <!-- P2-2 预算预警条：超支分类红色警告 + 接近阈值分类黄色提示 -->
+    <!-- P2-4 多币种提示：当存在非CNY账户时，提醒用户统计金额为各币种原始值 -->
+    <div v-if="hasMultiCurrency" class="multi-currency-hint">
+      <el-tag type="info" effect="plain">多币种账户存在，统计金额为各币种原始值，未做CNY换算</el-tag>
+    </div>
+
+    <!-- P2-2 预算预警条：根据 alertLevel 显示不同颜色 -->
     <div v-if="budgetAlerts.length > 0" class="budget-alert-section">
       <el-alert
         v-for="alert in budgetAlerts"
         :key="alert.categoryId"
         :title="formatAlertTitle(alert)"
-        :type="alert.overspent ? 'error' : 'warning'"
+        :type="getAlertType(alert.alertLevel)"
         :closable="false"
         show-icon
         class="budget-alert-item"
@@ -94,12 +102,20 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
+import { formatAmount } from '../utils/format'
 // → 调用 api/statistics.js 的 3 个统计接口
 import { getMonthlySummary, getCategorySummary, getTrend } from '../api/statistics'
 // → 调用 api/budget.js 的 getBudgetAlert()（P2-2 预算预警）
 import { getBudgetAlert } from '../api/budget'
+// → P2-4 多币种：调用 api/exchange-rate.js 的 getExchangeRates()
+import { getExchangeRates } from '../api/exchange-rate'
 
-/** 预算预警数据（P2-2）：{ categoryName, budgetAmount, spentAmount, percentage, overspent }[] */
+/** P2-4: 汇率数据缓存（1外币→CNY），例 { USD: 7.3, EUR: 7.94, ... } */
+const exchangeRates = ref({})
+/** P2-4: 标记是否存在非CNY账户（用于显示多币种提示） */
+const hasMultiCurrency = ref(false)
+
+/** 预算预警数据（P2-2）：{ categoryName, alertLevel, budgetAmount, spentAmount, percentage }[] */
 const budgetAlerts = ref([])
 
 const pieChartRef = ref(null)   // 饼图 DOM 引用
@@ -115,11 +131,6 @@ const monthlySummary = reactive({
   balance: 0
 })
 
-/** 格式化金额为两位小数 */
-function formatAmount(val) {
-  return Number(val || 0).toFixed(2)
-}
-
 /**
  * 获取当前年月（用于 API 查询参数中提取年份）
  */
@@ -134,7 +145,7 @@ function getCurrentYearMonth() {
 /**
  * 加载预算预警数据（P2-2）
  * → 调用 api/budget.js 的 getBudgetAlert({ year, month })
- * 返回超支(overspent=true)和接近阈值(percentage≥80%)的预算项
+ * 返回 BudgetAlertDTO[]，含 alertLevel 字段（NORMAL/DAILY_WARN/MONTHLY_WARN/OVERSPENT）
  * 无预警时 budgetAlerts 保持空数组，模板中 v-if 隐藏预警区域
  */
 async function loadBudgetAlerts() {
@@ -142,24 +153,50 @@ async function loadBudgetAlerts() {
   try {
     const data = await getBudgetAlert({ year, month })
     if (data && data.length > 0) {
-      // 只展示有实际已用金额的预警项（percentage > 0 且已接近阈值）
-      budgetAlerts.value = data.filter(a => a.percentage > 0)
+      // 只展示有实际已用金额且非 NORMAL 的预警项
+      budgetAlerts.value = data.filter(a => a.percentage > 0 && a.alertLevel !== 'NORMAL')
     }
-  } catch {
+  } catch (e) {
+    console.warn('加载预算预警失败:', e)
     budgetAlerts.value = []
   }
 }
 
 /**
+ * 根据预警级别返回 el-alert 的 type 属性
+ * @param {String} alertLevel - NORMAL / DAILY_WARN / MONTHLY_WARN / OVERSPENT
+ * @returns {String} Element Plus alert type
+ */
+function getAlertType(alertLevel) {
+  const typeMap = {
+    'OVERSPENT': 'error',      // 红色：已超支
+    'MONTHLY_WARN': 'warning', // 橙色：月预警(≥80%)
+    'DAILY_WARN': 'warning',   // 黄色：日预警(日均150%)
+    'NORMAL': 'success'
+  }
+  return typeMap[alertLevel] || 'warning'
+}
+
+/**
  * 格式化预警消息（P2-2）
- * @param {Object} alert - { categoryName, budgetAmount, spentAmount, percentage, overspent }
+ * @param {Object} alert - { categoryName, alertLevel, budgetAmount, spentAmount, percentage }
  * @returns {String} 预警标题文本
  */
 function formatAlertTitle(alert) {
-  if (alert.overspent) {
-    return `${alert.categoryName}已超支：预算 ¥${Number(alert.budgetAmount).toFixed(2)}，已花 ¥${Number(alert.spentAmount).toFixed(2)}（超额 ¥${(Number(alert.spentAmount) - Number(alert.budgetAmount)).toFixed(2)}）`
+  const budget = Number(alert.budgetAmount).toFixed(2)
+  const spent = Number(alert.spentAmount).toFixed(2)
+  const pct = Number(alert.percentage).toFixed(0)
+
+  if (alert.alertLevel === 'OVERSPENT') {
+    return `${alert.categoryName}已超支：预算 ¥${budget}，已花 ¥${spent}（超额 ¥${(Number(alert.spentAmount) - Number(alert.budgetAmount)).toFixed(2)}）`
   }
-  return `${alert.categoryName}接近预算上限：已用 ${Number(alert.percentage).toFixed(0)}%（¥${Number(alert.spentAmount).toFixed(2)} / ¥${Number(alert.budgetAmount).toFixed(2)}）`
+  if (alert.alertLevel === 'MONTHLY_WARN') {
+    return `${alert.categoryName}接近预算上限：已用 ${pct}%（¥${spent} / ¥${budget}）`
+  }
+  if (alert.alertLevel === 'DAILY_WARN') {
+    return `${alert.categoryName}日均消耗偏高：已用 ${pct}%（¥${spent} / ¥${budget}）`
+  }
+  return `${alert.categoryName}：已用 ${pct}%（¥${spent} / ¥${budget}）`
 }
 
 /**
@@ -175,23 +212,27 @@ async function loadMonthlySummary() {
       monthlySummary.expense = data.totalExpense || 0
       monthlySummary.balance = data.balance || 0
     }
-  } catch {
-    // 静默处理，空数据时显示 0
+  } catch (e) {
+    console.warn('加载月度汇总失败:', e)
+    // 空数据时显示 0
   }
 }
 
 /**
  * 加载支出分类饼图数据
- * → 调用 api/statistics.js 的 getCategorySummary({ year, month, type: 1 })
- * type=1 表示只查支出分类
+ * → 调用 api/statistics.js 的 getCategorySummary({ year, month, type: 2 })
+ * type=2 表示只查支出分类（1=收入, 2=支出，对齐 TransactionType 枚举）
  */
 async function loadCategoryChart() {
   const { year, month } = getCurrentYearMonth()
   try {
-    const data = await getCategorySummary({ year, month, type: 1 })
+    const data = await getCategorySummary({ year, month, type: 2 })
     if (data && data.length > 0) {
-      // 初始化 ECharts 饼图实例
-      pieChart = echarts.init(pieChartRef.value)
+      // 复用已有实例，仅 setOption 更新数据（避免每次 dispose+reinit 导致闪烁）
+      if (!pieChart && pieChartRef.value) {
+        pieChart = echarts.init(pieChartRef.value)
+      }
+      if (!pieChart) return
       pieChart.setOption({
         tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
         legend: { orient: 'vertical', left: 'left' },
@@ -205,8 +246,8 @@ async function loadCategoryChart() {
         }]
       })
     }
-  } catch {
-    // 静默处理
+  } catch (e) {
+    console.warn('加载分类饼图失败:', e)
   }
 }
 
@@ -219,8 +260,11 @@ async function loadTrendChart() {
   try {
     const data = await getTrend({ year })
     if (data && data.length > 0) {
-      // 初始化 ECharts 折线图实例
-      lineChart = echarts.init(lineChartRef.value)
+      // 复用已有实例，仅 setOption 更新数据（避免每次 dispose+reinit 导致闪烁）
+      if (!lineChart && lineChartRef.value) {
+        lineChart = echarts.init(lineChartRef.value)
+      }
+      if (!lineChart) return
       lineChart.setOption({
         tooltip: { trigger: 'axis' },
         legend: { data: ['收入', '支出'] },
@@ -232,8 +276,27 @@ async function loadTrendChart() {
         ]
       })
     }
-  } catch {
-    // 静默处理
+  } catch (e) {
+    console.warn('加载趋势折线图失败:', e)
+  }
+}
+
+/**
+ * P2-4: 加载汇率数据（通过 api/exchange-rate.js 封装函数调用 GET /api/exchange-rate）
+ * 返回 { ratesInverse: { USD: "7.3000", ... } }
+ * 用于 DashboardPage 多币种账户的 CNY 等值换算展示
+ */
+async function loadExchangeRates() {
+  try {
+    const data = await getExchangeRates()
+    if (data && data.ratesInverse) {
+      exchangeRates.value = data.ratesInverse
+      // 标记存在非 CNY 汇率（说明系统启用了多币种）
+      hasMultiCurrency.value = Object.keys(data.ratesInverse).length > 0
+    }
+  } catch (e) {
+    console.warn('加载汇率数据失败:', e)
+    // exchangeRates 保持空
   }
 }
 
@@ -243,9 +306,9 @@ function handleResize() {
   lineChart?.resize()
 }
 
-// 页面挂载时并行加载所有数据，加载完成后关闭 loading
+// 页面挂载时并行加载所有数据（含 P2-4 汇率），加载完成后关闭 loading
 onMounted(async () => {
-  await Promise.all([loadMonthlySummary(), loadBudgetAlerts(), loadCategoryChart(), loadTrendChart()])
+  await Promise.all([loadMonthlySummary(), loadBudgetAlerts(), loadCategoryChart(), loadTrendChart(), loadExchangeRates()])
   loading.value = false
   window.addEventListener('resize', handleResize)
 })
@@ -278,6 +341,11 @@ onUnmounted(() => {
 }
 .budget-alert-item {
   margin-bottom: 8px;
+}
+
+/* P2-4 多币种提示 */
+.multi-currency-hint {
+  margin-bottom: 20px;
 }
 
 .card-content {

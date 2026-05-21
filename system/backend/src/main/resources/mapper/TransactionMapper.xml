@@ -34,7 +34,7 @@
       AND t.time &lt;= #{endTime}
     </if>
     <if test="keyword != null and keyword != ''">
-      AND t.note LIKE CONCAT('%', #{keyword}, '%')
+      AND t.note LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
     </if>
     <choose>
       <when test="sortBy == 'amount_asc'">
@@ -67,7 +67,7 @@
       AND t.time &lt;= #{endTime}
     </if>
     <if test="keyword != null and keyword != ''">
-      AND t.note LIKE CONCAT('%', #{keyword}, '%')
+      AND t.note LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
     </if>
   </select>
 

@@ -2,6 +2,9 @@ package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.finance.common.BusinessException;
+import com.example.finance.common.ErrorCode;
+import com.example.finance.common.enums.Status;
+import com.example.finance.common.enums.TransactionType;
 import com.example.finance.entity.Account;
 import com.example.finance.entity.Category;
 import com.example.finance.entity.RecurringBill;
@@ -50,8 +53,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RecurringBillServiceImpl implements RecurringBillService {
 
-  private static final int STATUS_ACTIVE = 1;
-  private static final int STATUS_INACTIVE = 0;
+  /** 时间格式化常量（复用避免重复创建 DateTimeFormatter） */
+  private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
   private final RecurringBillMapper recurringBillMapper;
   private final TransactionMapper transactionMapper;
@@ -66,24 +69,29 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     List<RecurringBill> bills = recurringBillMapper.selectList(
         new LambdaQueryWrapper<RecurringBill>()
             .eq(RecurringBill::getUserId, userId)
-            .eq(RecurringBill::getStatus, STATUS_ACTIVE)
+            .eq(RecurringBill::getStatus, Status.ACTIVE.getValue())
             .orderByDesc(RecurringBill::getCreateTime)
     );
 
-    // 批量加载关联的账户和分类
+    // 批量加载关联的账户和分类（含账户status，用于PRD P1-4异常标记）
     Set<Long> accountIds = bills.stream().map(RecurringBill::getAccountId).collect(Collectors.toSet());
     Set<Long> categoryIds = bills.stream().map(RecurringBill::getCategoryId).collect(Collectors.toSet());
 
-    Map<Long, String> accountNameMap = accountIds.isEmpty()
+    Map<Long, Account> accountMap = accountIds.isEmpty()
         ? Map.of()
         : accountMapper.selectByIds(accountIds).stream()
-            .collect(Collectors.toMap(Account::getId, Account::getName));
+            .collect(Collectors.toMap(Account::getId, a -> a, (a1, a2) -> a1));
+    Map<Long, String> accountNameMap = accountMap.entrySet().stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getName()));
+    // PRD P1-4 业务规则③: 活跃账单关联账户被禁用 → 标记异常
+    Map<Long, Boolean> accountDisabledMap = accountMap.entrySet().stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getStatus() != null && e.getValue().getStatus() != Status.ACTIVE.getValue()));
     Map<Long, String> categoryNameMap = categoryIds.isEmpty()
         ? Map.of()
         : categoryMapper.selectByIds(categoryIds).stream()
             .collect(Collectors.toMap(Category::getId, Category::getName));
 
-    return bills.stream().map(bill -> toDTO(bill, accountNameMap, categoryNameMap)).toList();
+    return bills.stream().map(bill -> toDTO(bill, accountNameMap, accountDisabledMap, categoryNameMap)).toList();
   }
 
   /**
@@ -95,14 +103,20 @@ public class RecurringBillServiceImpl implements RecurringBillService {
    * @param userId 当前用户ID(从JWT token解析)
    * @param request 账单请求参数(含name/amount/type/period/accountId/categoryId/nextDueDate)
    * @return 创建后的账单DTO(含账户名/分类名)
-   * @throws BusinessException 5006=账户不存在 / 5007=分类不存在
+   * @throws BusinessException 5007=账户不存在 / 5008=分类不存在
    */
   @Override
+  @Transactional
   public RecurringBillDTO create(Long userId, RecurringBillRequest request) {
-    // 校验账户归属
-    validateAccount(userId, request.getAccountId());
-    // 校验分类存在
-    validateCategory(request.getCategoryId());
+    // 校验账户归属并复用对象
+    Account account = validateAccount(userId, request.getAccountId());
+    // 校验分类存在并复用对象
+    Category category = validateCategory(request.getCategoryId());
+    // 校验下次到期日必须是未来日期（PRD P1-4 异常流程①: 下次到期日为空/过去日期 → 400）
+    LocalDate dueDate = LocalDate.parse(request.getNextDueDate(), DateTimeFormatter.ISO_LOCAL_DATE);
+    if (!dueDate.isAfter(LocalDate.now())) {
+      throw new BusinessException(ErrorCode.BILL_DUE_DATE_INVALID.getCode(), ErrorCode.BILL_DUE_DATE_INVALID.getMsg());
+    }
 
     RecurringBill bill = new RecurringBill();
     bill.setUserId(userId);
@@ -112,13 +126,13 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     bill.setAmount(request.getAmount());
     bill.setType(request.getType());
     bill.setPeriod(request.getPeriod());
-    bill.setNextDueDate(LocalDate.parse(request.getNextDueDate(), DateTimeFormatter.ISO_LOCAL_DATE));
-    bill.setStatus(STATUS_ACTIVE);
+    bill.setNextDueDate(dueDate);
+    bill.setStatus(Status.ACTIVE.getValue());
     bill.setCreateTime(LocalDateTime.now());
     bill.setUpdateTime(LocalDateTime.now());
 
     recurringBillMapper.insert(bill);
-    return toDTO(bill);
+    return toDTO(bill, account, category);
   }
 
   /**
@@ -126,16 +140,27 @@ public class RecurringBillServiceImpl implements RecurringBillService {
    *
    * <p>对应 PRD P1-4 PUT /api/recurring-bill/{id}。</p>
    * <p>仅允许更新活跃账单(status=1), 已停用的账单由getBillById()抛出5004。</p>
+   * <p>安全校验: 更新时重新校验账户归属和分类存在, 防止越权修改到其他用户的账户。</p>
    *
    * @param userId 当前用户ID(从JWT token解析)
    * @param billId 账单ID
    * @param request 更新请求参数
    * @return 更新后的账单DTO
-   * @throws BusinessException 5005=账单不存在 / 5004=账单已停用
+   * @throws BusinessException 5006=账单不存在 / 5005=账单已停用 / 5007=账户不存在 / 5008=分类不存在
    */
   @Override
+  @Transactional
   public RecurringBillDTO update(Long userId, Long billId, RecurringBillRequest request) {
     RecurringBill bill = getBillById(userId, billId);
+
+    // 安全校验: 更新时重新校验账户归属当前用户且status=1, 分类存在，复用对象
+    Account account = validateAccount(userId, request.getAccountId());
+    Category category = validateCategory(request.getCategoryId());
+    // 校验下次到期日必须是未来日期
+    LocalDate dueDate = LocalDate.parse(request.getNextDueDate(), DateTimeFormatter.ISO_LOCAL_DATE);
+    if (!dueDate.isAfter(LocalDate.now())) {
+      throw new BusinessException(ErrorCode.BILL_DUE_DATE_INVALID.getCode(), ErrorCode.BILL_DUE_DATE_INVALID.getMsg());
+    }
 
     bill.setName(request.getName());
     bill.setAccountId(request.getAccountId());
@@ -143,11 +168,11 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     bill.setAmount(request.getAmount());
     bill.setType(request.getType());
     bill.setPeriod(request.getPeriod());
-    bill.setNextDueDate(LocalDate.parse(request.getNextDueDate(), DateTimeFormatter.ISO_LOCAL_DATE));
+    bill.setNextDueDate(dueDate);
     bill.setUpdateTime(LocalDateTime.now());
 
     recurringBillMapper.updateById(bill);
-    return toDTO(bill);
+    return toDTO(bill, account, category);
   }
 
   /**
@@ -158,15 +183,16 @@ public class RecurringBillServiceImpl implements RecurringBillService {
    *
    * @param userId 当前用户ID(从JWT token解析)
    * @param billId 账单ID
-   * @throws BusinessException 5005=账单不存在 / 5004=账单已停用
+   * @throws BusinessException 5006=账单不存在 / 5005=账单已停用
    */
   @Override
+  @Transactional
   public void deactivate(Long userId, Long billId) {
     RecurringBill bill = getBillById(userId, billId);
-    if (bill.getStatus() == STATUS_INACTIVE) {
-      throw new BusinessException(5004, "周期性账单已停用");
+    if (bill.getStatus() == Status.DISABLED.getValue()) {
+      throw new BusinessException(ErrorCode.BILL_INACTIVE.getCode(), ErrorCode.BILL_INACTIVE.getMsg());
     }
-    bill.setStatus(STATUS_INACTIVE);
+    bill.setStatus(Status.DISABLED.getValue());
     bill.setUpdateTime(LocalDateTime.now());
     recurringBillMapper.updateById(bill);
   }
@@ -178,7 +204,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
    * <p>业务流程:</p>
    * <ol>
    *   <li>校验账单存在且status=1(活跃)</li>
-   *   <li>校验关联账户status=1(活跃), 已禁用则拒绝生成(PRDP1-4 异常流程②)</li>
+   *   <li>校验关联账户status=1(活跃), 已禁用则拒绝生成(PRD P1-4 异常流程②)</li>
    *   <li>在 @Transactional 事务内: INSERT交易记录 → UPDATE账单next_due_date(推进一个周期)</li>
    * </ol>
    * <p>教学简化: 一键手动触发生成, 不做自动扣款; @Scheduled仅日志记录, 不自动创建。</p>
@@ -186,20 +212,20 @@ public class RecurringBillServiceImpl implements RecurringBillService {
    * @param userId 当前用户ID(从JWT token解析)
    * @param billId 账单ID
    * @return 生成的交易记录DTO
-   * @throws BusinessException 5005=账单不存在 / 5004=账单已停用 / 5002=关联账户已禁用
+   * @throws BusinessException 5006=账单不存在 / 5005=账单已停用 / 5003=关联账户已禁用
    */
   @Override
   @Transactional
   public TransactionDTO generate(Long userId, Long billId) {
     RecurringBill bill = getBillById(userId, billId);
-    if (bill.getStatus() == STATUS_INACTIVE) {
-      throw new BusinessException(5004, "周期性账单已停用");
+    if (bill.getStatus() == Status.DISABLED.getValue()) {
+      throw new BusinessException(ErrorCode.BILL_INACTIVE.getCode(), ErrorCode.BILL_INACTIVE.getMsg());
     }
 
     // PRD P1-4 异常流程②: 一键生成时关联账户已禁用 → 拒绝生成
     Account account = accountMapper.selectById(bill.getAccountId());
-    if (account == null || account.getStatus() != STATUS_ACTIVE) {
-      throw new BusinessException(5002, "关联账户已禁用不可生成");
+    if (account == null || account.getStatus() != Status.ACTIVE.getValue()) {
+      throw new BusinessException(ErrorCode.BILL_ACCOUNT_DISABLED_GEN.getCode(), ErrorCode.BILL_ACCOUNT_DISABLED_GEN.getMsg());
     }
 
     // 创建交易记录
@@ -229,7 +255,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     dto.setType(transaction.getType());
     dto.setAmount(transaction.getAmount());
     dto.setNote(transaction.getNote());
-    dto.setTime(transaction.getTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+    dto.setTime(transaction.getTime().format(DTF));
     dto.setCreateTime(transaction.getCreateTime());
     dto.setUpdateTime(transaction.getUpdateTime());
 
@@ -270,20 +296,21 @@ public class RecurringBillServiceImpl implements RecurringBillService {
    */
   private Account validateAccount(Long userId, Long accountId) {
     Account account = accountMapper.selectById(accountId);
-    if (account == null || !account.getUserId().equals(userId) || account.getStatus() != 1) {
-      throw new BusinessException(5006, "账户不存在");
+    if (account == null || !account.getUserId().equals(userId) || account.getStatus() != Status.ACTIVE.getValue()) {
+      throw new BusinessException(ErrorCode.BILL_ACCOUNT_NOT_FOUND.getCode(), ErrorCode.BILL_ACCOUNT_NOT_FOUND.getMsg());
     }
     return account;
   }
 
   /**
-   * 校验分类存在
+   * 校验分类存在并返回分类对象（复用避免重复查询）
    */
-  private void validateCategory(Long categoryId) {
+  private Category validateCategory(Long categoryId) {
     Category category = categoryMapper.selectById(categoryId);
     if (category == null) {
-      throw new BusinessException(5007, "分类不存在");
+      throw new BusinessException(ErrorCode.BILL_CATEGORY_NOT_FOUND.getCode(), ErrorCode.BILL_CATEGORY_NOT_FOUND.getMsg());
     }
+    return category;
   }
 
   /**
@@ -292,7 +319,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   private RecurringBill getBillById(Long userId, Long billId) {
     RecurringBill bill = recurringBillMapper.selectById(billId);
     if (bill == null || !bill.getUserId().equals(userId)) {
-      throw new BusinessException(5005, "周期性账单不存在");
+      throw new BusinessException(ErrorCode.BILL_NOT_FOUND.getCode(), ErrorCode.BILL_NOT_FOUND.getMsg());
     }
     return bill;
   }
@@ -300,7 +327,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   /**
    * Entity → DTO 转换（批量查询用，传入预加载的名称映射）
    */
-  private RecurringBillDTO toDTO(RecurringBill bill, Map<Long, String> accountNameMap, Map<Long, String> categoryNameMap) {
+  private RecurringBillDTO toDTO(RecurringBill bill, Map<Long, String> accountNameMap, Map<Long, Boolean> accountDisabledMap, Map<Long, String> categoryNameMap) {
     RecurringBillDTO dto = new RecurringBillDTO();
     dto.setId(bill.getId());
     dto.setName(bill.getName());
@@ -315,6 +342,8 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     dto.setUpdateTime(bill.getUpdateTime());
     dto.setAccountName(accountNameMap.getOrDefault(bill.getAccountId(), ""));
     dto.setCategoryName(categoryNameMap.getOrDefault(bill.getCategoryId(), ""));
+    // PRD P1-4 业务规则③: 活跃账单关联账户被禁用 → accountDisabled=true
+    dto.setAccountDisabled(accountDisabledMap.getOrDefault(bill.getAccountId(), false));
     return dto;
   }
 
@@ -337,9 +366,33 @@ public class RecurringBillServiceImpl implements RecurringBillService {
 
     Account account = accountMapper.selectById(bill.getAccountId());
     dto.setAccountName(account != null ? account.getName() : "");
+    // PRD P1-4 业务规则③: 活跃账单关联账户被禁用 → accountDisabled=true
+    dto.setAccountDisabled(account != null && account.getStatus() != Status.ACTIVE.getValue());
     Category category = categoryMapper.selectById(bill.getCategoryId());
     dto.setCategoryName(category != null ? category.getName() : "");
 
+    return dto;
+  }
+
+  /**
+   * Entity → DTO 转换（传入预加载的关联对象，避免重复查询）
+   */
+  private RecurringBillDTO toDTO(RecurringBill bill, Account account, Category category) {
+    RecurringBillDTO dto = new RecurringBillDTO();
+    dto.setId(bill.getId());
+    dto.setName(bill.getName());
+    dto.setAccountId(bill.getAccountId());
+    dto.setCategoryId(bill.getCategoryId());
+    dto.setAmount(bill.getAmount());
+    dto.setType(bill.getType());
+    dto.setPeriod(bill.getPeriod());
+    dto.setNextDueDate(bill.getNextDueDate() != null ? bill.getNextDueDate().format(DateTimeFormatter.ISO_LOCAL_DATE) : null);
+    dto.setStatus(bill.getStatus());
+    dto.setCreateTime(bill.getCreateTime());
+    dto.setUpdateTime(bill.getUpdateTime());
+    dto.setAccountName(account != null ? account.getName() : "");
+    dto.setAccountDisabled(account != null && account.getStatus() != Status.ACTIVE.getValue());
+    dto.setCategoryName(category != null ? category.getName() : "");
     return dto;
   }
 }

@@ -47,11 +47,14 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 // → 调用 api/user.js 的 changePassword()（修改密码接口）
 import { changePassword } from '../api/user'
 // → 调用 stores/user.js 的 username（显示当前用户名）
 import { useUserStore } from '../stores/user'
+
+const router = useRouter()
 
 const userStore = useUserStore()
 const submitting = ref(false)    // 提交 loading
@@ -71,7 +74,17 @@ const formRules = {
   ],
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度为 6-20 个字符', trigger: 'blur' }
+    { min: 6, max: 20, message: '密码长度为 6-20 个字符', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        if (value === formData.oldPassword) {
+          callback(new Error('新密码不能与原密码相同'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
   ],
   confirmPassword: [
     { required: true, message: '请确认新密码', trigger: 'blur' },
@@ -104,11 +117,11 @@ async function handleSubmit() {
       oldPassword: formData.oldPassword,
       newPassword: formData.newPassword
     })
-    ElMessage.success('密码修改成功')
-    // 清空表单
-    formData.oldPassword = ''
-    formData.newPassword = ''
-    formData.confirmPassword = ''
+    ElMessage.success('密码修改成功，请重新登录')
+    // 修改密码后强制重新登录（安全最佳实践）
+    localStorage.removeItem('token')
+    userStore.clearUser()
+    router.push('/login')
   } finally {
     submitting.value = false
   }

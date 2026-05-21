@@ -54,6 +54,7 @@
 | 10 | 收支记录分页列表 | GET /api/transaction | ✅ | 全角色 | P0 |
 | 11 | 记一笔 | POST /api/transaction | ✅ | 全角色 | P0 |
 | 12 | 修改收支记录 | PUT /api/transaction/{id} | ✅ | 全角色 | P0 |
+| 12b | 删除收支记录 | DELETE /api/transaction/{id} | ✅ | 全角色 | P0 |
 | 13 | 转账 | POST /api/transaction/transfer | ✅ | 全角色 | P1 |
 | 13b | CSV 导入 | POST /api/transaction/import | ✅ | 全角色 | P2 |
 
@@ -91,7 +92,7 @@
 |---|---|---|:--:|---|:---:|
 | 27 | 汇率查询 | GET /api/exchange-rate | ✅ | 全角色 | P2 |
 
-> **总计 28 个接口**（P0: 11 个 / P1: 13 个 / P2: 4 个）
+> **总计 29 个接口**（P0: 12 个 / P1: 13 个 / P2: 4 个）
 <!-- R-04-issue-2: 已修复 - §2 总计行 P0/P1 计数修正为 14/12（与 §3 实际一致） -->
 <!-- R-04-issue-5: 已修复 - §2 总计行 P0/P1/P2 计数修正为 11/13/4（与表格标签 + PRD 一致） -->
 
@@ -562,6 +563,37 @@
 
 ---
 
+### DELETE /api/transaction/{id}
+
+- **功能**: 删除一条收支记录；转账关联记录（transferId 非空）禁止删除
+- **是否需登录**: ✅ 需要
+- **行级权限**: 强制 `WHERE user_id = currentUserId`，只能删除自己的记录
+
+- **Path 参数**:
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| id | Long | 记录 ID |
+
+- **成功响应**（code=200）:
+
+```json
+{
+  "code": 200,
+  "message": "记录已删除",
+  "data": null
+}
+```
+
+- **异常响应**:
+
+| code | message | 触发场景 |
+|---|---|---|
+| 3006 | 收支记录不存在 | id 不存在 |
+| 3003 | 转账记录禁止删除 | transferId 非空时拒绝删除，避免破坏转账配对完整性 |
+
+---
+
 ### POST /api/transaction/transfer
 
 - **功能**: 在两个账户之间转账，生成一出一进两条关联收支记录
@@ -792,11 +824,16 @@
 
 ### GET /api/budget/alert
 
-- **功能**: 查询当前用户所有分类的预算预警状态（日/月两级阈值 + 超支预测）
+- **功能**: 查询当前用户本月的预算预警记录（由 BudgetScheduler 每日凌晨 2:00 持久化到 budget_alert 表）
 - **是否需登录**: ✅ 需要
 - **分页约束**: 非分页接口
 
-- **请求参数**: 无
+- **Query 参数**:
+
+| 参数 | 类型 | 必填 | 校验规则 |
+|---|---|:--:|---|
+| year | Integer | 否 | 如 2026，空时默认当前年 |
+| month | Integer | 否 | 1-12，空时默认当前月 |
 
 - **成功响应**（code=200）:
 
@@ -806,23 +843,32 @@
   "message": "操作成功",
   "data": [
     {
+      "id": 1,
       "categoryId": 1,
       "categoryName": "餐饮",
-      "alertLevel": "MONTHLY_WARNING",
-      "alertMessage": "本月已用预算的 90%"
+      "month": "2026-05",
+      "alertLevel": "MONTHLY_WARN",
+      "budgetAmount": 2000.00,
+      "spentAmount": 1800.00,
+      "percentage": 90.00
     },
     {
+      "id": 2,
       "categoryId": 2,
       "categoryName": "交通",
+      "month": "2026-05",
       "alertLevel": "OVERSPENT",
-      "alertMessage": "已超支 100.00 元"
+      "budgetAmount": 500.00,
+      "spentAmount": 600.00,
+      "percentage": 120.00
     }
   ]
 }
 ```
 
-- **alertLevel 枚举**: `NORMAL`=正常 / `DAILY_WARNING`=日预警（日均超 150%）/ `MONTHLY_WARNING`=月预警（月耗超 80%）/ `OVERSPENT`=已超支
-- **空集合**: 无预警时 `data: []`
+- **alertLevel 枚举**: `NORMAL`=正常 / `DAILY_WARN`=日预警（日均超 150%）/ `MONTHLY_WARN`=月预警（月耗超 80%）/ `OVERSPENT`=已超支
+- **数据来源**: BudgetScheduler 每日凌晨 2:00 写入 budget_alert 表，查询时批量加载分类名称
+- **空集合**: 无预警记录时 `data: []`
 
 ---
 
@@ -1419,6 +1465,36 @@
   "status": 1,
   "createTime": "2026-05-01 00:00:00",
   "updateTime": "2026-05-01 00:00:00"
+}
+```
+
+#### BudgetAlertDTO（P2-2 预算预警）
+
+```json
+{
+  "id": 1,
+  "categoryId": 1,
+  "categoryName": "餐饮",
+  "month": "2026-05",
+  "alertLevel": "OVERSPENT",
+  "budgetAmount": 2000.00,
+  "spentAmount": 2500.00,
+  "percentage": 125.00
+}
+```
+
+> alertLevel 枚举: `NORMAL` / `DAILY_WARN` / `MONTHLY_WARN` / `OVERSPENT`
+
+#### ImportResultDTO（P2-3 CSV 导入结果）
+
+```json
+{
+  "successCount": 48,
+  "failCount": 2,
+  "failRows": [
+    { "row": 3, "reason": "分类不存在" },
+    { "row": 15, "reason": "金额格式错误" }
+  ]
 }
 ```
 

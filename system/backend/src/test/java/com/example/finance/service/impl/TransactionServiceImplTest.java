@@ -81,7 +81,7 @@ class TransactionServiceImplTest {
     TransactionRequest request = buildRequest(999L, 1L, 2, new BigDecimal("50.00"), "test", LocalDateTime.now());
     BusinessException ex = assertThrows(BusinessException.class,
         () -> transactionService.create(1L, request));
-    assertEquals(3002, ex.getCode());
+    assertEquals(3004, ex.getCode());
   }
 
   @Test
@@ -93,7 +93,7 @@ class TransactionServiceImplTest {
     TransactionRequest request = buildRequest(1L, 999L, 2, new BigDecimal("50.00"), "test", LocalDateTime.now());
     BusinessException ex = assertThrows(BusinessException.class,
         () -> transactionService.create(1L, request));
-    assertEquals(3002, ex.getCode());
+    assertEquals(3005, ex.getCode());
   }
 
   @Test
@@ -120,7 +120,7 @@ class TransactionServiceImplTest {
     TransactionRequest request = buildRequest(1L, 1L, 2, new BigDecimal("50.00"), "test", LocalDateTime.now());
     BusinessException ex = assertThrows(BusinessException.class,
         () -> transactionService.update(1L, 999L, request));
-    assertEquals(3006, ex.getCode());
+    assertEquals(3011, ex.getCode());
   }
 
   @Test
@@ -132,12 +132,13 @@ class TransactionServiceImplTest {
     TransactionRequest request = buildRequest(1L, 13L, 2, new BigDecimal("300.00"), "转账", LocalDateTime.now());
     BusinessException ex = assertThrows(BusinessException.class,
         () -> transactionService.update(1L, 1L, request));
-    assertEquals(3003, ex.getCode());
+    assertEquals(3006, ex.getCode());
   }
 
   @Test
   @DisplayName("转账失败 - 不能转给自己")
   void transfer_sameAccount() {
+    when(accountMapper.selectByIdForUpdate(1L)).thenReturn(testAccount);
     when(accountMapper.selectById(1L)).thenReturn(testAccount);
 
     TransferRequest request = new TransferRequest();
@@ -147,7 +148,7 @@ class TransactionServiceImplTest {
 
     BusinessException ex = assertThrows(BusinessException.class,
         () -> transactionService.transfer(1L, request));
-    assertEquals(3004, ex.getCode());
+    assertEquals(3008, ex.getCode());
   }
 
   @Test
@@ -161,7 +162,7 @@ class TransactionServiceImplTest {
     toAccount.setInitialBalance(new BigDecimal("1000.00"));
     toAccount.setStatus(1);
 
-    when(accountMapper.selectById(1L)).thenReturn(fromAccount);
+    when(accountMapper.selectByIdForUpdate(1L)).thenReturn(fromAccount);
     when(accountMapper.selectById(2L)).thenReturn(toAccount);
     // 账户当前余额 = 5000 + 0 - 0 = 5000，要转 10000 不够
     when(transactionMapper.selectAccountIncome(eq(1L), eq(1L))).thenReturn(BigDecimal.ZERO);
@@ -174,7 +175,7 @@ class TransactionServiceImplTest {
 
     BusinessException ex = assertThrows(BusinessException.class,
         () -> transactionService.transfer(1L, request));
-    assertEquals(3005, ex.getCode());
+    assertEquals(3009, ex.getCode());
   }
 
   private TransactionRequest buildRequest(Long accountId, Long categoryId, int type, BigDecimal amount, String note, LocalDateTime time) {

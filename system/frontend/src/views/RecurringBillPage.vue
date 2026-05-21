@@ -37,7 +37,7 @@
         <el-table-column prop="amount" label="金额" width="110">
           <template #default="{ row }">
             <span :class="row.type === 1 ? 'amount-income' : 'amount-expense'">
-              {{ row.type === 1 ? '+' : '-' }}¥ {{ Number(row.amount || 0).toFixed(2) }}
+              {{ row.type === 1 ? '+' : '-' }}¥ {{ formatAmount(row.amount) }}
             </span>
           </template>
         </el-table-column>
@@ -59,11 +59,13 @@
             {{ formatDate(row.nextDueDate) }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="80">
+        <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
               {{ row.status === 1 ? '启用' : '停用' }}
             </el-tag>
+            <!-- PRD P1-4 业务规则③: 活跃账单关联账户被禁用 → 标记异常 -->
+            <el-tag v-if="row.accountDisabled" type="danger" size="small" style="margin-left: 4px">账户异常</el-tag>
           </template>
         </el-table-column>
         <!-- 操作列：编辑 / 停用 / 生成交易记录 -->
@@ -90,7 +92,7 @@
         </el-form-item>
         <el-form-item label="分类" prop="categoryId">
           <el-select v-model="formData.categoryId" placeholder="请选择分类" style="width: 100%">
-            <el-option v-for="cat in categoryList" :key="cat.id" :label="cat.name" :value="cat.id" />
+            <el-option v-for="cat in filteredCategories" :key="cat.id" :label="cat.name" :value="cat.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="金额" prop="amount">
@@ -104,8 +106,10 @@
         </el-form-item>
         <el-form-item label="周期" prop="period">
           <el-select v-model="formData.period" placeholder="请选择周期" style="width: 100%">
-            <el-option label="每月" value="monthly" />
+            <el-option label="每天" value="daily" />
             <el-option label="每周" value="weekly" />
+            <el-option label="每月" value="monthly" />
+            <el-option label="每年" value="yearly" />
           </el-select>
         </el-form-item>
         <el-form-item label="下次到期" prop="nextDueDate">
@@ -121,7 +125,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 // → 调用 api/recurring-bill.js 的 5 个接口函数
 import {
@@ -135,9 +139,10 @@ import {
 import { getAccountList } from '../api/account'
 // → 调用 api/category.js 的 getCategoryList()（下拉选项）
 import { getCategoryList } from '../api/category'
+import { formatAmount, formatDate } from '../utils/format'
 
-// 周期类型映射
-const periodMap = { monthly: '每月', weekly: '每周' }
+// 周期类型映射（对齐后端 RecurringBillServiceImpl.calculateNextDueDate 支持的 4 种周期）
+const periodMap = { daily: '每天', weekly: '每周', monthly: '每月', yearly: '每年' }
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -149,6 +154,13 @@ const formRef = ref(null)
 const billList = ref([])         // 周期账单列表
 const accountList = ref([])      // 账户下拉选项
 const categoryList = ref([])     // 分类下拉选项
+
+// 根据类型筛选分类（收入 type=1 对应收入分类，支出 type=2 对应支出分类）
+const filteredCategories = computed(() => {
+  if (!categoryList.value.length) return []
+  // type=1(收入)对应 categoryType=1(income)，type=2(支出)对应 categoryType=2(expense)
+  return categoryList.value.filter(cat => cat.type === formData.type)
+})
 
 // 新增/编辑表单数据
 const formData = reactive({
@@ -170,12 +182,6 @@ const formRules = {
   type: [{ required: true, message: '请选择类型', trigger: 'change' }],
   period: [{ required: true, message: '请选择周期', trigger: 'change' }],
   nextDueDate: [{ required: true, message: '请选择下次到期日期', trigger: 'change' }]
-}
-
-/** 格式化日期，只取前 10 位（YYYY-MM-DD） */
-function formatDate(date) {
-  if (!date) return ''
-  return date.substring(0, 10)
 }
 
 /**
@@ -201,8 +207,8 @@ async function loadOptions() {
     const [accounts, categories] = await Promise.all([getAccountList(), getCategoryList()])
     accountList.value = accounts || []
     categoryList.value = categories || []
-  } catch {
-    // 静默处理
+  } catch (e) {
+    console.warn('加载选项数据失败:', e)
   }
 }
 
@@ -264,10 +270,14 @@ async function handleSubmit() {
  * → 调用 api/recurring-bill.js 的 deleteRecurringBill(id)
  */
 async function handleDeactivate(row) {
-  await ElMessageBox.confirm('确定停用该周期账单吗？', '提示', { type: 'warning' }).catch(() => { return })
-  await deleteRecurringBill(row.id)
-  ElMessage.success('已停用')
-  loadBills()
+  try {
+    await ElMessageBox.confirm('确定停用该周期账单吗？', '提示', { type: 'warning' })
+    await deleteRecurringBill(row.id)
+    ElMessage.success('已停用')
+    loadBills()
+  } catch {
+    // 用户取消停用，静默处理
+  }
 }
 
 /**
@@ -275,10 +285,14 @@ async function handleDeactivate(row) {
  * → 调用 api/recurring-bill.js 的 generateRecurringBill(id)
  */
 async function handleGenerate(row) {
-  await ElMessageBox.confirm('确定生成该周期账单的交易记录吗？', '提示', { type: 'info' }).catch(() => { return })
-  await generateRecurringBill(row.id)
-  ElMessage.success('生成成功')
-  loadBills()
+  try {
+    await ElMessageBox.confirm('确定生成该周期账单的交易记录吗？', '提示', { type: 'info' })
+    await generateRecurringBill(row.id)
+    ElMessage.success('生成成功')
+    loadBills()
+  } catch {
+    // 用户取消生成，静默处理
+  }
 }
 
 // 页面挂载时加载下拉选项和周期账单列表

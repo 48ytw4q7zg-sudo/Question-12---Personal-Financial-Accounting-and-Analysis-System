@@ -17,7 +17,7 @@
     <h2>数据导入</h2>
 
     <!-- CSV 上传表单 -->
-    <el-card shadow="hover">
+    <el-card shadow="hover" v-loading="loading">
       <template #header>导入 CSV 文件</template>
 
       <el-form ref="formRef" :model="importForm" :rules="formRules" label-width="90px" style="max-width: 500px;">
@@ -60,7 +60,7 @@
         <el-table-column prop="required" label="必填" width="80" />
         <el-table-column prop="example" label="示例" width="150" />
       </el-table>
-      <p class="tip-text">示例格式：<code>time,categoryName,type,amount,note</code></p>
+      <p class="tip-text">示例格式：<code>time,categoryId,type,amount,note</code>（第一行为表头，会被自动跳过）</p>
     </el-card>
 
     <!-- 导入结果（仅导入完成后显示） -->
@@ -95,7 +95,8 @@ import { importCsv } from '../api/transaction'
 import { getAccountList } from '../api/account'
 
 const importing = ref(false)        // 导入中 loading
-const uploadRef = ref(null)         // el-upload 引用
+const loading = ref(false)          // 初始加载状态
+const uploadRef = ref(null)
 const formRef = ref(null)           // 表单引用
 const accountList = ref([])         // 账户列表
 const importResult = ref(null)      // 导入结果（成功/失败数 + 失败详情）
@@ -113,6 +114,9 @@ const formRules = {
     validator: (rule, value, callback) => {
       if (!importForm.file) {
         callback(new Error('请选择 CSV 文件'))
+      } else if (importForm.file.size > 5 * 1024 * 1024) {
+        // PRD P2-3 业务规则①: 文件大小 ≤ 5MB，前端预检避免浪费上传时间
+        callback(new Error('文件大小不能超过 5MB'))
       } else {
         callback()
       }
@@ -121,12 +125,13 @@ const formRules = {
   }]
 }
 
-// CSV 文件格式说明数据（展示给用户参考）
+// CSV 文件格式说明数据（对齐后端 TransactionServiceImpl.importCsv() 解析的 5 列格式）
+// 后端解析顺序：日期,分类ID,类型(1=收入/2=支出),金额,备注
 const formatData = [
-  { col: 'time', desc: '交易时间', required: '是', example: '2026-05-16 10:30:00' },
-  { col: 'categoryName', desc: '分类名称', required: '是', example: '餐饮' },
-  { col: 'type', desc: '类型(income/expense)', required: '是', example: 'expense' },
-  { col: 'amount', desc: '金额', required: '是', example: '50.00' },
+  { col: 'time', desc: '交易时间（yyyy-MM-dd HH:mm:ss）', required: '是', example: '2026-05-16 10:30:00' },
+  { col: 'categoryId', desc: '分类ID（数字，对应系统分类列表）', required: '是', example: '1' },
+  { col: 'type', desc: '类型（1=收入, 2=支出）', required: '是', example: '2' },
+  { col: 'amount', desc: '金额（正数，两位小数）', required: '是', example: '50.00' },
   { col: 'note', desc: '备注', required: '否', example: '午餐' }
 ]
 
@@ -140,11 +145,12 @@ function handleFileChange(file) {
  * → 调用 api/account.js 的 getAccountList()
  */
 async function loadAccounts() {
+  loading.value = true
   try {
     const data = await getAccountList()
     accountList.value = data || []
-  } catch {
-    // 静默处理
+  } finally {
+    loading.value = false
   }
 }
 

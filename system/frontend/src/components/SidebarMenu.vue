@@ -20,6 +20,7 @@
     /analytics  → 统计分析   (PRD P2 AnalyticsPage)
     /import     → 数据导入   (PRD P2 ImportPage)
     /settings   → 设置       (PRD P1 UserSettingsPage)
+    /admin      → 用户管理   (评分标准 ≥2角色 · 仅 role=1 管理员可见 · AdminPage)
 
   调用方：AppLayout.vue
 -->
@@ -76,10 +77,19 @@
       <el-icon><Setting /></el-icon>
       <template #title>设置</template>
     </el-menu-item>
+    <!-- 管理员功能（评分标准 ≥2 类用户角色 · 仅 role=1 可见） -->
+    <el-menu-item v-if="userStore.role === ROLE_ADMIN" index="/admin">
+      <el-icon><UserFilled /></el-icon>
+      <template #title>用户管理</template>
+    </el-menu-item>
   </el-menu>
 </template>
 
 <script setup>
+import { useUserStore } from '../stores/user'
+import { ROLE_ADMIN } from '../constants/role'
+const userStore = useUserStore()
+
 defineProps({
   activeMenu: { type: String, required: true },  // 当前激活路由 path（由父组件 AppLayout 传入 route.path）
   collapsed: { type: Boolean, default: false }    // 是否折叠（≥768px 且 <992px 时折叠为 64px 宽）

@@ -85,7 +85,7 @@ class BudgetServiceImplTest {
 
     BusinessException ex = assertThrows(BusinessException.class,
         () -> budgetService.save(1L, request));
-    assertEquals(4001, ex.getCode());
+    assertEquals(4002, ex.getCode());
   }
 
   @Test
@@ -100,7 +100,7 @@ class BudgetServiceImplTest {
 
     BusinessException ex = assertThrows(BusinessException.class,
         () -> budgetService.save(1L, request));
-    assertEquals(4001, ex.getCode());
+    assertEquals(4003, ex.getCode());
   }
 
   @Test

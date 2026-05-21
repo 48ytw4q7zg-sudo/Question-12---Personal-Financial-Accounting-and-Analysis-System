@@ -2,6 +2,7 @@ package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.finance.common.BusinessException;
+import com.example.finance.common.ErrorCode;
 import com.example.finance.entity.Budget;
 import com.example.finance.entity.Category;
 import com.example.finance.entity.dto.BudgetDTO;
@@ -20,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import com.example.finance.entity.dto.CategorySummaryDTO;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -49,13 +52,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class BudgetServiceImpl implements BudgetService {
 
-  // category.type=1 为支出分类
+  /** 分类类型常量：1=支出（预算仅可设置在支出分类上） */
   private static final int CATEGORY_TYPE_EXPENSE = 1;
-  // transaction.type=2 为支出
+  /** 交易类型常量：2=支出（用于筛选支出记录统计） */
   private static final int TRANSACTION_TYPE_EXPENSE = 2;
 
+  /** → BudgetMapper：预算表 CRUD */
   private final BudgetMapper budgetMapper;
+  /** → CategoryMapper：分类表查询（校验支出分类 + 加载分类名称） */
   private final CategoryMapper categoryMapper;
+  /** → TransactionMapper：交易记录聚合查询（本月分类支出汇总） */
   private final TransactionMapper transactionMapper;
 
   /**
@@ -117,7 +123,7 @@ public class BudgetServiceImpl implements BudgetService {
    * @param userId 当前用户ID(从JWT token解析)
    * @param request 预算请求参数(含categoryId/month/amount)
    * @return 保存后的预算DTO(含分类名称)
-   * @throws BusinessException 4001=分类不存在 / 4001=预算仅可设置在支出分类上
+   * @throws BusinessException 4003=分类不存在 / 4002=预算仅可设置在支出分类上
    */
   @Override
   @Transactional
@@ -125,11 +131,11 @@ public class BudgetServiceImpl implements BudgetService {
     // 校验分类存在
     Category category = categoryMapper.selectById(request.getCategoryId());
     if (category == null) {
-      throw new BusinessException(4001, "分类不存在");
+      throw new BusinessException(ErrorCode.CATEGORY_NOT_FOUND_FOR_BUDGET.getCode(), ErrorCode.CATEGORY_NOT_FOUND_FOR_BUDGET.getMsg());
     }
     // 预算仅针对支出分类（category.type=1 为支出）
     if (category.getType() != CATEGORY_TYPE_EXPENSE) {
-      throw new BusinessException(4001, "预算仅可设置在支出分类上");
+      throw new BusinessException(ErrorCode.BUDGET_EXPENSE_ONLY.getCode(), ErrorCode.BUDGET_EXPENSE_ONLY.getMsg());
     }
 
     // R-05-issue-6: 已修复 - 捕获DuplicateKeyException并发兜底
@@ -160,19 +166,17 @@ public class BudgetServiceImpl implements BudgetService {
       try {
         budgetMapper.insert(budget);
       } catch (DuplicateKeyException e) {
-        // 并发插入时唯一索引拦截，重新查询已存在的记录
-        log.warn("预算并发插入冲突，重新查询: userId={}, categoryId={}, month={}", userId, request.getCategoryId(), request.getMonth());
+        // 并发插入冲突: 唯一索引拦截，重新查询已存在记录并更新
+        log.warn("预算并发插入冲突，回退更新: userId={}, categoryId={}, month={}", userId, request.getCategoryId(), request.getMonth());
         budget = budgetMapper.selectOne(
             new LambdaQueryWrapper<Budget>()
                 .eq(Budget::getUserId, userId)
                 .eq(Budget::getCategoryId, request.getCategoryId())
                 .eq(Budget::getMonth, request.getMonth())
         );
-        if (budget != null) {
-          budget.setAmount(request.getAmount());
-          budget.setUpdateTime(LocalDateTime.now());
-          budgetMapper.updateById(budget);
-        }
+        budget.setAmount(request.getAmount());
+        budget.setUpdateTime(LocalDateTime.now());
+        budgetMapper.updateById(budget);
       }
     }
 
@@ -185,6 +189,26 @@ public class BudgetServiceImpl implements BudgetService {
     dto.setCreateTime(budget.getCreateTime());
     dto.setUpdateTime(budget.getUpdateTime());
     return dto;
+  }
+
+  /**
+   * 删除预算
+   *
+   * <p>对应 PRD P1-3 预算删除。</p>
+   * <p>校验: 预算归属当前用户, 物理删除。</p>
+   *
+   * @param userId 当前用户ID(从JWT token解析)
+   * @param budgetId 预算ID
+   * @throws BusinessException 4005=预算不存在
+   */
+  @Override
+  @Transactional
+  public void delete(Long userId, Long budgetId) {
+    Budget budget = budgetMapper.selectById(budgetId);
+    if (budget == null || !budget.getUserId().equals(userId)) {
+      throw new BusinessException(ErrorCode.BUDGET_NOT_FOUND.getCode(), ErrorCode.BUDGET_NOT_FOUND.getMsg());
+    }
+    budgetMapper.deleteById(budgetId);
   }
 
   /**
@@ -213,10 +237,10 @@ public class BudgetServiceImpl implements BudgetService {
 
     // R-05-issue-2: 已修复 - selectCategorySummary提到循环外消除N+1查询
     var summaryList = transactionMapper.selectCategorySummary(userId, yearInt, monthInt, TRANSACTION_TYPE_EXPENSE);
-    java.util.Map<Long, java.math.BigDecimal> spentMap = summaryList.stream()
-        .collect(java.util.stream.Collectors.toMap(
-            com.example.finance.entity.dto.CategorySummaryDTO::getCategoryId,
-            com.example.finance.entity.dto.CategorySummaryDTO::getTotalAmount,
+    Map<Long, BigDecimal> spentMap = summaryList.stream()
+        .collect(Collectors.toMap(
+            CategorySummaryDTO::getCategoryId,
+            CategorySummaryDTO::getTotalAmount,
             (a, b) -> a
         ));
 

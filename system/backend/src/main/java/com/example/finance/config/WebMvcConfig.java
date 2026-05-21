@@ -21,6 +21,17 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
   private final LoginInterceptor loginInterceptor;
 
+  /**
+   * 注册登录拦截器（拦截所有 /api/** 请求，白名单路径免鉴权）
+   *
+   * <p>拦截路径: /api/**（所有业务接口需 JWT 鉴权）</p>
+   * <p>白名单免鉴权路径:</p>
+   * <ul>
+   *   <li>/api/user/login — 登录接口（未登录用户调用）</li>
+   *   <li>/api/user/register — 注册接口（未登录用户调用）</li>
+   *   <li>/api/health — 健康检查接口（运维监控调用，无需鉴权）</li>
+   * </ul>
+   */
   @Override
   public void addInterceptors(InterceptorRegistry registry) {
     registry.addInterceptor(loginInterceptor)

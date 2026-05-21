@@ -74,8 +74,7 @@ public class AccountController {
   @PostMapping
   public Result<AccountDTO> create(@Valid @RequestBody AccountRequest request,
       HttpServletRequest httpRequest) {
-    // 从 request 属性获取当前用户 ID（LoginInterceptor 在 preHandle 中注入）
-    Long userId = (Long) httpRequest.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(httpRequest);
     // → AccountService.create()：校验账户名唯一性 + 插入数据库
     AccountDTO account = accountService.create(userId, request);
     return Result.success(account, "账户创建成功");
@@ -98,7 +97,7 @@ public class AccountController {
   public Result<AccountDTO> update(@PathVariable Long id,
       @Valid @RequestBody AccountRequest request,
       HttpServletRequest httpRequest) {
-    Long userId = (Long) httpRequest.getAttribute("userId");
+    Long userId = LoginInterceptor.getUserId(httpRequest);
     // → AccountService.update()：校验归属权 + 更新数据库
     AccountDTO account = accountService.update(userId, id, request);
     return Result.success(account, "账户更新成功");

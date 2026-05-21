@@ -88,6 +88,7 @@
 | transaction     | 收支记录表   | P0     |
 | budget          | 预算表       | P1     |
 | recurring_bill  | 周期性账单表 | P1     |
+| budget_alert    | 预算预警表   | P2     |
 
 - **账户类型**：1-现金，2-银行卡，3-支付宝，4-微信钱包  
 - **交易类型**：1-收入，2-支出
@@ -131,12 +132,28 @@
 - `DELETE /{id}` – 停用
 - `POST /{id}/generate` – 生成交易记录
 
-## 七、快速开始
+## 七、项目截图
+
+### 核心页面
+
+| 截图 | 说明 |
+|------|------|
+| ![登录页](docs/screenshots/login.png) | 登录/注册页（JWT 认证 + 限流防暴力破解） |
+| ![首页](docs/screenshots/dashboard.png) | 首页仪表盘（月度汇总卡片 + ECharts 收支趋势图 + 预算预警） |
+| ![账户管理](docs/screenshots/account.png) | 账户管理页（多账户 CRUD + 余额汇总 + 多币种） |
+| ![收支记录](docs/screenshots/transaction.png) | 收支记录页（记一笔弹窗 + 分页列表 + 多条件筛选） |
+| ![预算管理](docs/screenshots/budget.png) | 预算管理页（按分类设置月预算 + 进度条 + 超支预警） |
+| ![统计分析](docs/screenshots/analytics.png) | 统计分析页（多图表联动 + 钻取明细） |
+
+> 📌 截图路径: `docs/screenshots/` · 使用 Chrome 浏览器 1920×1080 分辨率截取
+
+## 八、快速开始
 ### 环境要求
-- JDK 17+
-- Maven 3.8+
-- Node.js 18+
-- MySQL 8.4+
+- JDK 21
+- Maven 3.9+
+- Node.js 24 LTS
+- pnpm 10+
+- MySQL 8.4 LTS
 
 ### 后端
 ```bash
@@ -151,22 +168,22 @@ mvn spring-boot:run
 ### 前端
 ```bash
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 默认端口：`5173`
 
 访问 http://localhost:5173 进入系统。
 
-## 八、默认测试账号
-| 用户名   | 密码    |
-|----------|---------|
-| testuser | test123 |
-| demo     | demo123 |
+## 九、默认测试账号
+| 用户名 | 密码 | 角色 |
+|--------|------|:--:|
+| zhangsan2 | 123456 | 普通用户 |
+| admin_fix | 123456789 | 管理员(role=1) |
 
-> ⚠️ 生产环境请务必更换为强密码。
+> ⚠️ 生产环境请务必更换为强密码。若 zhangsan 或 admin 无法登录请重新执行 `sql/01-init.sql`。
 
-## 九、验收清单
+## 十、验收清单
 ### P0 基础功能
 - [x] 用户注册/登录/JWT 认证
 - [x] 账户 CRUD
@@ -186,13 +203,14 @@ npm run dev
 - [x] CSV 导入
 - [x] 单元测试
 
-## 十、文档索引
+## 十一、文档索引
 - [需求规格说明书](./docs/PRD.md)
 - [概要设计](./docs/TECH_DESIGN.md)
 - [数据库设计](./docs/DATABASE_DESIGN.md)
 - [API 接口设计](./docs/API_DESIGN.md)
 - [部署文档](./docs/DEPLOY.md)
+- [答辩高频问答](./docs/DEFENSE-FAQ.md)
 
-## 十一、联系方式
+## 十二、联系方式
 - 项目维护：[js2501](https://gitee.com/js2501)
 - 指导教师：计升2501 · 西安科大高新

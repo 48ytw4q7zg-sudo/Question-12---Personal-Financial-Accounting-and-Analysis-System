@@ -2,6 +2,7 @@ package com.example.finance.service.impl;
 
 import com.example.finance.common.BusinessException;
 import com.example.finance.entity.User;
+import com.example.finance.entity.dto.UserDTO;
 import com.example.finance.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -54,25 +55,27 @@ class AdminServiceImplTest {
     normalUser.setRole(0);
   }
 
-  // ==================== listAllUsers 测试 ====================
+  // ==================== listAllUserDTOs 测试 ====================
 
   @Test
-  @DisplayName("查询所有用户 - 正常返回多个用户")
-  void listAllUsers_shouldReturnAllUsers() {
+  @DisplayName("查询所有用户DTO - 正常返回多个用户DTO")
+  void listAllUserDTOs_shouldReturnAllUserDTOs() {
     when(userMapper.selectList(null)).thenReturn(Arrays.asList(adminUser, normalUser));
 
-    List<User> result = adminService.listAllUsers();
+    List<UserDTO> result = adminService.listAllUserDTOs();
 
     assertEquals(2, result.size());
+    assertEquals("admin", result.get(0).getUsername());
+    assertEquals("zhangsan", result.get(1).getUsername());
     verify(userMapper).selectList(null);
   }
 
   @Test
-  @DisplayName("查询所有用户 - 空集合")
-  void listAllUsers_shouldReturnEmptyList() {
+  @DisplayName("查询所有用户DTO - 空集合")
+  void listAllUserDTOs_shouldReturnEmptyList() {
     when(userMapper.selectList(null)).thenReturn(Collections.emptyList());
 
-    List<User> result = adminService.listAllUsers();
+    List<UserDTO> result = adminService.listAllUserDTOs();
 
     assertTrue(result.isEmpty());
     verify(userMapper).selectList(null);
@@ -95,7 +98,7 @@ class AdminServiceImplTest {
   void deleteUser_shouldThrowWhenDeletingSelf() {
     BusinessException e = assertThrows(BusinessException.class,
         () -> adminService.deleteUser(1L, 1L));
-    assertEquals(1004, e.getCode());
+    assertEquals(6001, e.getCode());
     assertTrue(e.getMessage().contains("不能删除自己"));
     verify(userMapper, never()).deleteById(anyLong());
   }
@@ -107,7 +110,7 @@ class AdminServiceImplTest {
 
     BusinessException e = assertThrows(BusinessException.class,
         () -> adminService.deleteUser(999L, 1L));
-    assertEquals(1005, e.getCode());
+    assertEquals(6003, e.getCode());
     assertTrue(e.getMessage().contains("用户不存在"));
     verify(userMapper, never()).deleteById(anyLong());
   }
@@ -143,7 +146,7 @@ class AdminServiceImplTest {
   void toggleUserRole_shouldThrowWhenTogglingSelf() {
     BusinessException e = assertThrows(BusinessException.class,
         () -> adminService.toggleUserRole(1L, 1L));
-    assertEquals(1004, e.getCode());
+    assertEquals(6002, e.getCode());
     assertTrue(e.getMessage().contains("不能修改自己的角色"));
     verify(userMapper, never()).updateById(any(User.class));
   }
@@ -155,7 +158,7 @@ class AdminServiceImplTest {
 
     BusinessException e = assertThrows(BusinessException.class,
         () -> adminService.toggleUserRole(999L, 1L));
-    assertEquals(1005, e.getCode());
+    assertEquals(6003, e.getCode());
     assertTrue(e.getMessage().contains("用户不存在"));
     verify(userMapper, never()).updateById(any(User.class));
   }

@@ -1,3 +1,14 @@
 {
-  "tasks": []
+  "tasks": [
+    {
+      "id": "c41b9767",
+      "cron": "0 */3 * * *",
+      "prompt": "严格阅读选题标定文件夹所有要求文件、CLAUDE.md、project-status.md，检测系统是否满足PRD的P0/P1/P2功能及选题标定所有要求，针对不足编写代码优化补充。按评分细节.doc和PRD打分，给所有无注释代码生成中文注释并修正错误注释。运行Q-CR生成问题/建议并针对性修复，再次Q-CR验证，给出下一次循环建议。如有建议则自动跳转到三重新循环直至无建议为止。",
+      "createdAt": 1779293181972,
+      "lastFiredAt": 1779338855714,
+      "recurring": true,
+      "createdBySessionId": "4525f833-611a-4267-ae72-6c4407fdd688",
+      "createdByPid": 22396
+    }
+  ]
 }

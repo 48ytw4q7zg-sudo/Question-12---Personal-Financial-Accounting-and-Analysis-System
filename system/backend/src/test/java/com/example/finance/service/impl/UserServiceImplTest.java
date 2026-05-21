@@ -6,6 +6,7 @@ import com.example.finance.entity.User;
 import com.example.finance.entity.dto.LoginResponse;
 import com.example.finance.entity.dto.UserLoginRequest;
 import com.example.finance.mapper.UserMapper;
+import com.example.finance.util.LoginRateLimiter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,8 @@ class UserServiceImplTest {
 
   @BeforeEach
   void setUp() {
+    // 清理 LoginRateLimiter 防止跨测试限流干扰
+    LoginRateLimiter.cleanup("testuser");
     validRequest = new UserLoginRequest();
     validRequest.setUsername("testuser");
     validRequest.setPassword("123456");
@@ -137,7 +140,7 @@ class UserServiceImplTest {
 
     BusinessException ex = assertThrows(BusinessException.class,
         () -> userService.changePassword(1L, "wrongpass", "newpass123"));
-    assertEquals(1002, ex.getCode());
+    assertEquals(1005, ex.getCode());
   }
 
   @Test
@@ -150,7 +153,7 @@ class UserServiceImplTest {
 
     BusinessException ex = assertThrows(BusinessException.class,
         () -> userService.changePassword(1L, "123456", "123456"));
-    assertEquals(1003, ex.getCode());
+    assertEquals(1006, ex.getCode());
     assertEquals("新密码不能与旧密码相同", ex.getMessage());
   }
 

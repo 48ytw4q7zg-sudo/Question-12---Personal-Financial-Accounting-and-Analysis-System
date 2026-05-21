@@ -97,7 +97,7 @@ CREATE TABLE `transaction` (
   PRIMARY KEY (`id`),
   KEY `idx_transaction_user_id`      (`user_id`),
   KEY `idx_transaction_account_id`   (`account_id`),
-  KEY `idx_transaction_time`         (`user_id`, `time`),
+  KEY `idx_transaction_user_time`   (`user_id`, `time` DESC),
   KEY `idx_transaction_transfer_id`  (`transfer_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='收支记录表';
 
@@ -175,6 +175,25 @@ INSERT INTO `budget` (`user_id`, `category_id`, `month`, `amount`) VALUES
   (1, 1, '2026-05', 2000.00),  -- 餐饮 2000
   (1, 2, '2026-05',  500.00),  -- 交通 500
   (1, 3, '2026-05', 1000.00);  -- 购物 1000
+
+-- ============================================================
+-- 表 7: budget_alert（预算预警表 · P2-2）
+-- ============================================================
+DROP TABLE IF EXISTS `budget_alert`;
+CREATE TABLE `budget_alert` (
+  `id`            BIGINT        NOT NULL AUTO_INCREMENT  COMMENT '预警主键',
+  `user_id`       BIGINT        NOT NULL                 COMMENT '所属用户ID（N:1 → user）',
+  `category_id`   BIGINT        NOT NULL                 COMMENT '关联分类ID（N:1 → category）',
+  `month`         VARCHAR(7)    NOT NULL                 COMMENT '预算月份（格式YYYY-MM）',
+  `alert_level`   VARCHAR(20)   NOT NULL                 COMMENT '预警级别: NORMAL/DAILY_WARN/MONTHLY_WARN/OVERSPENT',
+  `budget_amount` DECIMAL(12,2) NOT NULL                 COMMENT '预算金额',
+  `spent_amount`  DECIMAL(12,2) NOT NULL                 COMMENT '已消耗金额',
+  `percentage`    DECIMAL(8,2)  NOT NULL                 COMMENT '消耗百分比（0.00-100.00+）',
+  `create_time`   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '预警生成时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_budget_alert_user_month` (`user_id`, `month`),
+  KEY `idx_budget_alert_category` (`category_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='预算预警表（P2-2 定时任务持久化）';
 
 -- 测试周期性账单（3 条）
 INSERT INTO `recurring_bill` (`user_id`, `account_id`, `category_id`, `name`, `amount`, `type`, `period`, `next_due_date`) VALUES

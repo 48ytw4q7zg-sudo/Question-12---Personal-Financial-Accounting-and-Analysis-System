@@ -34,7 +34,7 @@ mysql -u root -p < sql/01-init.sql
 
 脚本会自动：
 - 创建 `finance_db` 数据库
-- 创建 6 张表（user / account / category / transaction / budget / recurring_bill）
+- 创建 7 张表（user / account / category / transaction / budget / recurring_bill / budget_alert）
 - 插入 13 条分类种子数据
 - 插入测试数据（用户 zhangsan/lisi，密码均为 123456）
 
@@ -74,6 +74,14 @@ spring:
 ```
 
 启动后访问 `http://localhost:8080/api/health` 验证后端是否正常。
+
+### 定时任务说明
+
+后端启动后会自动启用预算预警定时任务（`BudgetScheduler`）：
+- **执行时间**: 每日凌晨 2:00（cron: `0 0 2 * * ?`）
+- **功能**: 检查所有用户的各分类预算消耗，生成 4 级预警（NORMAL / DAILY_WARN / MONTHLY_WARN / OVERSPENT）并持久化到 `budget_alert` 表
+- **幂等设计**: 每次执行先删除该用户该月的旧预警记录，再写入新预警，同一天多次执行不重复
+- **教学简化**: 仅记录预警状态到数据库，不发送短信/邮件通知
 
 ---
 
@@ -146,8 +154,9 @@ server {
 |---|---|---|
 | zhangsan | 123456 | 测试用户，含 4 个账户 + 示例数据 |
 | lisi | 123456 | 测试用户，空数据 |
+| admin | 123456 | 管理员账号（可管理用户：查看列表/删除/角色切换） |
 
-新用户访问系统时会自动注册（首次登录即创建账号）。
+新用户访问系统时会自动注册（首次登录即创建账号）。注册默认为普通用户(role=0)，管理员(role=1)需由已有管理员在「用户管理」页面手动提升。
 
 ---
 
