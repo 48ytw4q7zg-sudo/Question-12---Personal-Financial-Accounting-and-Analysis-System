@@ -4,15 +4,17 @@ import com.example.finance.common.BusinessException;
 import com.example.finance.common.ErrorCode;
 import com.example.finance.common.Result;
 import com.example.finance.common.enums.UserRole;
-import com.example.finance.entity.User;
 import com.example.finance.entity.dto.UserDTO;
 import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.AdminService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 管理员控制器（评分标准要求 ≥2 类用户角色: 普通用户 + 管理员）
@@ -27,6 +29,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
+@Validated
 public class AdminController {
 
   /** → AdminService：管理员业务逻辑层（修复：之前直接注入 UserMapper 违反分层） */
@@ -38,7 +41,7 @@ public class AdminController {
    */
   private void checkAdmin(HttpServletRequest request) {
     Integer role = (Integer) request.getAttribute("role");
-    if (role == null || role != UserRole.ADMIN.getValue()) {
+    if (role == null || !Objects.equals(role, UserRole.ADMIN.getValue())) {
       throw new BusinessException(ErrorCode.ADMIN_ACCESS_DENIED.getCode(), ErrorCode.ADMIN_ACCESS_DENIED.getMsg());
     }
   }
@@ -69,7 +72,7 @@ public class AdminController {
    * @return Result 删除结果
    */
   @DeleteMapping("/users/{userId}")
-  public Result<Void> deleteUser(@PathVariable Long userId, HttpServletRequest request) {
+  public Result<Void> deleteUser(@PathVariable @Min(1) Long userId, HttpServletRequest request) {
     checkAdmin(request);
     Long currentUserId = LoginInterceptor.getUserId(request);
     // → AdminService.deleteUser()：校验自操作 + 存在性 + 物理删除
@@ -88,10 +91,10 @@ public class AdminController {
    * @return Result 包含更新后的用户信息
    */
   @PutMapping("/users/{userId}/role")
-  public Result<UserDTO> toggleRole(@PathVariable Long userId, HttpServletRequest request) {
+  public Result<UserDTO> toggleRole(@PathVariable @Min(1) Long userId, HttpServletRequest request) {
     checkAdmin(request);
     Long currentUserId = LoginInterceptor.getUserId(request);
-    User user = adminService.toggleUserRole(userId, currentUserId);
-    return Result.success(UserDTO.fromUser(user));
+    UserDTO userDTO = adminService.toggleUserRole(userId, currentUserId);
+    return Result.success(userDTO);
   }
 }

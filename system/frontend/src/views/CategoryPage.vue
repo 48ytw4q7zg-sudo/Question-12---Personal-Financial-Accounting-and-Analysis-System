@@ -31,10 +31,11 @@
       </div>
 
       <!-- 支出/收入 Tab 切换 -->
-      <el-tabs v-model="activeTab">
+      <el-tabs v-model="activeTab" aria-label="分类类型切换">
         <!-- 支出分类 Tab（type=1 的分类） -->
         <el-tab-pane label="支出分类" name="expense">
           <el-table :data="expenseCategoriesWithAmount" v-loading="loading" stripe>
+            <template #empty><el-empty description="暂无支出分类" /></template>
             <el-table-column prop="name" label="分类名称" min-width="150" />
             <el-table-column prop="type" label="类型" width="100">
               <template #default>
@@ -45,7 +46,7 @@
             <el-table-column prop="monthAmount" label="本月消费" width="150" align="right">
               <template #default="{ row }">
                 <span class="amount-text expense">
-                  ¥{{ row.monthAmount != null ? row.monthAmount.toFixed(2) : '0.00' }}
+                  ¥{{ formatAmount(row.monthAmount) }}
                 </span>
               </template>
             </el-table-column>
@@ -54,6 +55,7 @@
         <!-- 收入分类 Tab（type=2 的分类） -->
         <el-tab-pane label="收入分类" name="income">
           <el-table :data="incomeCategoriesWithAmount" v-loading="loading" stripe>
+            <template #empty><el-empty description="暂无收入分类" /></template>
             <el-table-column prop="name" label="分类名称" min-width="150" />
             <el-table-column prop="type" label="类型" width="100">
               <template #default>
@@ -64,7 +66,7 @@
             <el-table-column prop="monthAmount" label="本月收入" width="150" align="right">
               <template #default="{ row }">
                 <span class="amount-text income">
-                  ¥{{ row.monthAmount != null ? row.monthAmount.toFixed(2) : '0.00' }}
+                  ¥{{ formatAmount(row.monthAmount) }}
                 </span>
               </template>
             </el-table-column>
@@ -77,10 +79,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 // → 调用 api/category.js 的 getCategoryList()
 import { getCategoryList } from '../api/category'
 // → 调用 api/statistics.js 的 getCategorySummary()（P0-6 本月消费金额）
 import { getCategorySummary } from '../api/statistics'
+import { formatAmount } from '../utils/format'
 
 const loading = ref(false)
 const activeTab = ref('expense')     // 当前激活的 Tab：'expense' 或 'income'
@@ -135,13 +139,17 @@ async function loadCategories() {
 async function loadSummary() {
   if (!selectedMonth.value) return
   const [year, month] = selectedMonth.value.split('-')
+  loading.value = true
   try {
     // 不传 type 参数，同时获取支出和收入的汇总数据
     const data = await getCategorySummary({ year: parseInt(year), month: parseInt(month) })
     summaryData.value = data || []
   } catch (e) {
-    // 无数据时 summaryData 保持空数组，页面显示 0.00
+    if (import.meta.env.DEV) console.warn('加载汇总数据失败:', e)
+    ElMessage.warning('加载汇总数据失败')
     summaryData.value = []
+  } finally {
+    loading.value = false
   }
 }
 
@@ -158,7 +166,7 @@ onMounted(() => {
 <style scoped>
 .category-page h2 {
   margin-bottom: 20px;
-  color: #303133;
+  color: var(--color-title);
 }
 .month-selector {
   margin-bottom: 16px;
@@ -168,9 +176,9 @@ onMounted(() => {
   font-family: 'Courier New', monospace;
 }
 .amount-text.expense {
-  color: #f56c6c;
+  color: var(--color-expense);
 }
 .amount-text.income {
-  color: #67c23a;
+  color: var(--color-income);
 }
 </style>

@@ -31,6 +31,7 @@
     :collapse="collapsed"
     router
     class="sidebar-menu"
+    aria-label="主导航菜单"
     @select="$emit('navigate')"
   >
     <!-- P0 核心功能 -->

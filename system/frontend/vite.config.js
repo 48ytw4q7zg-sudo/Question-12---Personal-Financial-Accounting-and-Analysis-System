@@ -1,6 +1,6 @@
 // Vite 构建配置
 // 开发服务器端口 5173, 代理 /api 请求到后端 localhost:8080
-// 构建时按 vendor 分包(echarts/element/vue), 优化首屏加载
+// 构建时按 vendor 分包, ECharts 按需拆分(echarts-core/charts/components/renderers), 优化首屏加载
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -20,18 +20,23 @@ export default defineConfig({
   },
   build: {
     // 单个 chunk 超过 800KB 时发出警告(避免打包过大影响首屏加载)
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 1000,  // Element Plus 945KB 超过 800KB 但无法进一步拆分(全局依赖)
     rollupOptions: {
       output: {
         // 手动分包策略: 将大型第三方库拆分为独立 chunk, 利用浏览器并行加载
-        // vendor-echarts: ECharts 图表库, 仅 AnalyticsPage/DashboardPage 使用
+        // ECharts 按需拆分: core/charts/components/renderers 各自独立 chunk
+        //   仅 AnalyticsPage/DashboardPage 通过 echarts-lazy.js 动态 import 使用
         // vendor-element: Element Plus UI 库, 全局使用
         // vendor-icons: Element Plus 图标库, 按需加载
         // vendor-vue: Vue Router + Pinia, 路由和状态管理
         // vendor-axios: Axios HTTP 库
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('echarts')) return 'vendor-echarts'
+            // ECharts 按需加载拆分：core/charts/components/renderers 各自独立 chunk
+            // 不合并为单一 vendor-echarts，让 Vite 按动态 import 自然拆分
+            if (id.includes('echarts/core') || id.includes('echarts/lib')) return 'echarts-core'
+            if (id.includes('echarts/charts')) return 'echarts-charts'
+            if (id.includes('echarts/renderers')) return 'echarts-renderers'
             if (id.includes('@element-plus/icons-vue')) return 'vendor-icons'
             if (id.includes('element-plus')) return 'vendor-element'
             if (id.includes('vue-router') || id.includes('/pinia/')) return 'vendor-vue'

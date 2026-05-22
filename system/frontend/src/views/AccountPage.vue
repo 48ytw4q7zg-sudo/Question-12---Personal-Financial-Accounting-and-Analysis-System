@@ -30,6 +30,7 @@
     <!-- 账户列表表格 -->
     <el-card shadow="hover">
       <el-table :data="accountList" v-loading="loading" stripe>
+        <template #empty><el-empty description="暂无账户" /></template>
         <el-table-column prop="name" label="账户名称" min-width="120" />
         <!-- 账户类型：数字映射为中文显示（1=现金, 2=银行卡, 3=支付宝, 4=微信） -->
         <el-table-column prop="type" label="账户类型" width="100">
@@ -47,7 +48,7 @@
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'info'">
-              {{ row.status === 1 ? '启用' : '停用' }}
+              {{ statusMap[row.status] || '未知' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -60,7 +61,7 @@
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openDialog(row)">编辑</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <el-button type="danger" link @click="handleDelete(row)" :disabled="deletingId === row.id">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -102,12 +103,7 @@
         </el-form-item>
         <el-form-item label="币种" prop="currency">
           <el-select v-model="formData.currency" placeholder="请选择币种" style="width: 100%">
-            <el-option label="人民币 (CNY)" value="CNY" />
-            <el-option label="美元 (USD)" value="USD" />
-            <el-option label="欧元 (EUR)" value="EUR" />
-            <el-option label="日元 (JPY)" value="JPY" />
-            <el-option label="英镑 (GBP)" value="GBP" />
-            <el-option label="港币 (HKD)" value="HKD" />
+            <el-option v-for="c in CURRENCY_LIST" :key="c.value" :label="c.label" :value="c.value" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -127,15 +123,18 @@ import { getAccountList, createAccount, updateAccount, deleteAccount, getAccount
 // → P2-4 多币种：调用 api/exchange-rate.js 的 getExchangeRates()（汇率数据）
 import { getExchangeRates } from '../api/exchange-rate'
 import { formatTime, formatAmount } from '../utils/format'
+import { ACCOUNT_TYPE_MAP, CURRENCY_LIST, STATUS_MAP } from '../constants/finance'
 
 /** P2-4: 汇率数据缓存（1外币→CNY），例 { USD: 7.3, EUR: 7.94, ... } */
 const exchangeRates = ref({})
 
-// 账户类型数字 → 中文映射
-const accountTypeMap = { 1: '现金', 2: '银行卡', 3: '支付宝', 4: '微信' }
+// 账户类型映射（从常量文件统一管理，避免硬编码散布各页面）
+const accountTypeMap = ACCOUNT_TYPE_MAP
+const statusMap = STATUS_MAP
 
 const loading = ref(false)          // 列表 loading
 const submitting = ref(false)       // 表单提交 loading
+const deletingId = ref(null)        // 当前正在删除的账户 ID
 const dialogVisible = ref(false)    // 弹窗显隐
 const isEdit = ref(false)           // 是否编辑模式（true=编辑, false=新增）
 const editId = ref(null)            // 当前编辑的账户 ID
@@ -154,9 +153,12 @@ const formData = reactive({
 
 // 表单校验规则
 const formRules = {
-  name: [{ required: true, message: '请输入账户名称', trigger: 'blur' }],
+  name: [{ required: true, message: '请输入账户名称', trigger: 'blur' }, { max: 20, message: '账户名称不超过20个字符', trigger: 'blur' }],
   type: [{ required: true, message: '请选择账户类型', trigger: 'change' }],
-  initialBalance: [{ type: 'number', min: 0, message: '初始余额不能为负数', trigger: 'blur' }],
+  initialBalance: [
+    { required: true, message: '请输入初始余额', trigger: 'blur' },
+    { type: 'number', min: 0, message: '初始余额不能为负数', trigger: 'blur' }
+  ],
   currency: [{ required: true, message: '请选择币种', trigger: 'change' }]
 }
 
@@ -195,7 +197,8 @@ async function loadExchangeRates() {
       exchangeRates.value = data.ratesInverse
     }
   } catch (e) {
-    console.warn('加载汇率数据失败:', e)
+    if (import.meta.env.DEV) console.warn('加载汇率数据失败:', e)
+    ElMessage.warning('汇率数据加载失败，CNY换算暂不可用')
     // exchangeRates 保持空，换算显示 N/A
   }
 }
@@ -223,7 +226,8 @@ async function loadBalance() {
     const data = await getAccountBalance()
     balanceList.value = data || []
   } catch (e) {
-    console.warn('加载账户余额失败:', e)
+    if (import.meta.env.DEV) console.warn('加载账户余额失败:', e)
+    ElMessage.warning('余额汇总加载失败')
     balanceList.value = []
   }
 }
@@ -286,12 +290,17 @@ async function handleSubmit() {
 async function handleDelete(row) {
   try {
     await ElMessageBox.confirm('确定删除该账户吗？', '提示', { type: 'warning' })
+    deletingId.value = row.id
     await deleteAccount(row.id)
     ElMessage.success('删除成功')
     loadAccounts()
     loadBalance()
-  } catch {
-    // 用户取消删除，静默处理
+  } catch (e) {
+    if (e === 'cancel') {
+      // 用户取消删除，静默处理
+    }
+  } finally {
+    deletingId.value = null
   }
 }
 
@@ -313,7 +322,7 @@ onMounted(() => {
 
 .page-header h2 {
   margin: 0;
-  color: #303133;
+  color: var(--color-title);
 }
 
 .balance-card {
@@ -323,19 +332,19 @@ onMounted(() => {
 .balance-item {
   text-align: center;
   padding: 12px;
-  background: #f5f7fa;
+  background: var(--el-fill-color-light);
   border-radius: 8px;
 }
 
 .balance-name {
   font-size: 14px;
-  color: #909399;
+  color: var(--color-muted);
   margin-bottom: 8px;
 }
 
 .balance-amount {
   font-size: 18px;
   font-weight: bold;
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 </style>

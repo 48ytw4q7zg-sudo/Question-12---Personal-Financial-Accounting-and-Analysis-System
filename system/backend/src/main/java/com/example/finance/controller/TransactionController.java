@@ -11,7 +11,10 @@ import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.TransactionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -36,6 +39,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/transaction")
 @RequiredArgsConstructor
+@Validated
 public class TransactionController {
 
   /** → TransactionService：处理收支记录 CRUD + 转账 + CSV 导入的业务逻辑 */
@@ -44,9 +48,8 @@ public class TransactionController {
   /**
    * 查询交易记录接口（分页 + 多条件筛选 · PRD P0-4 + P1-1）
    *
-   * 流程：从 JWT 提取 userId → 构建动态筛选条件（账户/分类/时间范围/关键词）
-   *     → TransactionMapper XML 动态 SQL 查询（JOIN account + category 获取名称）
-   *     → 分页返回结果
+   * 流程：从 JWT 提取 userId → 转发 TransactionService 处理筛选+分页
+   *     sortBy 白名单校验 + 时间范围跨度校验在 Service 层执行（Controller 不含业务逻辑）
    *
    * @param accountId  账户 ID 筛选（可选）
    * @param categoryId 分类 ID 筛选（可选）
@@ -60,7 +63,6 @@ public class TransactionController {
    * @return Result<IPage<TransactionDTO>> 分页交易记录（含账户名、分类名）
    *
    * 被前端 TransactionListPage.vue 列表展示 + 筛选表单调用
-   * 查询逻辑在 TransactionMapper.xml 的 selectTransactionList/selectTransactionCount
    */
   @GetMapping
   public Result<IPage<TransactionDTO>> list(
@@ -74,7 +76,7 @@ public class TransactionController {
       @RequestParam(defaultValue = "10") int pageSize,
       HttpServletRequest request) {
     Long userId = LoginInterceptor.getUserId(request);
-    // → TransactionService.list()：动态 SQL 筛选 + 分页 + JOIN 关联查询
+    // → TransactionService.list()：sortBy 白名单校验 + pageSize 上限保护 + 时间范围校验 + 分页
     IPage<TransactionDTO> page = transactionService.list(
         userId, accountId, categoryId, startTime, endTime, keyword, sortBy, pageNum, pageSize);
     return Result.success(page);
@@ -116,7 +118,7 @@ public class TransactionController {
    * 注意：转账产生的记录（transferId 非空）仅允许修改 note 字段
    */
   @PutMapping("/{id}")
-  public Result<TransactionDTO> update(@PathVariable Long id,
+  public Result<TransactionDTO> update(@PathVariable @Min(1) Long id,
       @Valid @RequestBody TransactionRequest request,
       HttpServletRequest httpRequest) {
     Long userId = LoginInterceptor.getUserId(httpRequest);
@@ -138,7 +140,7 @@ public class TransactionController {
    * 注意：转账产生的记录（transferId 非空）禁止删除，避免破坏转账配对完整性
    */
   @DeleteMapping("/{id}")
-  public Result<Void> delete(@PathVariable Long id, HttpServletRequest httpRequest) {
+  public Result<Void> delete(@PathVariable @Min(1) Long id, HttpServletRequest httpRequest) {
     Long userId = LoginInterceptor.getUserId(httpRequest);
     // → TransactionService.delete()：校验归属权 + 转账记录限制 + 删除数据库记录
     transactionService.delete(userId, id);
@@ -157,7 +159,7 @@ public class TransactionController {
    * @return Result<TransferDTO> 转账结果（含 transferId + 两条记录信息）
    *
    * 被前端 TransferPage.vue 调用
-   * 业务异常码：1004 = 余额不足 / 1006 = 不能转账给自己
+   * 业务异常码：3009 = 余额不足 / 3008 = 转出转入账户不可相同
    */
   @PostMapping("/transfer")
   public Result<TransferDTO> transfer(@Valid @RequestBody TransferRequest request,
@@ -183,12 +185,12 @@ public class TransactionController {
    * @return Result<ImportResultDTO> 结构化导入结果（成功/失败条数 + 失败明细行号+原因）
    *
    * 被前端 ImportPage.vue 调用，展示导入结果表格 + 失败详情
-   * CSV 格式：time,categoryName,type,amount,note
+   * CSV 格式：time,categoryId,type,amount,note
    * 业务异常码：3001 = 文件过大 / 格式错误 / 记录数超限
    */
   @PostMapping("/import")
   public Result<ImportResultDTO> importCsv(@RequestParam("file") MultipartFile file,
-      @RequestParam("accountId") Long accountId,
+      @RequestParam("accountId") @NotNull @Min(1) Long accountId,
       HttpServletRequest httpRequest) {
     Long userId = LoginInterceptor.getUserId(httpRequest);
     // → TransactionService.importCsv()：

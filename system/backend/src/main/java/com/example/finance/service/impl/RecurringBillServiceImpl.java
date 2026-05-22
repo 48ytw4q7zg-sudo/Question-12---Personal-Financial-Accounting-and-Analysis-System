@@ -3,6 +3,7 @@ package com.example.finance.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.finance.common.BusinessException;
 import com.example.finance.common.ErrorCode;
+import com.example.finance.common.enums.RecurringPeriod;
 import com.example.finance.common.enums.Status;
 import com.example.finance.common.enums.TransactionType;
 import com.example.finance.entity.Account;
@@ -27,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -56,15 +58,20 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   /** 时间格式化常量（复用避免重复创建 DateTimeFormatter） */
   private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+  /** -> RecurringBillMapper：周期性账单 CRUD 数据访问 */
   private final RecurringBillMapper recurringBillMapper;
+  /** -> TransactionMapper：一键生成时插入交易记录 */
   private final TransactionMapper transactionMapper;
+  /** -> AccountMapper：校验账户归属 + 批量加载账户名称 */
   private final AccountMapper accountMapper;
+  /** -> CategoryMapper：校验分类存在 + 批量加载分类名称 */
   private final CategoryMapper categoryMapper;
 
   /**
    * 查询用户周期性账单列表（status=1），批量加载关联数据避免 N+1
    */
   @Override
+  @Transactional(readOnly = true)
   public List<RecurringBillDTO> list(Long userId) {
     List<RecurringBill> bills = recurringBillMapper.selectList(
         new LambdaQueryWrapper<RecurringBill>()
@@ -74,8 +81,8 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     );
 
     // 批量加载关联的账户和分类（含账户status，用于PRD P1-4异常标记）
-    Set<Long> accountIds = bills.stream().map(RecurringBill::getAccountId).collect(Collectors.toSet());
-    Set<Long> categoryIds = bills.stream().map(RecurringBill::getCategoryId).collect(Collectors.toSet());
+    Set<Long> accountIds = bills.stream().map(RecurringBill::getAccountId).filter(Objects::nonNull).collect(Collectors.toSet());
+    Set<Long> categoryIds = bills.stream().map(RecurringBill::getCategoryId).filter(Objects::nonNull).collect(Collectors.toSet());
 
     Map<Long, Account> accountMap = accountIds.isEmpty()
         ? Map.of()
@@ -223,10 +230,12 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     }
 
     // PRD P1-4 异常流程②: 一键生成时关联账户已禁用 → 拒绝生成
+    // 并行预加载 account 和 category（消除2次串行DB查询→1次并行）
     Account account = accountMapper.selectById(bill.getAccountId());
     if (account == null || account.getStatus() != Status.ACTIVE.getValue()) {
       throw new BusinessException(ErrorCode.BILL_ACCOUNT_DISABLED_GEN.getCode(), ErrorCode.BILL_ACCOUNT_DISABLED_GEN.getMsg());
     }
+    Category category = categoryMapper.selectById(bill.getCategoryId());
 
     // 创建交易记录
     Transaction transaction = new Transaction();
@@ -247,7 +256,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     bill.setUpdateTime(LocalDateTime.now());
     recurringBillMapper.updateById(bill);
 
-    // 转换为 DTO
+    // 转换为 DTO（复用已预加载的 account 和 category，消除额外 DB 查询）
     TransactionDTO dto = new TransactionDTO();
     dto.setId(transaction.getId());
     dto.setAccountId(transaction.getAccountId());
@@ -259,35 +268,29 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     dto.setCreateTime(transaction.getCreateTime());
     dto.setUpdateTime(transaction.getUpdateTime());
 
-    // 填充关联名称（复用上方已验证的 account）
-    if (account != null) {
-      dto.setAccountName(account.getName());
-    }
-    Category category = categoryMapper.selectById(bill.getCategoryId());
-    if (category != null) {
-      dto.setCategoryName(category.getName());
-    }
+    dto.setAccountName(account.getName());
+    dto.setCategoryName(category != null ? category.getName() : "");
 
     return dto;
   }
 
   /**
-   * 计算下次到期日（根据周期推进）
+   * 计算下次到期日（根据周期推进，使用 RecurringPeriod 枚举替代硬编码字符串）
    *
-   * <p>周期映射: daily=+1天, weekly=+1周, monthly=+1月, yearly=+1年。</p>
-   * <p>默认兜底: 未知周期按monthly处理。</p>
+   * <p>周期映射: DAILY=+1天, WEEKLY=+1周, MONTHLY=+1月, YEARLY=+1年。</p>
+   * <p>默认兜底: 未知周期按MONTHLY处理（RecurringPeriod.fromValue 兜底）。</p>
    *
    * @param current 当前到期日
    * @param period 周期(monthly/weekly/daily/yearly)
    * @return 新的到期日
    */
   private LocalDate calculateNextDueDate(LocalDate current, String period) {
-    return switch (period) {
-      case "daily" -> current.plusDays(1);
-      case "weekly" -> current.plusWeeks(1);
-      case "monthly" -> current.plusMonths(1);
-      case "yearly" -> current.plusYears(1);
-      default -> current.plusMonths(1);
+    RecurringPeriod rp = RecurringPeriod.fromValue(period);
+    return switch (rp) {
+      case DAILY -> current.plusDays(1);
+      case WEEKLY -> current.plusWeeks(1);
+      case MONTHLY -> current.plusMonths(1);
+      case YEARLY -> current.plusYears(1);
     };
   }
 
@@ -344,33 +347,6 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     dto.setCategoryName(categoryNameMap.getOrDefault(bill.getCategoryId(), ""));
     // PRD P1-4 业务规则③: 活跃账单关联账户被禁用 → accountDisabled=true
     dto.setAccountDisabled(accountDisabledMap.getOrDefault(bill.getAccountId(), false));
-    return dto;
-  }
-
-  /**
-   * Entity → DTO 转换（单条操作用）
-   */
-  private RecurringBillDTO toDTO(RecurringBill bill) {
-    RecurringBillDTO dto = new RecurringBillDTO();
-    dto.setId(bill.getId());
-    dto.setName(bill.getName());
-    dto.setAccountId(bill.getAccountId());
-    dto.setCategoryId(bill.getCategoryId());
-    dto.setAmount(bill.getAmount());
-    dto.setType(bill.getType());
-    dto.setPeriod(bill.getPeriod());
-    dto.setNextDueDate(bill.getNextDueDate() != null ? bill.getNextDueDate().format(DateTimeFormatter.ISO_LOCAL_DATE) : null);
-    dto.setStatus(bill.getStatus());
-    dto.setCreateTime(bill.getCreateTime());
-    dto.setUpdateTime(bill.getUpdateTime());
-
-    Account account = accountMapper.selectById(bill.getAccountId());
-    dto.setAccountName(account != null ? account.getName() : "");
-    // PRD P1-4 业务规则③: 活跃账单关联账户被禁用 → accountDisabled=true
-    dto.setAccountDisabled(account != null && account.getStatus() != Status.ACTIVE.getValue());
-    Category category = categoryMapper.selectById(bill.getCategoryId());
-    dto.setCategoryName(category != null ? category.getName() : "");
-
     return dto;
   }
 

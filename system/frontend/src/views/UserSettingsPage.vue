@@ -16,7 +16,7 @@
     <h2>设置</h2>
 
     <!-- 用户信息卡片：展示当前登录用户的基本信息 -->
-    <el-card shadow="hover">
+    <el-card shadow="hover" aria-label="用户信息">
       <template #header>用户信息</template>
       <el-descriptions :column="1" border>
         <!-- → 调用 stores/user.js 的 username -->
@@ -118,8 +118,10 @@ async function handleSubmit() {
       newPassword: formData.newPassword
     })
     ElMessage.success('密码修改成功，请重新登录')
-    // 修改密码后强制重新登录（安全最佳实践）
-    localStorage.removeItem('token')
+    // 清空表单后强制重新登录（安全最佳实践）— clearUser() 已包含 removeItem('token')
+    formData.oldPassword = ''
+    formData.newPassword = ''
+    formData.confirmPassword = ''
     userStore.clearUser()
     router.push('/login')
   } finally {
@@ -131,7 +133,7 @@ async function handleSubmit() {
 <style scoped>
 .settings-page h2 {
   margin-bottom: 20px;
-  color: #303133;
+  color: var(--color-title);
 }
 
 .password-card {

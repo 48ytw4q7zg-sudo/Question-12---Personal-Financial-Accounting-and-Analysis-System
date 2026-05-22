@@ -14,7 +14,7 @@
     <EmptyState description="暂无交易记录" actionText="记一笔" @action="openAddDialog" />
 -->
 <template>
-  <div class="empty-state">
+  <div class="empty-state" role="status" aria-live="polite">
     <el-icon class="empty-icon" :size="64"><component :is="icon" /></el-icon>
     <p class="empty-text">{{ description }}</p>
     <!-- 仅当 actionText 非空时显示操作按钮 -->

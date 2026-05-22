@@ -15,7 +15,7 @@
   <div class="transfer-page">
     <h2>转账</h2>
 
-    <el-card shadow="hover" class="transfer-card" v-loading="loading">
+    <el-card shadow="hover" class="transfer-card" v-loading="loading" aria-label="转账表单">
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="90px" style="max-width: 500px; margin: 0 auto;">
         <el-form-item label="转出账户" prop="fromAccountId">
           <el-select v-model="formData.fromAccountId" placeholder="请选择转出账户" style="width: 100%">
@@ -86,7 +86,11 @@ const formRules = {
       trigger: 'change'
     }
   ],
-  amount: [{ required: true, message: '请输入转账金额', trigger: 'blur' }]
+  amount: [
+    { required: true, message: '请输入转账金额', trigger: 'blur' },
+    { type: 'number', min: 0.01, message: '转账金额必须大于0', trigger: 'blur' }
+  ],
+  note: [{ max: 200, message: '备注长度不能超过200', trigger: 'blur' }]
 }
 
 async function loadAccounts() {
@@ -94,6 +98,10 @@ async function loadAccounts() {
   try {
     const data = await getAccountList()
     accountList.value = data || []
+  } catch (e) {
+    // axios 拦截器已统一处理业务错误消息，此处额外做本地降级提示（账户下拉为空时用户需手动刷新）
+    if (import.meta.env.DEV) console.warn('加载账户列表失败:', e)
+    ElMessage.warning('加载账户列表失败，请刷新重试')
   } finally {
     loading.value = false
   }
@@ -108,6 +116,10 @@ async function handleSubmit() {
     await transfer(formData)
     ElMessage.success('转账成功')
     formRef.value.resetFields()
+    // 转账后刷新账户列表（余额可能已变化）
+    await loadAccounts()
+  } catch (e) {
+    // axios 拦截器已统一处理业务错误消息，此处不再重复显示
   } finally {
     submitting.value = false
   }
@@ -121,7 +133,7 @@ onMounted(() => {
 <style scoped>
 .transfer-page h2 {
   margin-bottom: 20px;
-  color: #303133;
+  color: var(--color-title);
 }
 
 .transfer-card {

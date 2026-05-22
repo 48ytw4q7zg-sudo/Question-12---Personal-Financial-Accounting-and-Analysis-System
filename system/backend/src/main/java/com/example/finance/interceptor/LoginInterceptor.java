@@ -21,6 +21,11 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @Component
 public class LoginInterceptor implements HandlerInterceptor {
 
+  /** HTTP 状态码：OK（body-code-first 约定，始终返回 HTTP 200 + body code） */
+  private static final int HTTP_OK = 200;
+  /** 业务状态码：未认证 */
+  private static final int CODE_UNAUTHORIZED = 401;
+
   /** JSON 序列化器（用于构造 401 错误响应） */
   private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -51,7 +56,7 @@ public class LoginInterceptor implements HandlerInterceptor {
     }
 
     // 一次解析 token，同时提取 userId + role（性能优化：消除双重解析）
-    String token = authHeader.substring(7);
+    String token = authHeader.substring("Bearer ".length()).trim();
     JwtUtils.JwtPayload payload = JwtUtils.parseTokenPayload(token);
     if (payload == null) {
       writeError(response);
@@ -60,25 +65,32 @@ public class LoginInterceptor implements HandlerInterceptor {
 
     // 将 userId + role 存入请求属性，供 Controller 使用
     request.setAttribute("userId", payload.getUserId());
-    request.setAttribute("role", payload.getRole() != null ? payload.getRole() : 0);
+    request.setAttribute("role", payload.getRole() != null ? payload.getRole() : com.example.finance.common.enums.UserRole.NORMAL.getValue());
     return true;
   }
 
   /**
    * 从请求中提取 userId（供 Controller 便捷调用）
+   * 若 userId 为 null（非正常调用路径），抛出业务异常防止 NPE
    */
   public static Long getUserId(HttpServletRequest request) {
-    return (Long) request.getAttribute("userId");
+    Long userId = (Long) request.getAttribute("userId");
+    if (userId == null) {
+      throw new com.example.finance.common.BusinessException(
+          CODE_UNAUTHORIZED, "未登录或 token 已过期");
+    }
+    return userId;
   }
 
   /**
-   * 返回 401 JSON 响应
+   * 返回 401 JSON 响应（HTTP 200 + body code 401，对齐 GlobalExceptionHandler body-code-first 约定）
+   * 前端 axios 拦截器检查 res.data.code 而非 HTTP status，因此统一使用 HTTP 200 + body code 机制
    */
   private void writeError(HttpServletResponse response) throws Exception {
-    response.setStatus(401);
+    response.setStatus(HTTP_OK);
     response.setContentType("application/json;charset=UTF-8");
     response.getWriter().write(
-        objectMapper.writeValueAsString(Result.error(401, "未登录或 token 已过期"))
+        objectMapper.writeValueAsString(Result.error(CODE_UNAUTHORIZED, "未登录或 token 已过期"))
     );
   }
 }

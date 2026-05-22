@@ -2,6 +2,7 @@ package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.finance.common.BusinessException;
+import com.example.finance.common.EntityValidator;
 import com.example.finance.entity.*;
 import com.example.finance.entity.dto.*;
 import com.example.finance.mapper.*;
@@ -27,6 +28,12 @@ import static org.mockito.Mockito.*;
 @DisplayName("正交实验+用户场景模拟")
 class OrthogonalAndUserScenarioTest {
 
+  /** 测试前初始化 JwtUtils（单元测试不走 Spring 上下文，需手动 init） */
+  @BeforeAll
+  static void initJwt() {
+    com.example.finance.util.JwtUtils.init("test-secret-for-unit-testing-at-least-32-bytes-long!!", 7 * 24 * 60 * 60 * 1000L);
+  }
+
   // ============================================================
   // §1 正交实验设计 — 多因素组合测试
   // ============================================================
@@ -35,6 +42,7 @@ class OrthogonalAndUserScenarioTest {
     @Mock TransactionMapper transactionMapper;
     @Mock AccountMapper accountMapper;
     @Mock CategoryMapper categoryMapper;
+    @Mock EntityValidator entityValidator;
     @InjectMocks TransactionServiceImpl transactionService;
 
     /**
@@ -74,37 +82,37 @@ class OrthogonalAndUserScenarioTest {
 
     @Test @DisplayName("正交实验#4: A1B0C1D0E0 — 账户+时间范围")
     void orthogonal_case4_accountAndTimeRange() {
-      when(transactionMapper.selectTransactionList(eq(1L), eq(2L), isNull(), eq("2026-05-01"), eq("2026-05-31"), isNull(), eq("time"), any()))
+      when(transactionMapper.selectTransactionList(eq(1L), eq(2L), isNull(), eq("2026-05-01 00:00:00"), eq("2026-05-31 23:59:59"), isNull(), eq("time"), any()))
           .thenReturn(Collections.emptyList());
-      when(transactionMapper.selectTransactionCount(eq(1L), eq(2L), isNull(), eq("2026-05-01"), eq("2026-05-31"), isNull())).thenReturn(0L);
-      var page = transactionService.list(1L, 2L, null, "2026-05-01", "2026-05-31", null, "time", 1, 10);
+      when(transactionMapper.selectTransactionCount(eq(1L), eq(2L), isNull(), eq("2026-05-01 00:00:00"), eq("2026-05-31 23:59:59"), isNull())).thenReturn(0L);
+      var page = transactionService.list(1L, 2L, null, "2026-05-01 00:00:00", "2026-05-31 23:59:59", null, "time", 1, 10);
       assertEquals(0, page.getTotal());
     }
 
     @Test @DisplayName("正交实验#5: A0B1C1D1E0 — 分类+时间+关键词")
     void orthogonal_case5_categoryTimeKeyword() {
-      when(transactionMapper.selectTransactionList(eq(1L), isNull(), eq(1L), eq("2026-05-01"), eq("2026-05-31"), eq("外卖"), eq("time"), any()))
+      when(transactionMapper.selectTransactionList(eq(1L), isNull(), eq(1L), eq("2026-05-01 00:00:00"), eq("2026-05-31 23:59:59"), eq("外卖"), eq("time"), any()))
           .thenReturn(Collections.emptyList());
-      when(transactionMapper.selectTransactionCount(eq(1L), isNull(), eq(1L), eq("2026-05-01"), eq("2026-05-31"), eq("外卖"))).thenReturn(0L);
-      var page = transactionService.list(1L, null, 1L, "2026-05-01", "2026-05-31", "外卖", "time", 1, 10);
+      when(transactionMapper.selectTransactionCount(eq(1L), isNull(), eq(1L), eq("2026-05-01 00:00:00"), eq("2026-05-31 23:59:59"), eq("外卖"))).thenReturn(0L);
+      var page = transactionService.list(1L, null, 1L, "2026-05-01 00:00:00", "2026-05-31 23:59:59", "外卖", "time", 1, 10);
       assertEquals(0, page.getTotal());
     }
 
     @Test @DisplayName("正交实验#6: A1B1C1D1E1 — 全因素全限定")
     void orthogonal_case6_allSpecified() {
-      when(transactionMapper.selectTransactionList(eq(1L), eq(1L), eq(1L), eq("2026-05-01"), eq("2026-05-31"), eq("午餐"), eq("amount_desc"), any()))
+      when(transactionMapper.selectTransactionList(eq(1L), eq(1L), eq(1L), eq("2026-05-01 00:00:00"), eq("2026-05-31 23:59:59"), eq("午餐"), eq("amount_desc"), any()))
           .thenReturn(Collections.emptyList());
-      when(transactionMapper.selectTransactionCount(eq(1L), eq(1L), eq(1L), eq("2026-05-01"), eq("2026-05-31"), eq("午餐"))).thenReturn(0L);
-      var page = transactionService.list(1L, 1L, 1L, "2026-05-01", "2026-05-31", "午餐", "amount_desc", 1, 10);
+      when(transactionMapper.selectTransactionCount(eq(1L), eq(1L), eq(1L), eq("2026-05-01 00:00:00"), eq("2026-05-31 23:59:59"), eq("午餐"))).thenReturn(0L);
+      var page = transactionService.list(1L, 1L, 1L, "2026-05-01 00:00:00", "2026-05-31 23:59:59", "午餐", "amount_desc", 1, 10);
       assertEquals(0, page.getTotal());
     }
 
     @Test @DisplayName("正交实验#7: A0B0C1D1E1 — 时间+关键词+金额排序")
     void orthogonal_case7_timeKeywordAmount() {
-      when(transactionMapper.selectTransactionList(eq(1L), isNull(), isNull(), eq("2026-05-01"), eq("2026-05-31"), eq("test"), eq("amount_asc"), any()))
+      when(transactionMapper.selectTransactionList(eq(1L), isNull(), isNull(), eq("2026-05-01 00:00:00"), eq("2026-05-31 23:59:59"), eq("test"), eq("amount_asc"), any()))
           .thenReturn(Collections.emptyList());
-      when(transactionMapper.selectTransactionCount(eq(1L), isNull(), isNull(), eq("2026-05-01"), eq("2026-05-31"), eq("test"))).thenReturn(0L);
-      var page = transactionService.list(1L, null, null, "2026-05-01", "2026-05-31", "test", "amount_asc", 1, 10);
+      when(transactionMapper.selectTransactionCount(eq(1L), isNull(), isNull(), eq("2026-05-01 00:00:00"), eq("2026-05-31 23:59:59"), eq("test"))).thenReturn(0L);
+      var page = transactionService.list(1L, null, null, "2026-05-01 00:00:00", "2026-05-31 23:59:59", "test", "amount_asc", 1, 10);
       assertEquals(0, page.getTotal());
     }
 
@@ -129,6 +137,7 @@ class OrthogonalAndUserScenarioTest {
     @Mock RecurringBillMapper recurringBillMapper;
     @Mock CategoryMapper categoryMapper;
     @Mock BudgetMapper budgetMapper;
+    @Mock EntityValidator entityValidator;
     @InjectMocks UserServiceImpl userService;
     @InjectMocks AccountServiceImpl accountService;
     @InjectMocks TransactionServiceImpl transactionService;
@@ -184,16 +193,16 @@ class OrthogonalAndUserScenarioTest {
       accountService.create(userId, aReq);
 
       // Record income
-      when(accountMapper.selectById(anyLong())).thenReturn(bankAcct);
-      when(categoryMapper.selectById(9L)).thenReturn(salaryCat);
+      when(entityValidator.validateAccount(userId, 2L)).thenReturn(bankAcct);
+      when(entityValidator.validateCategory(9L)).thenReturn(salaryCat);
       when(transactionMapper.insert(any(Transaction.class))).thenReturn(1);
       TransactionRequest inReq = buildTxnReq(2L, 9L, 1, new BigDecimal("8000.00")); // type=1 income
       TransactionDTO inDto = transactionService.create(userId, inReq);
       assertEquals(1, inDto.getType());
 
       // Record expense
-      when(accountMapper.selectById(anyLong())).thenReturn(cashAcct);
-      when(categoryMapper.selectById(1L)).thenReturn(foodCat);
+      when(entityValidator.validateAccount(userId, 1L)).thenReturn(cashAcct);
+      when(entityValidator.validateCategory(1L)).thenReturn(foodCat);
       when(transactionMapper.insert(any(Transaction.class))).thenReturn(2);
       TransactionRequest exReq = buildTxnReq(1L, 1L, 2, new BigDecimal("45.00"));
       TransactionDTO exDto = transactionService.create(userId, exReq);
@@ -371,6 +380,7 @@ class OrthogonalAndUserScenarioTest {
     @Mock RecurringBillMapper recurringBillMapper;
     @Mock CategoryMapper categoryMapper;
     @Mock BudgetMapper budgetMapper;
+    @Mock EntityValidator entityValidator;
     @InjectMocks UserServiceImpl userService;
     @InjectMocks AccountServiceImpl accountService;
     @InjectMocks TransactionServiceImpl transactionService;
@@ -435,7 +445,7 @@ class OrthogonalAndUserScenarioTest {
     @Test @DisplayName("通信链: JWT role从token→interceptor→request attribute")
     void jwtRole_flowsThroughChain() {
       // Generate token with role=1 (admin)
-      String token = com.example.finance.util.JwtUtils.generateToken(1L, 1);
+      String token = com.example.finance.util.JwtUtils.generateToken(1L, "admin", 1);
       Long userId = com.example.finance.util.JwtUtils.parseToken(token);
       Integer role = com.example.finance.util.JwtUtils.parseRole(token);
       assertEquals(1L, userId);
@@ -447,7 +457,9 @@ class OrthogonalAndUserScenarioTest {
       Account from = new Account(); from.setId(1L); from.setUserId(1L); from.setName("A"); from.setInitialBalance(new BigDecimal("5000.00")); from.setStatus(1);
       Account to = new Account(); to.setId(2L); to.setUserId(1L); to.setName("B"); to.setInitialBalance(new BigDecimal("1000.00")); to.setStatus(1);
       when(accountMapper.selectByIdForUpdate(1L)).thenReturn(from);
-      when(accountMapper.selectById(2L)).thenReturn(to);
+      when(entityValidator.validateAccount(1L, 2L)).thenReturn(to);
+      Category transferCat = new Category(); transferCat.setId(13L); transferCat.setName("其他"); transferCat.setType(1);
+      when(categoryMapper.selectOne(any(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class))).thenReturn(transferCat);
       when(transactionMapper.selectAccountIncome(anyLong(), anyLong())).thenReturn(BigDecimal.ZERO);
       when(transactionMapper.selectAccountExpense(anyLong(), anyLong())).thenReturn(BigDecimal.ZERO);
       when(transactionMapper.insert(any(Transaction.class))).thenReturn(1);

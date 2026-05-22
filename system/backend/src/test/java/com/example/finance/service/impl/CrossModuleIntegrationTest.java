@@ -3,6 +3,7 @@ package com.example.finance.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.example.finance.common.BusinessException;
+import com.example.finance.common.EntityValidator;
 import com.example.finance.entity.*;
 import com.example.finance.entity.dto.*;
 import com.example.finance.mapper.*;
@@ -27,6 +28,12 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("跨模块集成测试")
 class CrossModuleIntegrationTest {
+
+  /** 测试前初始化 JwtUtils（单元测试不走 Spring 上下文，需手动 init） */
+  @BeforeAll
+  static void initJwt() {
+    com.example.finance.util.JwtUtils.init("test-secret-for-unit-testing-at-least-32-bytes-long!!", 7 * 24 * 60 * 60 * 1000L);
+  }
 
   // ==== P0-1: User ====
   @Nested @DisplayName("用户→JWT→拦截器 集成链")
@@ -68,6 +75,7 @@ class CrossModuleIntegrationTest {
     @Mock TransactionMapper transactionMapper;
     @Mock RecurringBillMapper recurringBillMapper;
     @Mock CategoryMapper categoryMapper;
+    @Mock EntityValidator entityValidator;
     @InjectMocks AccountServiceImpl accountService;
     @InjectMocks TransactionServiceImpl transactionService;
 
@@ -88,8 +96,8 @@ class CrossModuleIntegrationTest {
       accountService.create(1L, acctReq);
 
       // 2. Record expense
-      when(accountMapper.selectById(1L)).thenReturn(acct);
-      when(categoryMapper.selectById(1L)).thenReturn(cat);
+      when(entityValidator.validateAccount(1L, 1L)).thenReturn(acct);
+      when(entityValidator.validateCategory(1L)).thenReturn(cat);
       when(transactionMapper.insert(any(Transaction.class))).thenReturn(1);
       TransactionRequest txnReq = buildTxnReq(1L, 1L, 2, new BigDecimal("200.00"));
       transactionService.create(1L, txnReq);
@@ -138,6 +146,7 @@ class CrossModuleIntegrationTest {
     @Mock TransactionMapper transactionMapper;
     @Mock AccountMapper accountMapper;
     @Mock CategoryMapper categoryMapper;
+    @Mock EntityValidator entityValidator;
     @InjectMocks TransactionServiceImpl transactionService;
     @InjectMocks StatisticsServiceImpl statisticsService;
 
@@ -154,7 +163,8 @@ class CrossModuleIntegrationTest {
     @Test @DisplayName("链: 转账成功→两账户余额守恒(转出-支出+转入+收入=0)")
     void transfer_balanceConservation() {
       when(accountMapper.selectByIdForUpdate(1L)).thenReturn(fromAcct);
-      when(accountMapper.selectById(2L)).thenReturn(toAcct);
+      when(entityValidator.validateAccount(1L, 2L)).thenReturn(toAcct);
+      when(categoryMapper.selectOne(any(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class))).thenReturn(cat);
       when(transactionMapper.selectAccountIncome(eq(1L), eq(1L))).thenReturn(new BigDecimal("3000.00"));
       when(transactionMapper.selectAccountExpense(eq(1L), eq(1L))).thenReturn(new BigDecimal("1000.00"));
       when(transactionMapper.insert(any(Transaction.class))).thenReturn(1);
@@ -374,6 +384,7 @@ class CrossModuleIntegrationTest {
     @Mock RecurringBillMapper recurringBillMapper;
     @Mock CategoryMapper categoryMapper;
     @Mock BudgetMapper budgetMapper;
+    @Mock EntityValidator entityValidator;
     @InjectMocks UserServiceImpl userService;
     @InjectMocks AccountServiceImpl accountService;
     @InjectMocks TransactionServiceImpl transactionService;

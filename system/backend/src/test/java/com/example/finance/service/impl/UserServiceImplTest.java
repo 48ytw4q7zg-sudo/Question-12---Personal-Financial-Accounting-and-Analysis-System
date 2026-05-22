@@ -7,6 +7,8 @@ import com.example.finance.entity.dto.LoginResponse;
 import com.example.finance.entity.dto.UserLoginRequest;
 import com.example.finance.mapper.UserMapper;
 import com.example.finance.util.LoginRateLimiter;
+import com.example.finance.util.JwtUtils;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,6 +35,12 @@ class UserServiceImplTest {
   private UserServiceImpl userService;
 
   private UserLoginRequest validRequest;
+
+  /** 测试前初始化 JwtUtils（单元测试不走 Spring 上下文，需手动 init） */
+  @BeforeAll
+  static void initJwt() {
+    JwtUtils.init("test-secret-for-unit-testing-at-least-32-bytes-long!!", 7 * 24 * 60 * 60 * 1000L);
+  }
 
   @BeforeEach
   void setUp() {

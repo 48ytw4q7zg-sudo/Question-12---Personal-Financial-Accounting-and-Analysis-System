@@ -26,31 +26,32 @@
     <h2>首页概览</h2>
 
     <!-- 月度统计卡片：收入 / 支出 / 结余 -->
-    <el-row :gutter="20" class="summary-cards">
-      <!-- 月收入卡片 -->
-      <el-col :xs="24" :sm="8">
-        <el-card shadow="hover" class="income-card">
-          <div class="card-content">
-            <div class="card-label">月收入</div>
-            <div class="card-value income">¥ {{ formatAmount(monthlySummary.income) }}</div>
-          </div>
-          <el-icon class="card-icon"><TrendCharts /></el-icon>
-        </el-card>
-      </el-col>
-      <!-- 月支出卡片 -->
-      <el-col :xs="24" :sm="8">
-        <el-card shadow="hover" class="expense-card">
-          <div class="card-content">
-            <div class="card-label">月支出</div>
-            <div class="card-value expense">¥ {{ formatAmount(monthlySummary.expense) }}</div>
-          </div>
-          <el-icon class="card-icon"><Money /></el-icon>
-        </el-card>
-      </el-col>
-      <!-- 月结余卡片（正数=收入>支出，负数=支出>收入） -->
-      <el-col :xs="24" :sm="8">
-        <el-card shadow="hover" class="balance-card">
-          <div class="card-content">
+    <section aria-label="月度财务统计" class="summary-cards">
+      <el-row :gutter="20">
+        <!-- 月收入卡片 -->
+        <el-col :xs="24" :sm="8">
+          <el-card shadow="hover" class="income-card" aria-label="月收入">
+            <div class="card-content">
+              <div class="card-label">月收入</div>
+              <div class="card-value income">¥ {{ formatAmount(monthlySummary.income) }}</div>
+            </div>
+            <el-icon class="card-icon"><TrendCharts /></el-icon>
+          </el-card>
+        </el-col>
+        <!-- 月支出卡片 -->
+        <el-col :xs="24" :sm="8">
+          <el-card shadow="hover" class="expense-card" aria-label="月支出">
+            <div class="card-content">
+              <div class="card-label">月支出</div>
+              <div class="card-value expense">¥ {{ formatAmount(monthlySummary.expense) }}</div>
+            </div>
+            <el-icon class="card-icon"><Money /></el-icon>
+          </el-card>
+        </el-col>
+        <!-- 月结余卡片（正数=收入>支出，负数=支出>收入） -->
+        <el-col :xs="24" :sm="8">
+          <el-card shadow="hover" class="balance-card" aria-label="月结余">
+            <div class="card-content">
             <div class="card-label">月结余</div>
             <div class="card-value" :class="monthlySummary.balance >= 0 ? 'income' : 'expense'">
               ¥ {{ formatAmount(monthlySummary.balance) }}
@@ -59,9 +60,9 @@
           <el-icon class="card-icon"><Wallet /></el-icon>
         </el-card>
       </el-col>
-    </el-row>
-
-    <!-- P2-4 多币种提示：当存在非CNY账户时，提醒用户统计金额为各币种原始值 -->
+      </el-row>
+    </section>
+    <!-- 多币种提示：当存在非CNY账户时，提醒用户统计金额为各币种原始值 -->
     <div v-if="hasMultiCurrency" class="multi-currency-hint">
       <el-tag type="info" effect="plain">多币种账户存在，统计金额为各币种原始值，未做CNY换算</el-tag>
     </div>
@@ -85,14 +86,14 @@
       <el-col :xs="24" :lg="10">
         <el-card shadow="hover">
           <template #header>支出分类分布</template>
-          <div ref="pieChartRef" class="chart-container"></div>
+          <div ref="pieChartRef" class="chart-container" role="img" aria-label="支出分类饼图"></div>
         </el-card>
       </el-col>
       <!-- 收支趋势折线图（近 12 个月） -->
       <el-col :xs="24" :lg="14">
         <el-card shadow="hover">
           <template #header>收支趋势（近12个月）</template>
-          <div ref="lineChartRef" class="chart-container"></div>
+          <div ref="lineChartRef" class="chart-container" role="img" aria-label="收支趋势折线图"></div>
         </el-card>
       </el-col>
     </el-row>
@@ -101,7 +102,9 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import * as echarts from 'echarts'
+import { ElMessage } from 'element-plus'
+// ECharts 按需加载（echarts/core + 所需组件，减小 vendor-echarts chunk 体积 ~1MB → ~350KB）
+import { loadEcharts } from '../utils/echarts-lazy'
 import { formatAmount } from '../utils/format'
 // → 调用 api/statistics.js 的 3 个统计接口
 import { getMonthlySummary, getCategorySummary, getTrend } from '../api/statistics'
@@ -109,6 +112,8 @@ import { getMonthlySummary, getCategorySummary, getTrend } from '../api/statisti
 import { getBudgetAlert } from '../api/budget'
 // → P2-4 多币种：调用 api/exchange-rate.js 的 getExchangeRates()
 import { getExchangeRates } from '../api/exchange-rate'
+import { getAccountList } from '../api/account'
+import { CHART_COLORS, ALERT_LEVEL_OVERSPENT, ALERT_LEVEL_MONTHLY_WARN, ALERT_LEVEL_DAILY_WARN, ALERT_LEVEL_NORMAL, TRANSACTION_TYPE_EXPENSE } from '../constants/finance'
 
 /** P2-4: 汇率数据缓存（1外币→CNY），例 { USD: 7.3, EUR: 7.94, ... } */
 const exchangeRates = ref({})
@@ -154,10 +159,11 @@ async function loadBudgetAlerts() {
     const data = await getBudgetAlert({ year, month })
     if (data && data.length > 0) {
       // 只展示有实际已用金额且非 NORMAL 的预警项
-      budgetAlerts.value = data.filter(a => a.percentage > 0 && a.alertLevel !== 'NORMAL')
+      budgetAlerts.value = data.filter(a => a.percentage > 0 && a.alertLevel !== ALERT_LEVEL_NORMAL)
     }
   } catch (e) {
-    console.warn('加载预算预警失败:', e)
+    if (import.meta.env.DEV) console.warn('加载预算预警失败:', e)
+    ElMessage.warning('预算预警数据加载失败')
     budgetAlerts.value = []
   }
 }
@@ -169,10 +175,10 @@ async function loadBudgetAlerts() {
  */
 function getAlertType(alertLevel) {
   const typeMap = {
-    'OVERSPENT': 'error',      // 红色：已超支
-    'MONTHLY_WARN': 'warning', // 橙色：月预警(≥80%)
-    'DAILY_WARN': 'warning',   // 黄色：日预警(日均150%)
-    'NORMAL': 'success'
+    [ALERT_LEVEL_OVERSPENT]: 'error',
+    [ALERT_LEVEL_MONTHLY_WARN]: 'warning',
+    [ALERT_LEVEL_DAILY_WARN]: 'warning',
+    [ALERT_LEVEL_NORMAL]: 'success'
   }
   return typeMap[alertLevel] || 'warning'
 }
@@ -183,17 +189,18 @@ function getAlertType(alertLevel) {
  * @returns {String} 预警标题文本
  */
 function formatAlertTitle(alert) {
-  const budget = Number(alert.budgetAmount).toFixed(2)
-  const spent = Number(alert.spentAmount).toFixed(2)
-  const pct = Number(alert.percentage).toFixed(0)
+  const budget = formatAmount(alert.budgetAmount)
+  const spent = formatAmount(alert.spentAmount)
+  const pct = Math.round(Number(alert.percentage || 0))
 
-  if (alert.alertLevel === 'OVERSPENT') {
-    return `${alert.categoryName}已超支：预算 ¥${budget}，已花 ¥${spent}（超额 ¥${(Number(alert.spentAmount) - Number(alert.budgetAmount)).toFixed(2)}）`
+  if (alert.alertLevel === ALERT_LEVEL_OVERSPENT) {
+    const over = formatAmount(Number(alert.spentAmount || 0) - Number(alert.budgetAmount || 0))
+    return `${alert.categoryName}已超支：预算 ¥${budget}，已花 ¥${spent}（超额 ¥${over}）`
   }
-  if (alert.alertLevel === 'MONTHLY_WARN') {
+  if (alert.alertLevel === ALERT_LEVEL_MONTHLY_WARN) {
     return `${alert.categoryName}接近预算上限：已用 ${pct}%（¥${spent} / ¥${budget}）`
   }
-  if (alert.alertLevel === 'DAILY_WARN') {
+  if (alert.alertLevel === ALERT_LEVEL_DAILY_WARN) {
     return `${alert.categoryName}日均消耗偏高：已用 ${pct}%（¥${spent} / ¥${budget}）`
   }
   return `${alert.categoryName}：已用 ${pct}%（¥${spent} / ¥${budget}）`
@@ -213,8 +220,8 @@ async function loadMonthlySummary() {
       monthlySummary.balance = data.balance || 0
     }
   } catch (e) {
-    console.warn('加载月度汇总失败:', e)
-    // 空数据时显示 0
+    if (import.meta.env.DEV) console.warn('加载月度汇总失败:', e)
+    ElMessage.warning('月度汇总数据加载失败')
   }
 }
 
@@ -226,13 +233,14 @@ async function loadMonthlySummary() {
 async function loadCategoryChart() {
   const { year, month } = getCurrentYearMonth()
   try {
-    const data = await getCategorySummary({ year, month, type: 2 })
+    const data = await getCategorySummary({ year, month, type: TRANSACTION_TYPE_EXPENSE })
+    const echartsModule = await loadEcharts()
+    // 复用已有实例，仅 setOption 更新数据（避免每次 dispose+reinit 导致闪烁）
+    if (!pieChart && pieChartRef.value) {
+      pieChart = echartsModule.init(pieChartRef.value)
+    }
+    if (!pieChart) return
     if (data && data.length > 0) {
-      // 复用已有实例，仅 setOption 更新数据（避免每次 dispose+reinit 导致闪烁）
-      if (!pieChart && pieChartRef.value) {
-        pieChart = echarts.init(pieChartRef.value)
-      }
-      if (!pieChart) return
       pieChart.setOption({
         tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
         legend: { orient: 'vertical', left: 'left' },
@@ -245,9 +253,16 @@ async function loadCategoryChart() {
           }
         }]
       })
+    } else {
+      // 空数据时显示「暂无数据」占位，避免残留空白 canvas
+      pieChart.setOption({
+        title: { text: '暂无支出数据', left: 'center', top: 'center', textStyle: { color: '#999', fontSize: 14 } },
+        series: []
+      }, true)
     }
   } catch (e) {
-    console.warn('加载分类饼图失败:', e)
+    if (import.meta.env.DEV) console.warn('加载分类饼图失败:', e)
+    ElMessage.warning('分类图表加载失败')
   }
 }
 
@@ -259,25 +274,34 @@ async function loadTrendChart() {
   const { year } = getCurrentYearMonth()
   try {
     const data = await getTrend({ year })
+    const echartsModule = await loadEcharts()
+    if (!lineChart && lineChartRef.value) {
+      lineChart = echartsModule.init(lineChartRef.value)
+    }
+    if (!lineChart) return
     if (data && data.length > 0) {
-      // 复用已有实例，仅 setOption 更新数据（避免每次 dispose+reinit 导致闪烁）
-      if (!lineChart && lineChartRef.value) {
-        lineChart = echarts.init(lineChartRef.value)
-      }
-      if (!lineChart) return
       lineChart.setOption({
         tooltip: { trigger: 'axis' },
         legend: { data: ['收入', '支出'] },
         xAxis: { type: 'category', data: data.map(item => item.month + '月') },
         yAxis: { type: 'value' },
         series: [
-          { name: '收入', type: 'line', data: data.map(item => item.totalIncome), smooth: true, itemStyle: { color: '#67c23a' } },
-          { name: '支出', type: 'line', data: data.map(item => item.totalExpense), smooth: true, itemStyle: { color: '#f56c6c' } }
+          { name: '收入', type: 'line', data: data.map(item => item.totalIncome), smooth: true, itemStyle: { color: CHART_COLORS.income } },
+          { name: '支出', type: 'line', data: data.map(item => item.totalExpense), smooth: true, itemStyle: { color: CHART_COLORS.expense } }
         ]
       })
+    } else {
+      // 空数据时显示「暂无数据」占位
+      lineChart.setOption({
+        title: { text: '暂无趋势数据', left: 'center', top: 'center', textStyle: { color: '#999', fontSize: 14 } },
+        xAxis: { type: 'category', data: [] },
+        yAxis: { type: 'value' },
+        series: []
+      }, true)
     }
   } catch (e) {
-    console.warn('加载趋势折线图失败:', e)
+    if (import.meta.env.DEV) console.warn('加载趋势折线图失败:', e)
+    ElMessage.warning('趋势图表加载失败')
   }
 }
 
@@ -291,12 +315,25 @@ async function loadExchangeRates() {
     const data = await getExchangeRates()
     if (data && data.ratesInverse) {
       exchangeRates.value = data.ratesInverse
-      // 标记存在非 CNY 汇率（说明系统启用了多币种）
-      hasMultiCurrency.value = Object.keys(data.ratesInverse).length > 0
     }
   } catch (e) {
-    console.warn('加载汇率数据失败:', e)
-    // exchangeRates 保持空
+    if (import.meta.env.DEV) console.warn('加载汇率数据失败:', e)
+    ElMessage.warning('汇率数据加载失败')
+  }
+}
+
+/**
+ * P2-4: 加载账户列表判断是否存在非CNY账户（基于账户数据而非汇率数据）
+ */
+async function loadAccountCurrencyInfo() {
+  try {
+    const accounts = await getAccountList()
+    if (accounts && accounts.length > 0) {
+      hasMultiCurrency.value = accounts.some(a => a.currency && a.currency !== 'CNY')
+    }
+  } catch (e) {
+    // 账户加载失败不影响页面核心功能
+    if (import.meta.env.DEV) console.warn('加载账户币种信息失败:', e)
   }
 }
 
@@ -308,23 +345,25 @@ function handleResize() {
 
 // 页面挂载时并行加载所有数据（含 P2-4 汇率），加载完成后关闭 loading
 onMounted(async () => {
-  await Promise.all([loadMonthlySummary(), loadBudgetAlerts(), loadCategoryChart(), loadTrendChart(), loadExchangeRates()])
+  await Promise.allSettled([loadMonthlySummary(), loadBudgetAlerts(), loadCategoryChart(), loadTrendChart(), loadExchangeRates(), loadAccountCurrencyInfo()])
   loading.value = false
   window.addEventListener('resize', handleResize)
 })
 
-// 页面卸载时销毁 ECharts 实例 + 移除 resize 监听，防止内存泄漏
+// 页面卸载时移除 resize 监听 + 销毁 ECharts 实例，防止内存泄漏（先移除监听再 dispose，避免 race condition）
 onUnmounted(() => {
-  pieChart?.dispose()
-  lineChart?.dispose()
   window.removeEventListener('resize', handleResize)
+  pieChart?.dispose()
+  pieChart = null
+  lineChart?.dispose()
+  lineChart = null
 })
 </script>
 
 <style scoped>
 .dashboard-page h2 {
   margin-bottom: 20px;
-  color: #303133;
+  color: var(--color-title);
 }
 
 .summary-cards {
@@ -354,7 +393,7 @@ onUnmounted(() => {
 
 .card-label {
   font-size: 14px;
-  color: #909399;
+  color: var(--color-muted);
   margin-bottom: 8px;
 }
 
@@ -364,17 +403,17 @@ onUnmounted(() => {
 }
 
 .card-value.income {
-  color: #67c23a;
+  color: var(--color-income);
 }
 
 .card-value.expense {
-  color: #f56c6c;
+  color: var(--color-expense);
 }
 
 .card-icon {
   float: right;
   font-size: 40px;
-  color: #dcdfe6;
+  color: var(--color-info);
 }
 
 .chart-row {

@@ -1,10 +1,21 @@
 package com.example.finance.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.finance.common.BusinessException;
 import com.example.finance.common.ErrorCode;
 import com.example.finance.common.enums.UserRole;
+import com.example.finance.entity.Account;
+import com.example.finance.entity.Budget;
+import com.example.finance.entity.BudgetAlert;
+import com.example.finance.entity.RecurringBill;
+import com.example.finance.entity.Transaction;
 import com.example.finance.entity.User;
 import com.example.finance.entity.dto.UserDTO;
+import com.example.finance.mapper.AccountMapper;
+import com.example.finance.mapper.BudgetAlertMapper;
+import com.example.finance.mapper.BudgetMapper;
+import com.example.finance.mapper.RecurringBillMapper;
+import com.example.finance.mapper.TransactionMapper;
 import com.example.finance.mapper.UserMapper;
 import com.example.finance.service.AdminService;
 import lombok.RequiredArgsConstructor;
@@ -32,17 +43,28 @@ public class AdminServiceImpl implements AdminService {
 
   /** → UserMapper：用户数据访问层 */
   private final UserMapper userMapper;
+  /** → TransactionMapper：交易记录数据访问层（级联删除用） */
+  private final TransactionMapper transactionMapper;
+  /** → BudgetMapper：预算数据访问层（级联删除用） */
+  private final BudgetMapper budgetMapper;
+  /** → RecurringBillMapper：周期性账单数据访问层（级联删除用） */
+  private final RecurringBillMapper recurringBillMapper;
+  /** → AccountMapper：账户数据访问层（级联删除用） */
+  private final AccountMapper accountMapper;
+  /** → BudgetAlertMapper：预算预警数据访问层（级联删除用） */
+  private final BudgetAlertMapper budgetAlertMapper;
 
   /**
    * 查询所有用户列表
    *
-   * 流程：直接查询 user 表全部记录 → 返回（密码由 @JsonIgnore 保护）
+   * 流程：查询 user 表全部记录（按 id 升序） → 转换为 UserDTO → 返回（密码由 @JsonIgnore 保护）
    *
-   * @return 全部用户列表
+   * @return 全部用户 DTO 列表
    */
   @Override
+  @Transactional(readOnly = true)
   public List<UserDTO> listAllUserDTOs() {
-    return userMapper.selectList(null).stream().map(UserDTO::fromUser).toList();
+    return userMapper.selectList(new LambdaQueryWrapper<User>().orderByAsc(User::getId)).stream().map(UserDTO::fromUser).toList();
   }
 
   /**
@@ -70,7 +92,18 @@ public class AdminServiceImpl implements AdminService {
     if (user == null) {
       throw new BusinessException(ErrorCode.ADMIN_USER_NOT_FOUND.getCode(), ErrorCode.ADMIN_USER_NOT_FOUND.getMsg());
     }
-    // 执行物理删除
+    // 级联清理：按依赖顺序删除关联数据，避免孤儿记录
+    // 1. 删除交易记录（依赖账户，先删）
+    transactionMapper.delete(new LambdaQueryWrapper<Transaction>().eq(Transaction::getUserId, userId));
+    // 2. 删除预算预警
+    budgetAlertMapper.delete(new LambdaQueryWrapper<BudgetAlert>().eq(BudgetAlert::getUserId, userId));
+    // 3. 删除预算
+    budgetMapper.delete(new LambdaQueryWrapper<Budget>().eq(Budget::getUserId, userId));
+    // 4. 删除周期性账单
+    recurringBillMapper.delete(new LambdaQueryWrapper<RecurringBill>().eq(RecurringBill::getUserId, userId));
+    // 5. 删除账户
+    accountMapper.delete(new LambdaQueryWrapper<Account>().eq(Account::getUserId, userId));
+    // 6. 删除用户
     userMapper.deleteById(userId);
   }
 
@@ -89,20 +122,17 @@ public class AdminServiceImpl implements AdminService {
    */
   @Override
   @Transactional
-  public User toggleUserRole(Long userId, Long currentUserId) {
-    // 防止管理员切换自己的角色
+  public UserDTO toggleUserRole(Long userId, Long currentUserId) {
     if (currentUserId.equals(userId)) {
       throw new BusinessException(ErrorCode.ADMIN_CANNOT_MODIFY_SELF.getCode(), ErrorCode.ADMIN_CANNOT_MODIFY_SELF.getMsg());
     }
-    // 校验用户是否存在
     User user = userMapper.selectById(userId);
     if (user == null) {
       throw new BusinessException(ErrorCode.ADMIN_USER_NOT_FOUND.getCode(), ErrorCode.ADMIN_USER_NOT_FOUND.getMsg());
     }
-    // 翻转角色：0=普通用户 → 1=管理员，1=管理员 → 0=普通用户（使用枚举替代魔法值）
     user.setRole(user.getRole() == UserRole.ADMIN.getValue() ? UserRole.NORMAL.getValue() : UserRole.ADMIN.getValue());
     user.setUpdateTime(LocalDateTime.now());
     userMapper.updateById(user);
-    return user;
+    return UserDTO.fromUser(user);
   }
 }

@@ -48,7 +48,7 @@
 
     <el-container class="app-body">
       <!-- 桌面端侧栏（≥768px）：宽度随折叠状态变化 -->
-      <el-aside v-if="!isMobile" :width="isCollapsed ? '64px' : '200px'" class="app-aside">
+      <el-aside v-if="!isMobile" :width="isCollapsed ? '64px' : '200px'" class="app-aside" aria-label="侧栏导航">
         <sidebar-menu :active-menu="activeMenu" :collapsed="isCollapsed" />
       </el-aside>
 
@@ -75,6 +75,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '../stores/user'
 import { ROLE_ADMIN, ROLE_LABELS } from '../constants/role'
 import SidebarMenu from '../components/SidebarMenu.vue'
@@ -89,8 +90,8 @@ const drawerVisible = ref(false)      // 移动端抽屉显隐
 // 当前激活菜单项 = 当前路由 path（自动高亮对应菜单）
 const activeMenu = computed(() => route.path)
 
-// 响应式：窗口宽度 < 768px 时为移动端模式
-const isMobile = ref(false)
+// 响应式：窗口宽度 < 768px 时为移动端模式 — 初始化时检测避免首次渲染闪烁
+const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 768)
 
 /** 切换侧栏折叠/展开状态 */
 function toggleSidebar() {
@@ -103,9 +104,12 @@ function toggleSidebar() {
  * → 调用 stores/user.js 的 clearUser()
  */
 function handleLogout() {
-  localStorage.removeItem('token')
-  userStore.clearUser()
-  router.push('/login')
+  ElMessageBox.confirm('确定退出登录吗？', '提示', { type: 'warning' })
+    .then(() => {
+      userStore.clearUser() // clearUser() 内部已清除 localStorage token
+      router.replace('/login')
+    })
+    .catch(() => { /* 用户取消退出，静默处理 */ })
 }
 
 /**
@@ -145,7 +149,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #409eff;
+  background-color: var(--el-color-primary);
   color: #fff;
   padding: 0 20px;
   height: 60px;
@@ -190,7 +194,7 @@ onUnmounted(() => {
 }
 
 .app-main {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
   overflow-y: auto;
   padding: 20px;
 }

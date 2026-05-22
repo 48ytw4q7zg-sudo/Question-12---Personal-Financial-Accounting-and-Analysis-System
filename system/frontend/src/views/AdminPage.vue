@@ -15,7 +15,8 @@
 <template>
   <div class="admin-page" v-loading="loading">
     <h2>用户管理（管理员）</h2>
-    <el-table :data="users" stripe border>
+    <el-table :data="users" stripe border aria-label="用户列表">
+      <template #empty><el-empty description="暂无用户数据" /></template>
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="username" label="用户名" />
       <el-table-column label="角色" width="120">
@@ -29,11 +30,11 @@
       <el-table-column label="操作" width="250">
         <template #default="{ row }">
           <el-button type="warning" size="small" @click="handleToggleRole(row)"
-                     :disabled="row.id === userStore.userId">
+                     :disabled="row.id === userStore.userId || operating">
             {{ row.role === ROLE_ADMIN ? '降为普通用户' : '提升为管理员' }}
           </el-button>
           <el-button type="danger" size="small" @click="handleDelete(row)"
-                     :disabled="row.id === userStore.userId">
+                     :disabled="row.id === userStore.userId || operating">
             删除
           </el-button>
         </template>
@@ -53,6 +54,7 @@ import { ROLE_ADMIN, ROLE_LABELS } from '../constants/role'
 const userStore = useUserStore()
 const users = ref([])           // 用户列表数据
 const loading = ref(true)       // 页面 loading 状态
+const operating = ref(false)    // 操作防重复提交 loading
 
 /**
  * 加载所有用户列表
@@ -79,11 +81,14 @@ async function handleToggleRole(row) {
       '角色变更确认',
       { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' }
     )
+    operating.value = true
     await toggleRole(row.id)
     ElMessage.success(`${row.username} 角色已切换`)
     await loadUsers()
   } catch {
     // 用户取消或非业务错误，静默处理
+  } finally {
+    operating.value = false
   }
 }
 
@@ -99,11 +104,14 @@ async function handleDelete(row) {
       cancelButtonText: '取消',
       type: 'warning'
     })
+    operating.value = true
     await deleteUser(row.id)
     ElMessage.success('用户已删除')
     await loadUsers()
   } catch {
     // 用户取消删除或非业务错误，静默处理
+  } finally {
+    operating.value = false
   }
 }
 
@@ -114,6 +122,6 @@ onMounted(loadUsers)
 <style scoped>
 .admin-page h2 {
   margin-bottom: 20px;
-  color: #303133;
+  color: var(--color-title);
 }
 </style>

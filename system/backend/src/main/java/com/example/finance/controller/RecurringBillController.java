@@ -8,7 +8,9 @@ import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.RecurringBillService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -36,6 +38,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/recurring-bill")
 @RequiredArgsConstructor
+@Validated
 public class RecurringBillController {
 
   /** → RecurringBillService：处理周期账单 CRUD + 生成交易记录的业务逻辑 */
@@ -96,7 +99,7 @@ public class RecurringBillController {
    * 被前端 RecurringBillPage.vue 编辑弹窗调用
    */
   @PutMapping("/{id}")
-  public Result<RecurringBillDTO> update(@PathVariable Long id,
+  public Result<RecurringBillDTO> update(@PathVariable @Min(1) Long id,
       @Valid @RequestBody RecurringBillRequest request,
       HttpServletRequest httpRequest) {
     Long userId = LoginInterceptor.getUserId(httpRequest);
@@ -118,7 +121,7 @@ public class RecurringBillController {
    * 并发安全：使用条件 UPDATE + affectedRows 判断防重复停用
    */
   @DeleteMapping("/{id}")
-  public Result<Void> deactivate(@PathVariable Long id, HttpServletRequest request) {
+  public Result<Void> deactivate(@PathVariable @Min(1) Long id, HttpServletRequest request) {
     Long userId = LoginInterceptor.getUserId(request);
     // → RecurringBillService.deactivate()：条件 UPDATE status=0 WHERE id=? AND status=1
     recurringBillService.deactivate(userId, id);
@@ -140,7 +143,7 @@ public class RecurringBillController {
    * 业务异常码：5004 = 账单已停用 / 5002 = 关联账户已禁用
    */
   @PostMapping("/{id}/generate")
-  public Result<TransactionDTO> generate(@PathVariable Long id, HttpServletRequest request) {
+  public Result<TransactionDTO> generate(@PathVariable @Min(1) Long id, HttpServletRequest request) {
     Long userId = LoginInterceptor.getUserId(request);
     // → RecurringBillService.generate()：
     //   1. 校验账单 status=1 + 关联账户 status=1

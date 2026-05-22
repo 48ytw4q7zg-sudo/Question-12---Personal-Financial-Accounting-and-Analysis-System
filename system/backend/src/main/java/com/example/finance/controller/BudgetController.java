@@ -1,18 +1,19 @@
 package com.example.finance.controller;
 
-import com.example.finance.common.BusinessException;
-import com.example.finance.common.ErrorCode;
 import com.example.finance.common.Result;
 import com.example.finance.entity.dto.BudgetAlertDTO;
 import com.example.finance.entity.dto.BudgetDTO;
 import com.example.finance.entity.dto.BudgetProgressDTO;
+import com.example.finance.entity.dto.BudgetQueryRequest;
 import com.example.finance.entity.dto.BudgetRequest;
 import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.BudgetAlertService;
 import com.example.finance.service.BudgetService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -39,46 +40,40 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/budget")
 @RequiredArgsConstructor
+@Validated
 public class BudgetController {
 
+  /** → BudgetService：处理预算列表/保存/删除/进度的业务逻辑 */
   private final BudgetService budgetService;
+  /** → BudgetAlertService：处理预算预警查询的业务逻辑（P2-2 @Scheduled 持久化预警） */
   private final BudgetAlertService budgetAlertService;
 
-  /** year/month 参数校验：如果提供则必须为合法数字且在合理范围内 */
-  private void validateYearMonth(String year, String month) {
-    if (year != null) {
-      try {
-        int y = Integer.parseInt(year);
-        if (y < 2000 || y > 2100) {
-          throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "year需在2000-2100之间");
-        }
-      } catch (NumberFormatException e) {
-        throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "year必须为合法数字");
-      }
-    }
-    if (month != null) {
-      try {
-        int m = Integer.parseInt(month);
-        if (m < 1 || m > 12) {
-          throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "month需在1-12之间");
-        }
-      } catch (NumberFormatException e) {
-        throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "month必须为合法数字");
-      }
-    }
-  }
-
+  /**
+   * 查询预算列表（按年月筛选）
+   *
+   * @param query   年月查询参数（BudgetQueryRequest 含 year + month，由 @Valid 校验）
+   * @param request HTTP 请求（LoginInterceptor 已注入 userId 属性）
+   * @return Result<List<BudgetDTO>> 该月所有分类的预算列表
+   *
+   * 被前端 BudgetPage.vue 的月度预算表格调用
+   */
   @GetMapping
-  public Result<List<BudgetDTO>> list(
-      @RequestParam(required = false) String year,
-      @RequestParam(required = false) String month,
+  public Result<List<BudgetDTO>> list(@Valid BudgetQueryRequest query,
       HttpServletRequest request) {
-    validateYearMonth(year, month);
     Long userId = LoginInterceptor.getUserId(request);
-    List<BudgetDTO> list = budgetService.list(userId, year, month);
+    List<BudgetDTO> list = budgetService.list(userId, query.getYear(), query.getMonth());
     return Result.success(list);
   }
 
+  /**
+   * 保存预算（新增或覆盖更新，同一用户+同一月+同一分类唯一）
+   *
+   * @param request  预算请求体（含 categoryId + amount，由 @Valid 校验金额>0 且分类为支出类）
+   * @param httpRequest HTTP 请求（LoginInterceptor 已注入 userId 属性）
+   * @return Result<BudgetDTO> 保存后的预算数据
+   *
+   * 被前端 BudgetPage.vue 的「保存」按钮调用
+   */
   @PostMapping
   public Result<BudgetDTO> save(@Valid @RequestBody BudgetRequest request,
       HttpServletRequest httpRequest) {
@@ -87,32 +82,53 @@ public class BudgetController {
     return Result.success(budget, "预算保存成功");
   }
 
+  /**
+   * 删除预算
+   *
+   * @param id       预算主键 ID
+   * @param httpRequest HTTP 请求（LoginInterceptor 已注入 userId 属性）
+   * @return Result<Void> 删除结果
+   *
+   * 被前端 BudgetPage.vue 的「删除」按钮调用
+   */
   @DeleteMapping("/{id}")
-  public Result<Void> delete(@PathVariable Long id, HttpServletRequest httpRequest) {
+  public Result<Void> delete(@PathVariable @Min(1) Long id, HttpServletRequest httpRequest) {
     Long userId = LoginInterceptor.getUserId(httpRequest);
     budgetService.delete(userId, id);
     return Result.success(null, "预算已删除");
   }
 
+  /**
+   * 查询预算进度（含已支出金额、百分比、超支标记）
+   *
+   * @param query   年月查询参数（BudgetQueryRequest 含 year + month）
+   * @param request HTTP 请求（LoginInterceptor 已注入 userId 属性）
+   * @return Result<List<BudgetProgressDTO>> 每个支出分类的预算进度（含 spentAmount / budgetAmount / percentage）
+   *
+   * 被前端 BudgetPage.vue 的进度条 + DashboardPage.vue 的预警区域调用
+   */
   @GetMapping("/progress")
-  public Result<List<BudgetProgressDTO>> getProgress(
-      @RequestParam(required = false) String year,
-      @RequestParam(required = false) String month,
+  public Result<List<BudgetProgressDTO>> getProgress(@Valid BudgetQueryRequest query,
       HttpServletRequest request) {
-    validateYearMonth(year, month);
     Long userId = LoginInterceptor.getUserId(request);
-    List<BudgetProgressDTO> list = budgetService.getProgress(userId, year, month);
+    List<BudgetProgressDTO> list = budgetService.getProgress(userId, query.getYear(), query.getMonth());
     return Result.success(list);
   }
 
+  /**
+   * 查询预算预警（P2-2 多维度预警：日预警/月预警/超支/正常）
+   *
+   * @param query   年月查询参数（BudgetQueryRequest 含 year + month）
+   * @param request HTTP 请求（LoginInterceptor 已注入 userId 属性）
+   * @return Result<List<BudgetAlertDTO>> 预警状态列表（含 alertLevel / categoryName / budgetAmount / spentAmount / percentage）
+   *
+   * 被前端 DashboardPage.vue 的预警提示区域 + BudgetPage.vue 的预警标签调用
+   */
   @GetMapping("/alert")
-  public Result<List<BudgetAlertDTO>> getAlert(
-      @RequestParam(required = false) String year,
-      @RequestParam(required = false) String month,
+  public Result<List<BudgetAlertDTO>> getAlert(@Valid BudgetQueryRequest query,
       HttpServletRequest request) {
-    validateYearMonth(year, month);
     Long userId = LoginInterceptor.getUserId(request);
-    List<BudgetAlertDTO> list = budgetAlertService.getAlerts(userId, year, month);
+    List<BudgetAlertDTO> list = budgetAlertService.getAlerts(userId, query.getYear(), query.getMonth());
     return Result.success(list);
   }
 }

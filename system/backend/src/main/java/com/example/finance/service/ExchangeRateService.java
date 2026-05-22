@@ -1,6 +1,6 @@
 package com.example.finance.service;
 
-import java.util.Map;
+import com.example.finance.entity.dto.ExchangeRateDTO;
 
 /**
  * 汇率服务接口（P2 硬编码参考汇率 · 可替换为外部 API）
@@ -13,7 +13,7 @@ public interface ExchangeRateService {
   /**
    * 获取参考汇率数据
    *
-   * @return 汇率数据（含 rates/ratesInverse/count/source/base/updateTime）
+   * @return ExchangeRateDTO 汇率数据（含 rates/ratesInverse/count/source/base/updateTime）
    */
-  Map<String, Object> getExchangeRates();
+  ExchangeRateDTO getExchangeRates();
 }

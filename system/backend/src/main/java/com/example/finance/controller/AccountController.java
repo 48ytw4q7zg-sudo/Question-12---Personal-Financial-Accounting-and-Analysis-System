@@ -8,7 +8,9 @@ import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.AccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -33,6 +35,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/account")
 @RequiredArgsConstructor
+@Validated
 public class AccountController {
 
   /** → AccountService：处理账户 CRUD + 余额统计的业务逻辑 */
@@ -94,7 +97,7 @@ public class AccountController {
    * 被前端 AccountPage.vue 编辑账户弹窗调用
    */
   @PutMapping("/{id}")
-  public Result<AccountDTO> update(@PathVariable Long id,
+  public Result<AccountDTO> update(@PathVariable @Min(1) Long id,
       @Valid @RequestBody AccountRequest request,
       HttpServletRequest httpRequest) {
     Long userId = LoginInterceptor.getUserId(httpRequest);
@@ -117,7 +120,7 @@ public class AccountController {
    * 业务异常码：1005 = 账户存在关联记录，禁止删除
    */
   @DeleteMapping("/{id}")
-  public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+  public Result<Void> delete(@PathVariable @Min(1) Long id, HttpServletRequest request) {
     Long userId = LoginInterceptor.getUserId(request);
     // → AccountService.delete()：检查关联交易记录/周期账单 → status 置 0
     accountService.delete(userId, id);

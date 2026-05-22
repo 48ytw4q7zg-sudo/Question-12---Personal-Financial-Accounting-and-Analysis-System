@@ -38,7 +38,8 @@
 
     <!-- 预算进度表格 -->
     <el-card shadow="hover">
-      <el-table :data="budgetProgress" v-loading="loading" stripe>
+      <el-table :data="budgetProgress" v-loading="loading" stripe aria-label="预算进度表">
+        <template #empty><el-empty description="暂未设置预算" /></template>
         <el-table-column prop="categoryName" label="分类" min-width="120" />
         <el-table-column prop="budgetAmount" label="预算金额" width="120">
           <template #default="{ row }">
@@ -63,16 +64,16 @@
         <!-- 状态标签：P2-2 四级预警颜色映射 -->
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            <el-tag v-if="row.alertLevel === 'OVERSPENT'" type="danger" size="small">已超支</el-tag>
-            <el-tag v-else-if="row.alertLevel === 'MONTHLY_WARN'" type="warning" size="small">月预警</el-tag>
-            <el-tag v-else-if="row.alertLevel === 'DAILY_WARN'" type="warning" size="small">日预警</el-tag>
+            <el-tag v-if="row.alertLevel === ALERT_LEVEL_OVERSPENT" type="danger" size="small">已超支</el-tag>
+            <el-tag v-else-if="row.alertLevel === ALERT_LEVEL_MONTHLY_WARN" type="warning" size="small">月预警</el-tag>
+            <el-tag v-else-if="row.alertLevel === ALERT_LEVEL_DAILY_WARN" type="warning" size="small">日预警</el-tag>
             <el-tag v-else type="success" size="small">正常</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openDialog(row)">编辑</el-button>
-            <el-button type="danger" link @click="handleDeleteBudget(row)">删除</el-button>
+            <el-button type="danger" link @click="handleDeleteBudget(row)" :disabled="deletingId === row.id">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -105,15 +106,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 // → 调用 api/budget.js 的 getBudgetProgress()、getBudgetAlert()、saveBudget()、deleteBudget()
 import { getBudgetProgress, getBudgetAlert, saveBudget, deleteBudget } from '../api/budget'
 import { formatAmount } from '../utils/format'
 import { getCategoryList } from '../api/category'
+import { ALERT_LEVEL_OVERSPENT, ALERT_LEVEL_MONTHLY_WARN, ALERT_LEVEL_DAILY_WARN, CATEGORY_TYPE_EXPENSE } from '../constants/finance'
 
 const loading = ref(false)
 const submitting = ref(false)
+const deletingId = ref(null)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref(null)
@@ -122,6 +125,7 @@ const formRef = ref(null)
 const now = new Date()
 const selectedMonth = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
 const budgetProgress = ref([])       // 预算进度列表
+const cssVarsCache = ref(null)      // CSS 变量缓存（避免每行 getComputedStyle）
 const expenseCategories = ref([])    // 支出分类列表（下拉选项）
 
 // 新增/编辑表单数据
@@ -133,7 +137,10 @@ const formData = reactive({
 // 表单校验规则
 const formRules = {
   categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }],
-  amount: [{ required: true, message: '请输入预算金额', trigger: 'blur' }]
+  amount: [
+    { required: true, message: '请输入预算金额', trigger: 'blur' },
+    { type: 'number', min: 0.01, message: '预算金额必须大于0', trigger: 'blur' }
+  ]
 }
 
 /**
@@ -154,9 +161,19 @@ function getProgress(row) {
  */
 function getProgressColor(row) {
   const pct = getProgress(row)
-  if (pct >= 100) return '#f56c6c'
-  if (pct >= 80) return '#e6a23c'
-  return '#67c23a'
+  // 缓存 CSS 变量值（避免每行渲染都调用 getComputedStyle 强制样式重算）
+  if (!cssVarsCache.value) {
+    const rootStyles = getComputedStyle(document.documentElement)
+    cssVarsCache.value = {
+      expense: rootStyles.getPropertyValue('--color-expense').trim(),
+      warning: rootStyles.getPropertyValue('--color-warning').trim(),
+      income: rootStyles.getPropertyValue('--color-income').trim()
+    }
+  }
+  const colors = cssVarsCache.value
+  if (pct >= 100) return colors.expense
+  if (pct >= 80) return colors.warning
+  return colors.income
 }
 
 /**
@@ -200,9 +217,11 @@ async function loadData() {
 async function loadCategories() {
   try {
     const data = await getCategoryList()
-    expenseCategories.value = (data || []).filter(item => item.type === 1)
+    expenseCategories.value = (data || []).filter(item => item.type === CATEGORY_TYPE_EXPENSE)
   } catch (e) {
-    console.warn('加载分类列表失败:', e)
+    if (import.meta.env.DEV) console.warn('加载分类列表失败:', e)
+    ElMessage.warning('分类选项加载失败，请刷新重试')
+    // axios 拦截器已统一处理业务错误消息
   }
 }
 
@@ -235,7 +254,7 @@ async function handleSubmit() {
     await saveBudget({
       categoryId: formData.categoryId,
       amount: formData.amount,
-      month: selectedMonth.value
+      month: selectedMonth.value  // "YYYY-MM" 格式，对齐后端 BudgetRequest @Pattern 校验
     })
     ElMessage.success(isEdit.value ? '更新成功' : '设置成功')
     dialogVisible.value = false
@@ -254,11 +273,16 @@ async function handleDeleteBudget(row) {
     await ElMessageBox.confirm(`确定删除「${row.categoryName}」的预算吗？`, '确认删除', {
       type: 'warning'
     })
+    deletingId.value = row.id
     await deleteBudget(row.id)
     ElMessage.success('预算已删除')
     loadData()
-  } catch {
-    // 用户取消删除，静默处理
+  } catch (e) {
+    if (e === 'cancel') {
+      // 用户取消，静默处理
+    }
+  } finally {
+    deletingId.value = null
   }
 }
 
@@ -281,7 +305,7 @@ onMounted(() => {
 
 .page-header h2 {
   margin: 0;
-  color: #303133;
+  color: var(--color-title);
 }
 
 .header-actions {

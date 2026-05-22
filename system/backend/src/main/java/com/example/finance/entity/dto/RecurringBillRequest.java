@@ -1,6 +1,8 @@
 package com.example.finance.entity.dto;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -37,9 +39,11 @@ public class RecurringBillRequest {
   private BigDecimal amount;
 
   /**
-   * 类型：1=支出 2=收入
+   * 类型：1=收入 2=支出
    */
   @NotNull(message = "类型不能为空")
+  @Min(value = 1, message = "类型须为1(收入)或2(支出)")
+  @Max(value = 2, message = "类型须为1(收入)或2(支出)")
   private Integer type;
 
   /**
@@ -52,5 +56,6 @@ public class RecurringBillRequest {
 
   /** 下次到期日（yyyy-MM-dd 格式，必填，空值会导致 @Scheduled 逻辑异常） */
   @NotBlank(message = "下次到期日不能为空")
+  @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "到期日格式须为yyyy-MM-dd")
   private String nextDueDate;
 }

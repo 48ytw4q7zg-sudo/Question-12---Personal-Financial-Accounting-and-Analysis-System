@@ -3,6 +3,7 @@ package com.example.finance.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.finance.common.BusinessException;
 import com.example.finance.common.ErrorCode;
+import com.example.finance.common.enums.UserRole;
 import com.example.finance.entity.User;
 import com.example.finance.entity.dto.LoginResponse;
 import com.example.finance.entity.dto.UserLoginRequest;
@@ -11,6 +12,7 @@ import com.example.finance.service.UserService;
 import com.example.finance.util.JwtUtils;
 import com.example.finance.util.LoginRateLimiter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,11 +34,14 @@ public class UserServiceImpl implements UserService {
   /** → UserMapper：用户数据访问 */
   private final UserMapper userMapper;
 
+  /** BCrypt 工作因子（OWASP 推荐 ≥10，本项目使用 12 更安全） */
+  private static final int BCRYPT_STRENGTH = 12;
+
   /**
    * BCrypt 密码编码器（工作因子 12，比默认 10 更安全）
    * <p>与已存哈希 $2a$10$ 兼容，新注册用户自动升级为 $2a$12$ 强度。</p>
    */
-  private final BCryptPasswordEncoder bCryptEncoder = new BCryptPasswordEncoder(12);
+  private final BCryptPasswordEncoder bCryptEncoder = new BCryptPasswordEncoder(BCRYPT_STRENGTH);
 
   /**
    * 用户注册
@@ -62,12 +67,17 @@ public class UserServiceImpl implements UserService {
     User user = new User();
     user.setUsername(request.getUsername());
     user.setPassword(bCryptEncoder.encode(request.getPassword()));
-    user.setRole(0);
+    user.setRole(UserRole.NORMAL.getValue());
     user.setCreateTime(LocalDateTime.now());
     user.setUpdateTime(LocalDateTime.now());
-    userMapper.insert(user);
+    try {
+      userMapper.insert(user);
+    } catch (DuplicateKeyException e) {
+      // 并发注册同一用户名：唯一索引拦截，抛出清晰的业务异常而非数据库异常
+      throw new BusinessException(ErrorCode.USERNAME_EXISTS.getCode(), ErrorCode.USERNAME_EXISTS.getMsg());
+    }
 
-    String token = JwtUtils.generateToken(user.getId(), user.getRole());
+    String token = JwtUtils.generateToken(user.getId(), user.getUsername(), user.getRole());
     return new LoginResponse(token, user.getId(), user.getUsername(), user.getRole());
   }
 
@@ -82,6 +92,7 @@ public class UserServiceImpl implements UserService {
    * @throws BusinessException(1002) 用户名或密码错误（不区分具体原因）
    */
   @Override
+  @Transactional(readOnly = true)
   public LoginResponse login(UserLoginRequest request) {
     // 登录限流：同一用户名每秒最多 2 次尝试，超出则拒绝（防暴力破解）
     if (!LoginRateLimiter.tryAcquire(request.getUsername())) {
@@ -95,7 +106,7 @@ public class UserServiceImpl implements UserService {
       throw new BusinessException(ErrorCode.PASSWORD_ERROR.getCode(), ErrorCode.PASSWORD_ERROR.getMsg());
     }
 
-    String token = JwtUtils.generateToken(user.getId(), user.getRole());
+    String token = JwtUtils.generateToken(user.getId(), user.getUsername(), user.getRole());
     // 登录成功后清理限流器，释放内存
     LoginRateLimiter.cleanup(request.getUsername());
     return new LoginResponse(token, user.getId(), user.getUsername(), user.getRole());

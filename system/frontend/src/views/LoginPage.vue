@@ -22,11 +22,11 @@
       <el-tabs v-model="activeTab">
         <!-- 登录 Tab -->
         <el-tab-pane label="登录" name="login">
-          <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" @submit.prevent="handleLogin">
-            <el-form-item prop="username">
+          <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" label-width="0" @submit.prevent="handleLogin">
+            <el-form-item prop="username" label="用户名" class="hidden-label">
               <el-input v-model="loginForm.username" placeholder="请输入用户名" prefix-icon="User" />
             </el-form-item>
-            <el-form-item prop="password">
+            <el-form-item prop="password" label="密码" class="hidden-label">
               <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" prefix-icon="Lock" show-password />
             </el-form-item>
             <el-form-item>
@@ -37,14 +37,14 @@
 
         <!-- 注册 Tab -->
         <el-tab-pane label="注册" name="register">
-          <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules" @submit.prevent="handleRegister">
-            <el-form-item prop="username">
+          <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules" label-width="0" @submit.prevent="handleRegister">
+            <el-form-item prop="username" label="用户名" class="hidden-label">
               <el-input v-model="registerForm.username" placeholder="请输入用户名" prefix-icon="User" />
             </el-form-item>
-            <el-form-item prop="password">
+            <el-form-item prop="password" label="密码" class="hidden-label">
               <el-input v-model="registerForm.password" type="password" placeholder="请输入密码" prefix-icon="Lock" show-password />
             </el-form-item>
-            <el-form-item prop="confirmPassword">
+            <el-form-item prop="confirmPassword" label="确认密码" class="hidden-label">
               <el-input v-model="registerForm.confirmPassword" type="password" placeholder="请确认密码" prefix-icon="Lock" show-password />
             </el-form-item>
             <el-form-item>
@@ -200,11 +200,20 @@ async function handleRegister() {
 .login-title {
   text-align: center;
   margin-bottom: 20px;
-  color: #303133;
+  color: var(--color-title);
   font-size: 20px;
 }
 
 .submit-btn {
   width: 100%;
+}
+
+/* 无障碍隐藏标签：视觉不显示但屏幕阅读器可识别 */
+.hidden-label .el-form-item__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
 }
 </style>

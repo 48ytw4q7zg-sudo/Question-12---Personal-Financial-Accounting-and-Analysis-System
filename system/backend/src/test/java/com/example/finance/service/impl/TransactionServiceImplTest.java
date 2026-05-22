@@ -2,6 +2,7 @@ package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.finance.common.BusinessException;
+import com.example.finance.common.EntityValidator;
 import com.example.finance.entity.Account;
 import com.example.finance.entity.Category;
 import com.example.finance.entity.Transaction;
@@ -36,6 +37,8 @@ class TransactionServiceImplTest {
   private AccountMapper accountMapper;
   @Mock
   private CategoryMapper categoryMapper;
+  @Mock
+  private EntityValidator entityValidator;
 
   @InjectMocks
   private TransactionServiceImpl transactionService;
@@ -56,13 +59,15 @@ class TransactionServiceImplTest {
     testCategory.setId(1L);
     testCategory.setName("餐饮");
     testCategory.setType(1);
+
+    // EntityValidator mock 在各测试方法中单独配置，避免 UnnecessaryStubbing
   }
 
   @Test
   @DisplayName("创建收支记录成功")
   void create_success() {
-    when(accountMapper.selectById(1L)).thenReturn(testAccount);
-    when(categoryMapper.selectById(1L)).thenReturn(testCategory);
+    when(entityValidator.validateAccount(1L, 1L)).thenReturn(testAccount);
+    when(entityValidator.validateCategory(1L)).thenReturn(testCategory);
     when(transactionMapper.insert(any(Transaction.class))).thenReturn(1);
 
     TransactionRequest request = buildRequest(1L, 1L, 2, new BigDecimal("50.00"), "午餐", LocalDateTime.now());
@@ -76,7 +81,7 @@ class TransactionServiceImplTest {
   @Test
   @DisplayName("创建失败 - 账户不存在或已禁用")
   void create_accountInvalid() {
-    when(accountMapper.selectById(999L)).thenReturn(null);
+    when(entityValidator.validateAccount(1L, 999L)).thenThrow(new BusinessException(3004, "账户不存在或已禁用"));
 
     TransactionRequest request = buildRequest(999L, 1L, 2, new BigDecimal("50.00"), "test", LocalDateTime.now());
     BusinessException ex = assertThrows(BusinessException.class,
@@ -87,8 +92,8 @@ class TransactionServiceImplTest {
   @Test
   @DisplayName("创建失败 - 分类不存在")
   void create_categoryNotFound() {
-    when(accountMapper.selectById(1L)).thenReturn(testAccount);
-    when(categoryMapper.selectById(999L)).thenReturn(null);
+    when(entityValidator.validateAccount(1L, 1L)).thenReturn(testAccount);
+    when(entityValidator.validateCategory(999L)).thenThrow(new BusinessException(3005, "分类不存在"));
 
     TransactionRequest request = buildRequest(1L, 999L, 2, new BigDecimal("50.00"), "test", LocalDateTime.now());
     BusinessException ex = assertThrows(BusinessException.class,
@@ -101,8 +106,8 @@ class TransactionServiceImplTest {
   void update_success() {
     Transaction existing = buildTransaction(1L, 1L, 1L, 2, new BigDecimal("50.00"), "old", null);
     when(transactionMapper.selectById(1L)).thenReturn(existing);
-    when(accountMapper.selectById(1L)).thenReturn(testAccount);
-    when(categoryMapper.selectById(1L)).thenReturn(testCategory);
+    when(entityValidator.validateAccount(1L, 1L)).thenReturn(testAccount);
+    when(entityValidator.validateCategory(1L)).thenReturn(testCategory);
     when(transactionMapper.updateById(any(Transaction.class))).thenReturn(1);
 
     TransactionRequest request = buildRequest(1L, 1L, 2, new BigDecimal("80.00"), "updated", LocalDateTime.now());
@@ -139,7 +144,7 @@ class TransactionServiceImplTest {
   @DisplayName("转账失败 - 不能转给自己")
   void transfer_sameAccount() {
     when(accountMapper.selectByIdForUpdate(1L)).thenReturn(testAccount);
-    when(accountMapper.selectById(1L)).thenReturn(testAccount);
+    when(entityValidator.validateAccount(1L, 1L)).thenReturn(testAccount);
 
     TransferRequest request = new TransferRequest();
     request.setFromAccountId(1L);
@@ -163,7 +168,7 @@ class TransactionServiceImplTest {
     toAccount.setStatus(1);
 
     when(accountMapper.selectByIdForUpdate(1L)).thenReturn(fromAccount);
-    when(accountMapper.selectById(2L)).thenReturn(toAccount);
+    when(entityValidator.validateAccount(1L, 2L)).thenReturn(toAccount);
     // 账户当前余额 = 5000 + 0 - 0 = 5000，要转 10000 不够
     when(transactionMapper.selectAccountIncome(eq(1L), eq(1L))).thenReturn(BigDecimal.ZERO);
     when(transactionMapper.selectAccountExpense(eq(1L), eq(1L))).thenReturn(BigDecimal.ZERO);

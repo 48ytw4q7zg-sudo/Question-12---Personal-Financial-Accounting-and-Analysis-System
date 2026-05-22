@@ -3,6 +3,11 @@ package com.example.finance.service.impl;
 import com.example.finance.common.BusinessException;
 import com.example.finance.entity.User;
 import com.example.finance.entity.dto.UserDTO;
+import com.example.finance.mapper.AccountMapper;
+import com.example.finance.mapper.BudgetAlertMapper;
+import com.example.finance.mapper.BudgetMapper;
+import com.example.finance.mapper.RecurringBillMapper;
+import com.example.finance.mapper.TransactionMapper;
 import com.example.finance.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +38,16 @@ class AdminServiceImplTest {
 
   @Mock
   private UserMapper userMapper;
+  @Mock
+  private TransactionMapper transactionMapper;
+  @Mock
+  private BudgetMapper budgetMapper;
+  @Mock
+  private RecurringBillMapper recurringBillMapper;
+  @Mock
+  private AccountMapper accountMapper;
+  @Mock
+  private BudgetAlertMapper budgetAlertMapper;
 
   @InjectMocks
   private AdminServiceImpl adminService;
@@ -60,36 +75,47 @@ class AdminServiceImplTest {
   @Test
   @DisplayName("查询所有用户DTO - 正常返回多个用户DTO")
   void listAllUserDTOs_shouldReturnAllUserDTOs() {
-    when(userMapper.selectList(null)).thenReturn(Arrays.asList(adminUser, normalUser));
+    when(userMapper.selectList(any())).thenReturn(Arrays.asList(adminUser, normalUser));
 
     List<UserDTO> result = adminService.listAllUserDTOs();
 
     assertEquals(2, result.size());
     assertEquals("admin", result.get(0).getUsername());
     assertEquals("zhangsan", result.get(1).getUsername());
-    verify(userMapper).selectList(null);
+    verify(userMapper).selectList(any());
   }
 
   @Test
   @DisplayName("查询所有用户DTO - 空集合")
   void listAllUserDTOs_shouldReturnEmptyList() {
-    when(userMapper.selectList(null)).thenReturn(Collections.emptyList());
+    when(userMapper.selectList(any())).thenReturn(Collections.emptyList());
 
     List<UserDTO> result = adminService.listAllUserDTOs();
 
     assertTrue(result.isEmpty());
-    verify(userMapper).selectList(null);
+    verify(userMapper).selectList(any());
   }
 
   // ==================== deleteUser 测试 ====================
 
   @Test
-  @DisplayName("删除用户 - 正常删除")
+  @DisplayName("删除用户 - 正常删除（级联清理关联数据）")
   void deleteUser_shouldDeleteUser() {
     when(userMapper.selectById(2L)).thenReturn(normalUser);
+    when(transactionMapper.delete(any())).thenReturn(0);
+    when(budgetAlertMapper.delete(any())).thenReturn(0);
+    when(budgetMapper.delete(any())).thenReturn(0);
+    when(recurringBillMapper.delete(any())).thenReturn(0);
+    when(accountMapper.delete(any())).thenReturn(0);
     when(userMapper.deleteById(2L)).thenReturn(1);
 
     assertDoesNotThrow(() -> adminService.deleteUser(2L, 1L));
+    // 验证级联删除顺序：transactions → budget_alerts → budgets → recurring_bills → accounts → user
+    verify(transactionMapper).delete(any());
+    verify(budgetAlertMapper).delete(any());
+    verify(budgetMapper).delete(any());
+    verify(recurringBillMapper).delete(any());
+    verify(accountMapper).delete(any());
     verify(userMapper).deleteById(2L);
   }
 
@@ -123,7 +149,7 @@ class AdminServiceImplTest {
     when(userMapper.selectById(2L)).thenReturn(normalUser);
     when(userMapper.updateById(normalUser)).thenReturn(1);
 
-    User result = adminService.toggleUserRole(2L, 1L);
+    UserDTO result = adminService.toggleUserRole(2L, 1L);
 
     assertEquals(1, result.getRole()); // 0 → 1
     verify(userMapper).updateById(normalUser);
@@ -135,7 +161,7 @@ class AdminServiceImplTest {
     when(userMapper.selectById(1L)).thenReturn(adminUser);
     when(userMapper.updateById(adminUser)).thenReturn(1);
 
-    User result = adminService.toggleUserRole(1L, 2L);
+    UserDTO result = adminService.toggleUserRole(1L, 2L);
 
     assertEquals(0, result.getRole()); // 1 → 0
     verify(userMapper).updateById(adminUser);

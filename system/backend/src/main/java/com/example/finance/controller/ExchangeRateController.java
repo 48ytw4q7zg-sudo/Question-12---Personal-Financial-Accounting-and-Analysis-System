@@ -1,13 +1,13 @@
 package com.example.finance.controller;
 
 import com.example.finance.common.Result;
+import com.example.finance.entity.dto.ExchangeRateDTO;
 import com.example.finance.service.ExchangeRateService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Map;
 
 /**
  * 汇率控制器（PRD P2 附加特色功能 · 硬编码参考汇率 · 可替换为外部 API）
@@ -21,6 +21,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/exchange-rate")
 @RequiredArgsConstructor
+@Validated
 public class ExchangeRateController {
 
   /** → ExchangeRateService：汇率业务逻辑层 */
@@ -29,10 +30,10 @@ public class ExchangeRateController {
   /**
    * 获取参考汇率接口（P2 硬编码占位实现）
    *
-   * @return Result<Map<String, Object>> 汇率数据
+   * @return Result<ExchangeRateDTO> 汇率数据
    */
   @GetMapping
-  public Result<Map<String, Object>> getExchangeRates() {
+  public Result<ExchangeRateDTO> getExchangeRates() {
     return Result.success(exchangeRateService.getExchangeRates());
   }
 }

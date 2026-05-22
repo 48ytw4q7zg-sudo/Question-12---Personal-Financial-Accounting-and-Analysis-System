@@ -1,7 +1,5 @@
 package com.example.finance.controller;
 
-import com.example.finance.common.BusinessException;
-import com.example.finance.common.ErrorCode;
 import com.example.finance.common.Result;
 import com.example.finance.entity.dto.CategorySummaryDTO;
 import com.example.finance.entity.dto.MonthlySummaryDTO;
@@ -9,7 +7,10 @@ import com.example.finance.entity.dto.MonthlyTrendDTO;
 import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.StatisticsService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -38,28 +39,11 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/statistics")
 @RequiredArgsConstructor
+@Validated
 public class StatisticsController {
 
-  /** → StatisticsService：处理各类统计汇总的业务逻辑 */
+  /** → StatisticsService：处理各类统计汇总的业务逻辑（含 year/month 参数校验） */
   private final StatisticsService statisticsService;
-
-  /** 年份有效范围 */
-  private static final int YEAR_MIN = 2000;
-  private static final int YEAR_MAX = 2100;
-
-  /**
-   * 校验年份和月份参数范围（提取公共校验逻辑，避免4处重复）
-   * @param year 年份
-   * @param month 月份（null 表示不需要校验月份，如年度/趋势接口）
-   */
-  private void validateYearMonth(int year, Integer month) {
-    if (year < YEAR_MIN || year > YEAR_MAX) {
-      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "year需在" + YEAR_MIN + "-" + YEAR_MAX + "之间");
-    }
-    if (month != null && (month < 1 || month > 12)) {
-      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "month需在1-12之间");
-    }
-  }
 
   /**
    * 月度收支汇总接口（Dashboard 月度卡片数据源）
@@ -79,9 +63,8 @@ public class StatisticsController {
    */
   @GetMapping("/monthly")
   public Result<MonthlySummaryDTO> getMonthlySummary(
-      @RequestParam int year, @RequestParam int month,
+      @RequestParam @Min(2000) @Max(2100) int year, @RequestParam @Min(1) @Max(12) int month,
       HttpServletRequest request) {
-    validateYearMonth(year, month);
     Long userId = LoginInterceptor.getUserId(request);
     // → StatisticsService.getMonthlySummary() → TransactionMapper.selectMonthlySummary()
     MonthlySummaryDTO summary = statisticsService.getMonthlySummary(userId, year, month);
@@ -101,9 +84,8 @@ public class StatisticsController {
    * 被前端 AnalyticsPage.vue 年度汇总卡片调用
    */
   @GetMapping("/yearly")
-  public Result<MonthlySummaryDTO> getYearlySummary(@RequestParam int year,
+  public Result<MonthlySummaryDTO> getYearlySummary(@RequestParam @Min(2000) @Max(2100) int year,
       HttpServletRequest request) {
-    validateYearMonth(year, null);
     Long userId = LoginInterceptor.getUserId(request);
     // → StatisticsService.getYearlySummary() → TransactionMapper.selectYearlySummary()
     MonthlySummaryDTO summary = statisticsService.getYearlySummary(userId, year);
@@ -127,10 +109,9 @@ public class StatisticsController {
    */
   @GetMapping("/category-summary")
   public Result<List<CategorySummaryDTO>> getCategorySummary(
-      @RequestParam int year, @RequestParam int month,
-      @RequestParam(required = false) Integer type,
+      @RequestParam @Min(2000) @Max(2100) int year, @RequestParam @Min(1) @Max(12) int month,
+      @RequestParam(required = false) @Min(1) @Max(2) Integer type,
       HttpServletRequest request) {
-    validateYearMonth(year, month);
     Long userId = LoginInterceptor.getUserId(request);
     // → StatisticsService.getCategorySummary() → TransactionMapper.selectCategorySummary()
     List<CategorySummaryDTO> list = statisticsService.getCategorySummary(userId, year, month, type);
@@ -151,9 +132,8 @@ public class StatisticsController {
    * 被前端 DashboardPage.vue 近 12 月趋势折线图 + AnalyticsPage.vue 趋势折线图调用
    */
   @GetMapping("/trend")
-  public Result<List<MonthlyTrendDTO>> getTrend(@RequestParam int year,
+  public Result<List<MonthlyTrendDTO>> getTrend(@RequestParam @Min(2000) @Max(2100) int year,
       HttpServletRequest request) {
-    validateYearMonth(year, null);
     Long userId = LoginInterceptor.getUserId(request);
     // → StatisticsService.getTrend() → TransactionMapper.selectTrend()
     List<MonthlyTrendDTO> list = statisticsService.getTrend(userId, year);

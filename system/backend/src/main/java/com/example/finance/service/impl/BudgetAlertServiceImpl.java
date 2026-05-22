@@ -1,5 +1,6 @@
 package com.example.finance.service.impl;
 
+import com.example.finance.common.EntityValidator;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.finance.entity.BudgetAlert;
 import com.example.finance.entity.Category;
@@ -9,8 +10,8 @@ import com.example.finance.mapper.CategoryMapper;
 import com.example.finance.service.BudgetAlertService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,13 +45,9 @@ public class BudgetAlertServiceImpl implements BudgetAlertService {
    * @return 预警记录列表
    */
   @Override
+  @Transactional(readOnly = true)
   public List<BudgetAlertDTO> getAlerts(Long userId, String year, String month) {
-    if (year == null || month == null) {
-      LocalDateTime now = LocalDateTime.now();
-      year = String.valueOf(now.getYear());
-      month = String.valueOf(now.getMonthValue());
-    }
-    String monthStr = year + "-" + (month.length() == 1 ? "0" + month : month);
+    String monthStr = EntityValidator.defaultAndFormatYearMonth(year, month);
 
     // 查询该用户本月预警记录
     List<BudgetAlert> alerts = budgetAlertMapper.selectList(
@@ -60,7 +57,7 @@ public class BudgetAlertServiceImpl implements BudgetAlertService {
     );
 
     // 批量加载分类名称，消除 N+1 查询
-    Set<Long> categoryIds = alerts.stream().map(BudgetAlert::getCategoryId).collect(Collectors.toSet());
+    Set<Long> categoryIds = alerts.stream().map(BudgetAlert::getCategoryId).filter(java.util.Objects::nonNull).collect(Collectors.toSet());
     Map<Long, String> categoryNameMap = categoryIds.isEmpty()
         ? Map.of()
         : categoryMapper.selectByIds(categoryIds).stream()

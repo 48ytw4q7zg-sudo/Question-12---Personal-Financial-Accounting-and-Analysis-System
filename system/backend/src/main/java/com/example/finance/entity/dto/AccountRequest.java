@@ -1,9 +1,11 @@
 package com.example.finance.entity.dto;
 
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -31,11 +33,12 @@ public class AccountRequest {
 
   /** 初始余额（DECIMAL(12,2)，必须 ≥ 0） */
   @NotNull(message = "初始余额不能为空")
-  @Min(value = 0, message = "初始余额不能为负数")
+  @DecimalMin(value = "0.00", message = "初始余额不能为负数")
   private BigDecimal initialBalance;
 
   /**
    * 币种代码：CNY/USD/EUR/JPY/GBP/HKD/KRW，默认 CNY
    */
+  @Pattern(regexp = "^(CNY|USD|EUR|JPY|GBP|HKD|KRW)$", message = "币种只能是CNY/USD/EUR/JPY/GBP/HKD/KRW")
   private String currency;
 }

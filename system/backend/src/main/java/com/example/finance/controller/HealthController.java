@@ -31,6 +31,10 @@ public class HealthController {
 
   /** 日期格式化器：yyyy-MM-dd HH:mm:ss */
   private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+  /** 服务状态常量 */
+  private static final String STATUS_UP = "UP";
+  /** 应用名常量 */
+  private static final String APP_NAME = "finance";
 
   /**
    * 健康检查端点 — 返回服务状态、运行时长、时间戳
@@ -43,8 +47,8 @@ public class HealthController {
   @GetMapping("/api/health")
   public Result<HealthResponse> health() {
     HealthResponse info = new HealthResponse();
-    info.setStatus("UP");
-    info.setApp("finance");
+    info.setStatus(STATUS_UP);
+    info.setApp(APP_NAME);
     info.setTimestamp(LocalDateTime.now().format(FMT));
 
     Duration uptime = Duration.ofMillis(ManagementFactory.getRuntimeMXBean().getUptime());

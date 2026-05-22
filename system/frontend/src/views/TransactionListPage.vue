@@ -30,7 +30,7 @@
     </div>
 
     <!-- 筛选栏（PRD P1-1: 多条件筛选） -->
-    <el-card shadow="hover" class="filter-card">
+    <el-card shadow="hover" class="filter-card" role="search" aria-label="筛选条件">
       <el-form :inline="true" :model="filters">
         <el-form-item label="日期范围">
           <el-date-picker
@@ -65,6 +65,7 @@
     <!-- 交易记录列表 -->
     <el-card shadow="hover">
       <el-table :data="transactionList" v-loading="loading" stripe>
+        <template #empty><el-empty description="暂无收支记录" /></template>
         <el-table-column prop="time" label="时间" width="180">
           <template #default="{ row }">
             {{ formatTime(row.time) }}
@@ -75,16 +76,16 @@
         <!-- 类型标签：1=收入(绿色), 2=支出(红色) -->
         <el-table-column prop="type" label="类型" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.type === 1 ? 'success' : 'danger'" size="small">
-              {{ row.type === 1 ? '收入' : '支出' }}
+            <el-tag :type="row.type === TRANSACTION_TYPE_INCOME ? 'success' : 'danger'" size="small">
+              {{ TRANSACTION_TYPE_MAP[row.type]?.label || '未知' }}
             </el-tag>
           </template>
         </el-table-column>
         <!-- 金额：收入显示+，支出显示- -->
         <el-table-column prop="amount" label="金额" width="120">
           <template #default="{ row }">
-            <span :class="row.type === 1 ? 'amount-income' : 'amount-expense'">
-              {{ row.type === 1 ? '+' : '-' }}¥ {{ formatAmount(row.amount) }}
+            <span :class="row.type === TRANSACTION_TYPE_INCOME ? 'amount-income' : 'amount-expense'">
+              {{ TRANSACTION_TYPE_MAP[row.type]?.sign || '' }}¥ {{ formatAmount(row.amount) }}
             </span>
           </template>
         </el-table-column>
@@ -103,6 +104,7 @@
               type="danger"
               link
               @click="handleDelete(row)"
+              :disabled="deletingId === row.id"
             >删除</el-button>
           </template>
         </el-table-column>
@@ -139,8 +141,8 @@
         </el-form-item>
         <el-form-item label="类型" prop="type">
           <el-radio-group v-model="formData.type" :disabled="isEdit && isTransfer">
-            <el-radio :value="2">支出</el-radio>
-            <el-radio :value="1">收入</el-radio>
+            <el-radio :value="TRANSACTION_TYPE_EXPENSE">支出</el-radio>
+            <el-radio :value="TRANSACTION_TYPE_INCOME">收入</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="金额" prop="amount">
@@ -172,12 +174,14 @@ import { getAccountList } from '../api/account'
 // → 调用 api/category.js 的 getCategoryList()（下拉选项）
 import { getCategoryList } from '../api/category'
 import { formatTime, formatDateTime, formatAmount } from '../utils/format'
+import { TRANSACTION_TYPE_MAP, TRANSACTION_TYPE_INCOME, TRANSACTION_TYPE_EXPENSE, CATEGORY_TYPE_EXPENSE, CATEGORY_TYPE_INCOME } from '../constants/finance'
 
 const route = useRoute()
 const router = useRouter()
 
 const loading = ref(false)
 const submitting = ref(false)
+const deletingId = ref(null)
 const dialogVisible = ref(false)
 const isEdit = ref(false)           // 是否编辑模式
 const editId = ref(null)            // 编辑的记录 ID
@@ -218,8 +222,12 @@ const formRules = {
   accountId: [{ required: true, message: '请选择账户', trigger: 'change' }],
   categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }],
   type: [{ required: true, message: '请选择类型', trigger: 'change' }],
-  amount: [{ required: true, message: '请输入金额', trigger: 'blur' }],
-  time: [{ required: true, message: '请选择时间', trigger: 'change' }]
+  amount: [
+    { required: true, message: '请输入金额', trigger: 'blur' },
+    { type: 'number', min: 0.01, message: '金额必须大于0', trigger: 'blur' }
+  ],
+  time: [{ required: true, message: '请选择时间', trigger: 'change' }],
+  note: [{ max: 200, message: '备注长度不能超过200', trigger: 'blur' }]
 }
 
 /**
@@ -231,8 +239,13 @@ const formRules = {
  *   选收入(1) → 显示 category.type=2 的分类
  */
 const filteredCategories = computed(() => {
-  const categoryType = formData.type === 2 ? 1 : 2
+  const categoryType = formData.type === TRANSACTION_TYPE_EXPENSE ? CATEGORY_TYPE_EXPENSE : CATEGORY_TYPE_INCOME
   return categoryList.value.filter(item => item.type === categoryType)
+})
+
+// 切换类型时重置分类选择，避免选中不匹配的分类
+watch(() => formData.type, () => {
+  formData.categoryId = null
 })
 
 /** 分页 pageSize 变化处理（重置到第1页并加载） */
@@ -264,8 +277,8 @@ async function loadTransactions() {
       params.startTime = filters.dateRange[0] + ' 00:00:00'
       params.endTime = filters.dateRange[1] + ' 23:59:59'
     }
-    if (filters.accountId) params.accountId = filters.accountId
-    if (filters.categoryId) params.categoryId = filters.categoryId
+    if (filters.accountId != null) params.accountId = filters.accountId
+    if (filters.categoryId != null) params.categoryId = filters.categoryId
     if (filters.keyword) params.keyword = filters.keyword
 
     // → 调用 api/transaction.js 的 getTransactionList(params)
@@ -289,7 +302,8 @@ async function loadOptions() {
     accountList.value = accounts || []
     categoryList.value = categories || []
   } catch (e) {
-    console.warn('加载选项数据失败:', e)
+    if (import.meta.env.DEV) console.warn('加载选项数据失败:', e)
+    ElMessage.warning('加载选项数据失败，请刷新重试')
   }
 }
 
@@ -354,7 +368,7 @@ function openDialog(row) {
     // 新增模式：重置表单，默认时间设为当前
     formData.accountId = null
     formData.categoryId = null
-    formData.type = 2
+    formData.type = TRANSACTION_TYPE_EXPENSE
     formData.amount = null
     formData.note = ''
     formData.time = formatDateTime(new Date())
@@ -369,14 +383,19 @@ function openDialog(row) {
  */
 async function handleDelete(row) {
   try {
-    await ElMessageBox.confirm(`确定删除这条${row.type === 1 ? '收入' : '支出'}记录吗？`, '确认删除', {
+    await ElMessageBox.confirm(`确定删除这条${TRANSACTION_TYPE_MAP[row.type]?.label || '未知'}记录吗？`, '确认删除', {
       type: 'warning'
     })
+    deletingId.value = row.id
     await deleteTransaction(row.id)
     ElMessage.success('记录已删除')
     loadTransactions()
-  } catch {
-    // 用户取消删除，静默处理
+  } catch (e) {
+    if (e !== 'cancel') {
+      // axios 拦截器已统一处理业务错误
+    }
+  } finally {
+    deletingId.value = null
   }
 }
 
@@ -424,7 +443,7 @@ onMounted(() => {
 
 .page-header h2 {
   margin: 0;
-  color: #303133;
+  color: var(--color-title);
 }
 
 .filter-card {
@@ -438,12 +457,12 @@ onMounted(() => {
 }
 
 .amount-income {
-  color: #67c23a;
+  color: var(--color-income);
   font-weight: bold;
 }
 
 .amount-expense {
-  color: #f56c6c;
+  color: var(--color-expense);
   font-weight: bold;
 }
 </style>

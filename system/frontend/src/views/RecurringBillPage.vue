@@ -29,7 +29,8 @@
 
     <!-- 周期账单列表 -->
     <el-card shadow="hover">
-      <el-table :data="billList" v-loading="loading" stripe>
+      <el-table :data="billList" v-loading="loading" stripe aria-label="周期账单列表">
+        <template #empty><el-empty description="暂无周期账单" /></template>
         <el-table-column prop="name" label="名称" min-width="120" />
         <el-table-column prop="accountName" label="账户" width="100" />
         <el-table-column prop="categoryName" label="分类" width="100" />
@@ -37,14 +38,14 @@
         <el-table-column prop="amount" label="金额" width="110">
           <template #default="{ row }">
             <span :class="row.type === 1 ? 'amount-income' : 'amount-expense'">
-              {{ row.type === 1 ? '+' : '-' }}¥ {{ formatAmount(row.amount) }}
+              {{ typeMap[row.type]?.sign || '' }}¥ {{ formatAmount(row.amount) }}
             </span>
           </template>
         </el-table-column>
         <el-table-column prop="type" label="类型" width="80">
           <template #default="{ row }">
             <el-tag :type="row.type === 1 ? 'success' : 'danger'" size="small">
-              {{ row.type === 1 ? '收入' : '支出' }}
+              {{ typeMap[row.type]?.label || '未知' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -62,7 +63,7 @@
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
-              {{ row.status === 1 ? '启用' : '停用' }}
+              {{ statusMap[row.status] || '未知' }}
             </el-tag>
             <!-- PRD P1-4 业务规则③: 活跃账单关联账户被禁用 → 标记异常 -->
             <el-tag v-if="row.accountDisabled" type="danger" size="small" style="margin-left: 4px">账户异常</el-tag>
@@ -72,8 +73,8 @@
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openDialog(row)">编辑</el-button>
-            <el-button type="warning" link @click="handleDeactivate(row)">停用</el-button>
-            <el-button type="success" link @click="handleGenerate(row)">生成</el-button>
+            <el-button type="warning" link @click="handleDeactivate(row)" :disabled="deactivatingId === row.id">停用</el-button>
+            <el-button type="success" link @click="handleGenerate(row)" :disabled="generatingId === row.id">生成</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -106,10 +107,7 @@
         </el-form-item>
         <el-form-item label="周期" prop="period">
           <el-select v-model="formData.period" placeholder="请选择周期" style="width: 100%">
-            <el-option label="每天" value="daily" />
-            <el-option label="每周" value="weekly" />
-            <el-option label="每月" value="monthly" />
-            <el-option label="每年" value="yearly" />
+            <el-option v-for="(label, key) in periodMap" :key="key" :label="label" :value="key" />
           </el-select>
         </el-form-item>
         <el-form-item label="下次到期" prop="nextDueDate">
@@ -125,7 +123,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 // → 调用 api/recurring-bill.js 的 5 个接口函数
 import {
@@ -140,12 +138,17 @@ import { getAccountList } from '../api/account'
 // → 调用 api/category.js 的 getCategoryList()（下拉选项）
 import { getCategoryList } from '../api/category'
 import { formatAmount, formatDate } from '../utils/format'
+import { PERIOD_MAP, TRANSACTION_TYPE_MAP, STATUS_MAP } from '../constants/finance'
 
-// 周期类型映射（对齐后端 RecurringBillServiceImpl.calculateNextDueDate 支持的 4 种周期）
-const periodMap = { daily: '每天', weekly: '每周', monthly: '每月', yearly: '每年' }
+// 周期类型映射（从常量文件统一管理，避免硬编码散布各页面）
+const periodMap = PERIOD_MAP
+const typeMap = TRANSACTION_TYPE_MAP
+const statusMap = STATUS_MAP
 
 const loading = ref(false)
 const submitting = ref(false)
+const deactivatingId = ref(null)
+const generatingId = ref(null)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
@@ -155,11 +158,17 @@ const billList = ref([])         // 周期账单列表
 const accountList = ref([])      // 账户下拉选项
 const categoryList = ref([])     // 分类下拉选项
 
-// 根据类型筛选分类（收入 type=1 对应收入分类，支出 type=2 对应支出分类）
+// 根据类型筛选分类（交易 type 和分类 type 值相反：交易 1=收入/2=支出，分类 1=支出/2=收入）
 const filteredCategories = computed(() => {
   if (!categoryList.value.length) return []
-  // type=1(收入)对应 categoryType=1(income)，type=2(支出)对应 categoryType=2(expense)
-  return categoryList.value.filter(cat => cat.type === formData.type)
+  // type=1(收入)对应 categoryType=2(收入分类)，type=2(支出)对应 categoryType=1(支出分类)
+  const categoryType = formData.type === 2 ? 1 : 2
+  return categoryList.value.filter(cat => cat.type === categoryType)
+})
+
+// 切换类型时重置分类选择，避免选中不匹配的分类
+watch(() => formData.type, () => {
+  formData.categoryId = null
 })
 
 // 新增/编辑表单数据
@@ -175,10 +184,13 @@ const formData = reactive({
 
 // 表单校验规则（所有字段必填）
 const formRules = {
-  name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
+  name: [{ required: true, message: '请输入名称', trigger: 'blur' }, { max: 30, message: '名称长度不能超过30', trigger: 'blur' }],
   accountId: [{ required: true, message: '请选择账户', trigger: 'change' }],
   categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }],
-  amount: [{ required: true, message: '请输入金额', trigger: 'blur' }],
+  amount: [
+    { required: true, message: '请输入金额', trigger: 'blur' },
+    { type: 'number', min: 0.01, message: '金额必须大于0', trigger: 'blur' }
+  ],
   type: [{ required: true, message: '请选择类型', trigger: 'change' }],
   period: [{ required: true, message: '请选择周期', trigger: 'change' }],
   nextDueDate: [{ required: true, message: '请选择下次到期日期', trigger: 'change' }]
@@ -208,7 +220,8 @@ async function loadOptions() {
     accountList.value = accounts || []
     categoryList.value = categories || []
   } catch (e) {
-    console.warn('加载选项数据失败:', e)
+    if (import.meta.env.DEV) console.warn('加载选项数据失败:', e)
+    ElMessage.warning('加载选项数据失败，请刷新重试')
   }
 }
 
@@ -272,11 +285,16 @@ async function handleSubmit() {
 async function handleDeactivate(row) {
   try {
     await ElMessageBox.confirm('确定停用该周期账单吗？', '提示', { type: 'warning' })
+    deactivatingId.value = row.id
     await deleteRecurringBill(row.id)
     ElMessage.success('已停用')
     loadBills()
-  } catch {
-    // 用户取消停用，静默处理
+  } catch (e) {
+    if (e === 'cancel') {
+      // 用户取消，静默处理
+    }
+  } finally {
+    deactivatingId.value = null
   }
 }
 
@@ -287,11 +305,16 @@ async function handleDeactivate(row) {
 async function handleGenerate(row) {
   try {
     await ElMessageBox.confirm('确定生成该周期账单的交易记录吗？', '提示', { type: 'info' })
+    generatingId.value = row.id
     await generateRecurringBill(row.id)
     ElMessage.success('生成成功')
     loadBills()
-  } catch {
-    // 用户取消生成，静默处理
+  } catch (e) {
+    if (e === 'cancel') {
+      // 用户取消，静默处理
+    }
+  } finally {
+    generatingId.value = null
   }
 }
 
@@ -312,16 +335,16 @@ onMounted(() => {
 
 .page-header h2 {
   margin: 0;
-  color: #303133;
+  color: var(--color-title);
 }
 
 .amount-income {
-  color: #67c23a;
+  color: var(--color-income);
   font-weight: bold;
 }
 
 .amount-expense {
-  color: #f56c6c;
+  color: var(--color-expense);
   font-weight: bold;
 }
 </style>

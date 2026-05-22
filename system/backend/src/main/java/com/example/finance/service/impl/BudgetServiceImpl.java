@@ -1,8 +1,11 @@
 package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.example.finance.common.EntityValidator;
 import com.example.finance.common.BusinessException;
 import com.example.finance.common.ErrorCode;
+import com.example.finance.common.enums.CategoryType;
+import com.example.finance.common.enums.TransactionType;
 import com.example.finance.entity.Budget;
 import com.example.finance.entity.Category;
 import com.example.finance.entity.dto.BudgetDTO;
@@ -26,6 +29,7 @@ import com.example.finance.entity.dto.CategorySummaryDTO;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -52,10 +56,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class BudgetServiceImpl implements BudgetService {
 
-  /** 分类类型常量：1=支出（预算仅可设置在支出分类上） */
-  private static final int CATEGORY_TYPE_EXPENSE = 1;
-  /** 交易类型常量：2=支出（用于筛选支出记录统计） */
-  private static final int TRANSACTION_TYPE_EXPENSE = 2;
+  /** 百分比乘数（spent/budget × 100） */
+  private static final BigDecimal PERCENTAGE_FACTOR = BigDecimal.valueOf(100);
 
   /** → BudgetMapper：预算表 CRUD */
   private final BudgetMapper budgetMapper;
@@ -76,14 +78,12 @@ public class BudgetServiceImpl implements BudgetService {
    * @return 该月所有预算列表(含分类名称)
    */
   @Override
+  @Transactional(readOnly = true)
   public List<BudgetDTO> list(Long userId, String year, String month) {
-    if (year == null || month == null) {
-      LocalDateTime now = LocalDateTime.now();
-      year = String.valueOf(now.getYear());
-      month = String.valueOf(now.getMonthValue());
-    }
-    // 构造 month 格式: yyyy-MM
-    String monthStr = year + "-" + (month.length() == 1 ? "0" + month : month);
+    String monthStr = EntityValidator.defaultAndFormatYearMonth(year, month);
+    // 使用 EntityValidator 安全解析方法替代脆弱的 substring+indexOf
+    year = String.valueOf(EntityValidator.extractYear(monthStr));
+    month = String.valueOf(EntityValidator.extractMonth(monthStr));
 
     List<Budget> budgets = budgetMapper.selectList(
         new LambdaQueryWrapper<Budget>()
@@ -92,7 +92,7 @@ public class BudgetServiceImpl implements BudgetService {
     );
 
     // 批量加载分类名称，避免 N+1 查询
-    Set<Long> categoryIds = budgets.stream().map(Budget::getCategoryId).collect(Collectors.toSet());
+    Set<Long> categoryIds = budgets.stream().map(Budget::getCategoryId).filter(Objects::nonNull).collect(Collectors.toSet());
     Map<Long, String> categoryNameMap = categoryIds.isEmpty()
         ? Map.of()
         : categoryMapper.selectByIds(categoryIds).stream()
@@ -134,7 +134,7 @@ public class BudgetServiceImpl implements BudgetService {
       throw new BusinessException(ErrorCode.CATEGORY_NOT_FOUND_FOR_BUDGET.getCode(), ErrorCode.CATEGORY_NOT_FOUND_FOR_BUDGET.getMsg());
     }
     // 预算仅针对支出分类（category.type=1 为支出）
-    if (category.getType() != CATEGORY_TYPE_EXPENSE) {
+    if (category.getType() != CategoryType.EXPENSE.getValue()) {
       throw new BusinessException(ErrorCode.BUDGET_EXPENSE_ONLY.getCode(), ErrorCode.BUDGET_EXPENSE_ONLY.getMsg());
     }
 
@@ -174,9 +174,21 @@ public class BudgetServiceImpl implements BudgetService {
                 .eq(Budget::getCategoryId, request.getCategoryId())
                 .eq(Budget::getMonth, request.getMonth())
         );
-        budget.setAmount(request.getAmount());
-        budget.setUpdateTime(LocalDateTime.now());
-        budgetMapper.updateById(budget);
+        // null 保护：极端场景（记录被并发删除）重新插入
+        if (budget == null) {
+          budget = new Budget();
+          budget.setUserId(userId);
+          budget.setCategoryId(request.getCategoryId());
+          budget.setMonth(request.getMonth());
+          budget.setCreateTime(LocalDateTime.now());
+          budget.setUpdateTime(LocalDateTime.now());
+          budget.setAmount(request.getAmount());
+          budgetMapper.insert(budget);
+        } else {
+          budget.setAmount(request.getAmount());
+          budget.setUpdateTime(LocalDateTime.now());
+          budgetMapper.updateById(budget);
+        }
       }
     }
 
@@ -225,18 +237,30 @@ public class BudgetServiceImpl implements BudgetService {
    * @return 各分类预算进度列表(含预算金额/已用金额/百分比/是否超支)
    */
   @Override
+  @Transactional(readOnly = true)
   public List<BudgetProgressDTO> getProgress(Long userId, String year, String month) {
-    if (year == null || month == null) {
-      LocalDateTime now = LocalDateTime.now();
-      year = String.valueOf(now.getYear());
-      month = String.valueOf(now.getMonthValue());
-    }
-    List<BudgetDTO> budgets = list(userId, year, month);
-    int yearInt = Integer.parseInt(year);
-    int monthInt = Integer.parseInt(month);
+    // 统一通过 EntityValidator null-defaulting + 格式验证
+    String monthStr = EntityValidator.defaultAndFormatYearMonth(year, month);
+    // 使用 EntityValidator 安全解析方法替代脆弱的 substring+indexOf
+    int yearInt = EntityValidator.extractYear(monthStr);
+    int monthInt = EntityValidator.extractMonth(monthStr);
+
+    // 直接查询Budget实体（避免调用list()产生的冗余category批量查询）
+    List<Budget> budgets = budgetMapper.selectList(
+        new LambdaQueryWrapper<Budget>()
+            .eq(Budget::getUserId, userId)
+            .eq(Budget::getMonth, monthStr)
+    );
+
+    // 批量加载分类名称（仅一次DB查询）
+    Set<Long> categoryIds = budgets.stream().map(Budget::getCategoryId).filter(Objects::nonNull).collect(Collectors.toSet());
+    Map<Long, String> categoryNameMap = categoryIds.isEmpty()
+        ? Map.of()
+        : categoryMapper.selectByIds(categoryIds).stream()
+            .collect(Collectors.toMap(Category::getId, Category::getName));
 
     // R-05-issue-2: 已修复 - selectCategorySummary提到循环外消除N+1查询
-    var summaryList = transactionMapper.selectCategorySummary(userId, yearInt, monthInt, TRANSACTION_TYPE_EXPENSE);
+    List<CategorySummaryDTO> summaryList = transactionMapper.selectCategorySummary(userId, yearInt, monthInt, TransactionType.EXPENSE.getValue());
     Map<Long, BigDecimal> spentMap = summaryList.stream()
         .collect(Collectors.toMap(
             CategorySummaryDTO::getCategoryId,
@@ -245,10 +269,10 @@ public class BudgetServiceImpl implements BudgetService {
         ));
 
     List<BudgetProgressDTO> result = new ArrayList<>();
-    for (BudgetDTO budget : budgets) {
+    for (Budget budget : budgets) {
       BudgetProgressDTO dto = new BudgetProgressDTO();
       dto.setCategoryId(budget.getCategoryId());
-      dto.setCategoryName(budget.getCategoryName());
+      dto.setCategoryName(categoryNameMap.getOrDefault(budget.getCategoryId(), ""));
       dto.setBudgetAmount(budget.getAmount());
 
       BigDecimal spent = spentMap.getOrDefault(budget.getCategoryId(), BigDecimal.ZERO);
@@ -256,7 +280,7 @@ public class BudgetServiceImpl implements BudgetService {
 
       // 计算百分比
       if (budget.getAmount().compareTo(BigDecimal.ZERO) > 0) {
-        dto.setPercentage(spent.divide(budget.getAmount(), 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)));
+        dto.setPercentage(spent.divide(budget.getAmount(), 4, RoundingMode.HALF_UP).multiply(PERCENTAGE_FACTOR));
       } else {
         dto.setPercentage(BigDecimal.ZERO);
       }
@@ -282,6 +306,7 @@ public class BudgetServiceImpl implements BudgetService {
    * @return 超支的分类预算列表(空集合表示无预警)
    */
   @Override
+  @Transactional(readOnly = true)
   public List<BudgetProgressDTO> getAlert(Long userId, String year, String month) {
     List<BudgetProgressDTO> all = getProgress(userId, year, month);
     return all.stream()

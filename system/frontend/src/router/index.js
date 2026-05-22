@@ -18,6 +18,9 @@
  *     └── /admin    → AdminPage       用户管理   (管理员 · role=1)
  */
 import { createRouter, createWebHistory } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { ROLE_ADMIN } from '../constants/role'
+import { useUserStore } from '../stores/user'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -50,61 +53,56 @@ const router = createRouter({
         // P1 个人设置
         { path: 'settings', name: 'Settings', component: () => import('../views/UserSettingsPage.vue'), meta: { title: '个人设置' } },
         // 管理员功能（评分标准要求 ≥2 类用户角色 · 仅管理员可访问）
-        { path: 'admin', name: 'Admin', component: () => import('../views/AdminPage.vue'), meta: { title: '用户管理', requiresAuth: true, requiresAdmin: true } }
+        { path: 'admin', name: 'Admin', component: () => import('../views/AdminPage.vue'), meta: { title: '用户管理', requiresAdmin: true } }
       ]
-    }
+    },
+    // 404 路由：未匹配路径重定向到首页
+    { path: '/:pathMatch(.*)*', redirect: '/' }
   ]
 })
 
 /**
  * 全局前置路由守卫
  * 逻辑：
- *   1. 需要登录的页面（meta.requiresAuth=true）→ 无 token 时跳转 /login，并携带 redirect 参数用于登录后回跳
+ *   1. 需要登录的页面（meta.requiresAuth=true）→ 无 token 或 token 已过期时跳转 /login
  *   2. 已登录用户访问 /login → 自动跳转到首页 /
- *   3. 需要管理员权限的页面（meta.requiresAdmin=true）→ 非 role=1 时跳转首页
+ *   3. 需要管理员权限的页面（meta.requiresAdmin=true）→ 非 ROLE_ADMIN 时跳转首页
  *   4. 其他情况直接放行
+ *
+ * 用户信息恢复：Pinia store 初始化时从 JWT payload 解码恢复（防 localStorage 独立篡改 role）
+ * Token 过期预检：解码 JWT exp 字段，过期则立即清除 token 并跳登录页（避免延迟鉴权体验）
  */
 router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token')
+  let tokenExpired = false
+
+  // JWT 过期预检：解码 payload 的 exp 字段，提前发现过期（避免先进入页面再被 401 跳走）
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+      if (payload.exp && payload.exp * 1000 < Date.now()) {
+        tokenExpired = true
+      }
+    } catch { /* token 格式异常视为过期 */ tokenExpired = true }
+  }
 
   // 检查当前路由或其任意父路由是否要求登录（修复子路由 meta 不继承问题）
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  if (requiresAuth && !token) {
-    // 未登录访问需鉴权页面 → 跳登录页，记住原目标路径
+  if (requiresAuth && (!token || tokenExpired)) {
+    // 未登录或 token 过期 → 清除 localStorage + 跳登录页
+    if (tokenExpired) {
+      localStorage.removeItem('token')
+      ElMessage.warning('登录已过期，请重新登录')
+    }
     next({ path: '/login', query: { redirect: to.fullPath } })
-  } else if (to.path === '/login' && token) {
-    // 已登录还访问登录页 → 跳首页
+  } else if (to.path === '/login' && token && !tokenExpired) {
+    // 已登录且 token 有效，还访问登录页 → 跳首页
     next('/')
   } else if (to.matched.some(record => record.meta.requiresAdmin)) {
-    // 需要管理员权限的页面 → 使用 Pinia store 中的 role（来自登录接口，而非直接解码 JWT）
-    // 导入 userStore 需在 pinia 初始化后进行，此处使用动态导入
-    const { useUserStore } = await import('../stores/user')
+    // 需要管理员权限 → 从 Pinia store 读取 role
     const userStore = useUserStore()
-    // 首次刷新页面时 store 可能为空，需从 JWT 解析回填角色信息
-    if (userStore.role === 0 && !userStore.userId) {
-      try {
-        const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-        const padding = base64.length % 4 === 0 ? '' : '='.repeat(4 - base64.length % 4)
-        const payload = JSON.parse(atob(base64 + padding))
-        // 校验 token 是否过期（exp 为秒级时间戳）
-        if (payload.exp && Date.now() >= payload.exp * 1000) {
-          localStorage.removeItem('token')
-          next({ path: '/login', query: { redirect: to.fullPath } })
-          return
-        }
-        // 回填 store（仅当 store 为空时）
-        userStore.setUser({
-          userId: Number(payload.sub),
-          username: '',
-          role: payload.role || 0
-        })
-      } catch (e) {
-        next({ path: '/login', query: { redirect: to.fullPath } })
-        return
-      }
-    }
-    if (userStore.role !== 1) {
-      // 非管理员访问管理页面 → 跳首页（后端接口也有 role=1 校验）
+    if (userStore.role !== ROLE_ADMIN) {
+      ElMessage.warning('无权限访问该页面')
       next('/')
       return
     }
@@ -119,6 +117,13 @@ router.beforeEach(async (to, from, next) => {
  */
 router.afterEach((to) => {
   document.title = to.meta.title ? `${to.meta.title} - 个人财务记账` : '个人财务记账与分析系统'
+})
+
+// Chunk 加载失败处理 — 网络异常时动态 import 可能失败，提示用户刷新页面
+router.onError((error) => {
+  if (error.message.includes('Failed to fetch dynamically imported module')) {
+    ElMessage.error('页面加载失败，请刷新浏览器重试')
+  }
 })
 
 export default router

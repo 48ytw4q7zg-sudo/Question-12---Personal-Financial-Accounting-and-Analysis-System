@@ -35,5 +35,5 @@ public interface AdminService {
    * @param currentUserId 当前管理员 ID（用于防止自切换）
    * @return 更新后的用户信息
    */
-  User toggleUserRole(Long userId, Long currentUserId);
+  UserDTO toggleUserRole(Long userId, Long currentUserId);
 }

@@ -2,6 +2,7 @@ package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.finance.common.BusinessException;
+import com.example.finance.common.EntityValidator;
 import com.example.finance.entity.Account;
 import com.example.finance.entity.Budget;
 import com.example.finance.entity.Category;
@@ -10,6 +11,7 @@ import com.example.finance.entity.Transaction;
 import com.example.finance.entity.User;
 import com.example.finance.entity.dto.*;
 import com.example.finance.mapper.*;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -35,6 +37,12 @@ import static org.mockito.Mockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 class BoundaryAndEquivalenceTest {
+
+  /** 测试前初始化 JwtUtils（单元测试不走 Spring 上下文，需手动 init） */
+  @BeforeAll
+  static void initJwt() {
+    com.example.finance.util.JwtUtils.init("test-secret-for-unit-testing-at-least-32-bytes-long!!", 7 * 24 * 60 * 60 * 1000L);
+  }
 
   // ---- User module ----
   @Nested
@@ -219,6 +227,7 @@ class BoundaryAndEquivalenceTest {
     @Mock TransactionMapper transactionMapper;
     @Mock AccountMapper accountMapper;
     @Mock CategoryMapper categoryMapper;
+    @Mock EntityValidator entityValidator;
     @InjectMocks TransactionServiceImpl transactionService;
 
     Account acct; Category cat;
@@ -232,8 +241,8 @@ class BoundaryAndEquivalenceTest {
 
     @Test @DisplayName("边界: 金额=0.01 — 最小正值")
     void create_minAmount() {
-      when(accountMapper.selectById(1L)).thenReturn(acct);
-      when(categoryMapper.selectById(1L)).thenReturn(cat);
+      when(entityValidator.validateAccount(1L, 1L)).thenReturn(acct);
+      when(entityValidator.validateCategory(1L)).thenReturn(cat);
       when(transactionMapper.insert(any(Transaction.class))).thenReturn(1);
       TransactionRequest req = buildReq(1L, 1L, 2, new BigDecimal("0.01"));
       TransactionDTO dto = transactionService.create(1L, req);
@@ -242,8 +251,8 @@ class BoundaryAndEquivalenceTest {
 
     @Test @DisplayName("边界: 金额=9999999999.99 — DECIMAL(12,2)最大值")
     void create_maxAmount() {
-      when(accountMapper.selectById(1L)).thenReturn(acct);
-      when(categoryMapper.selectById(1L)).thenReturn(cat);
+      when(entityValidator.validateAccount(1L, 1L)).thenReturn(acct);
+      when(entityValidator.validateCategory(1L)).thenReturn(cat);
       when(transactionMapper.insert(any(Transaction.class))).thenReturn(1);
       TransactionRequest req = buildReq(1L, 1L, 2, new BigDecimal("9999999999.99"));
       TransactionDTO dto = transactionService.create(1L, req);
@@ -252,8 +261,8 @@ class BoundaryAndEquivalenceTest {
 
     @Test @DisplayName("等价类: type=1收入 — 正确创建")
     void create_income() {
-      when(accountMapper.selectById(1L)).thenReturn(acct);
-      when(categoryMapper.selectById(1L)).thenReturn(cat);
+      when(entityValidator.validateAccount(1L, 1L)).thenReturn(acct);
+      when(entityValidator.validateCategory(1L)).thenReturn(cat);
       when(transactionMapper.insert(any(Transaction.class))).thenReturn(1);
       TransactionRequest req = buildReq(1L, 1L, 1, new BigDecimal("100.00"));
       TransactionDTO dto = transactionService.create(1L, req);
@@ -262,8 +271,8 @@ class BoundaryAndEquivalenceTest {
 
     @Test @DisplayName("等价类: type=2支出 — 正确创建")
     void create_expense() {
-      when(accountMapper.selectById(1L)).thenReturn(acct);
-      when(categoryMapper.selectById(1L)).thenReturn(cat);
+      when(entityValidator.validateAccount(1L, 1L)).thenReturn(acct);
+      when(entityValidator.validateCategory(1L)).thenReturn(cat);
       when(transactionMapper.insert(any(Transaction.class))).thenReturn(1);
       TransactionRequest req = buildReq(1L, 1L, 2, new BigDecimal("100.00"));
       TransactionDTO dto = transactionService.create(1L, req);
@@ -273,7 +282,7 @@ class BoundaryAndEquivalenceTest {
     @Test @DisplayName("等价类: 账户禁用 → [3004]")
     void create_disabledAccount() {
       acct.setStatus(0);
-      when(accountMapper.selectById(1L)).thenReturn(acct);
+      when(entityValidator.validateAccount(1L, 1L)).thenThrow(new BusinessException(3004, "账户不存在或已禁用"));
       TransactionRequest req = buildReq(1L, 1L, 2, new BigDecimal("100.00"));
       BusinessException ex = assertThrows(BusinessException.class,
           () -> transactionService.create(1L, req));
@@ -282,10 +291,8 @@ class BoundaryAndEquivalenceTest {
 
     @Test @DisplayName("等价类: 转账-出/入不同用户 → 越权拒绝")
     void transfer_crossUser() {
-      Account otherUserAccount = new Account();
-      otherUserAccount.setId(2L); otherUserAccount.setUserId(999L); otherUserAccount.setStatus(1);
       when(accountMapper.selectByIdForUpdate(1L)).thenReturn(acct);
-      when(accountMapper.selectById(2L)).thenReturn(otherUserAccount);
+      when(entityValidator.validateAccount(1L, 2L)).thenThrow(new BusinessException(3004, "账户不存在或已禁用"));
       TransferRequest req = new TransferRequest();
       req.setFromAccountId(1L); req.setToAccountId(2L); req.setAmount(new BigDecimal("100.00"));
       BusinessException ex = assertThrows(BusinessException.class,

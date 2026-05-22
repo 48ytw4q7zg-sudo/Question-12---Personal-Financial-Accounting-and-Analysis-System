@@ -145,10 +145,12 @@ CREATE TABLE `recurring_bill` (
 -- 测试数据（按外键依赖顺序: user → account → transaction → budget → recurring_bill）
 -- ============================================================
 
--- 测试用户（3条：zhangsan普通用户 + admin管理员 + lisi普通用户 · 密码均为 123456 的 BCrypt 哈希）
+-- 测试用户（4条：zhangsan普通用户(123456) + admin管理员(000000) + testuser普通用户(000000) + lisi普通用户(123456)）
+-- 对齐选题标定卡账号预设：admin/000000 + testuser/000000
 INSERT INTO `user` (`username`, `password`, `role`) VALUES
   ('zhangsan', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 0),
-  ('admin',    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 1),
+  ('admin',    '$2a$10$AelN2XQeBx9aD4qamlMKAerwIVn6kQZvI9/i2B0LI0x8/AvP6.gcC', 1),
+  ('testuser', '$2a$10$AelN2XQeBx9aD4qamlMKAerwIVn6kQZvI9/i2B0LI0x8/AvP6.gcC', 0),
   ('lisi',     '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 0);
 
 -- 测试账户（4 条，覆盖 4 种类型，均为用户 zhangsan 的账户）
@@ -190,6 +192,7 @@ CREATE TABLE `budget_alert` (
   `spent_amount`  DECIMAL(12,2) NOT NULL                 COMMENT '已消耗金额',
   `percentage`    DECIMAL(8,2)  NOT NULL                 COMMENT '消耗百分比（0.00-100.00+）',
   `create_time`   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '预警生成时间',
+  `update_time`  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `idx_budget_alert_user_month` (`user_id`, `month`),
   KEY `idx_budget_alert_category` (`category_id`)

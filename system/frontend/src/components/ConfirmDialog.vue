@@ -55,8 +55,11 @@ const visible = ref(props.modelValue)
 // 确认按钮 loading 状态（防重复提交）
 const confirming = ref(false)
 
-// 监听外部 v-model 变化 → 同步到内部 visible
-watch(() => props.modelValue, (val) => { visible.value = val })
+// 监听外部 v-model 变化 → 同步到内部 visible + 弹窗关闭时重置 confirming 状态
+watch(() => props.modelValue, (val) => {
+  visible.value = val
+  if (!val) confirming.value = false  // 弹窗关闭时重置 loading 状态，避免下次打开残留
+})
 // 监听内部 visible 变化 → 通知外部更新 v-model
 watch(visible, (val) => { emit('update:modelValue', val) })
 

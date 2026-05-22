@@ -54,4 +54,8 @@ public class BudgetAlert {
   /** 预警生成时间 */
   @TableField("create_time")
   private LocalDateTime createTime;
+
+  /** 更新时间 */
+  @TableField("update_time")
+  private LocalDateTime updateTime;
 }

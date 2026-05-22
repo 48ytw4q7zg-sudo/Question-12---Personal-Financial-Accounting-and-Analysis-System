@@ -33,4 +33,10 @@ public class AccountBalanceDTO {
 
   /** 当前余额 = initialBalance + totalIncome - totalExpense */
   private BigDecimal currentBalance;
+
+  /** 币种代码（如 CNY/USD/EUR），P2-4 多币种支持 */
+  private String currency;
+
+  /** CNY 等值余额（非 CNY 账户按固定汇率换算，CNY 账户=currentBalance） */
+  private BigDecimal cnyEquivalentBalance;
 }

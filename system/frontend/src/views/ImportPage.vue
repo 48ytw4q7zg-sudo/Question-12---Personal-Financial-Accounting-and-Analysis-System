@@ -17,7 +17,7 @@
     <h2>数据导入</h2>
 
     <!-- CSV 上传表单 -->
-    <el-card shadow="hover" v-loading="loading">
+    <el-card shadow="hover" v-loading="loading" aria-label="CSV导入表单">
       <template #header>导入 CSV 文件</template>
 
       <el-form ref="formRef" :model="importForm" :rules="formRules" label-width="90px" style="max-width: 500px;">
@@ -54,7 +54,7 @@
     <el-card shadow="hover" class="format-card">
       <template #header>CSV 文件格式说明</template>
       <p>CSV 文件需包含以下列（第一行为表头）：</p>
-      <el-table :data="formatData" border size="small">
+      <el-table :data="formatData" border size="small" aria-label="CSV格式说明">
         <el-table-column prop="col" label="列名" width="120" />
         <el-table-column prop="desc" label="说明" />
         <el-table-column prop="required" label="必填" width="80" />
@@ -93,6 +93,7 @@ import { ElMessage } from 'element-plus'
 import { importCsv } from '../api/transaction'
 // → 调用 api/account.js 的 getAccountList()（加载账户选项）
 import { getAccountList } from '../api/account'
+import { MAX_CSV_FILE_SIZE } from '../constants/finance'
 
 const importing = ref(false)        // 导入中 loading
 const loading = ref(false)          // 初始加载状态
@@ -114,7 +115,7 @@ const formRules = {
     validator: (rule, value, callback) => {
       if (!importForm.file) {
         callback(new Error('请选择 CSV 文件'))
-      } else if (importForm.file.size > 5 * 1024 * 1024) {
+      } else if (importForm.file.size > MAX_CSV_FILE_SIZE) {
         // PRD P2-3 业务规则①: 文件大小 ≤ 5MB，前端预检避免浪费上传时间
         callback(new Error('文件大小不能超过 5MB'))
       } else {
@@ -135,9 +136,11 @@ const formatData = [
   { col: 'note', desc: '备注', required: '否', example: '午餐' }
 ]
 
-/** el-upload 文件选择回调：保存原始文件对象 */
+/** el-upload 文件选择回调：保存原始文件对象 + 手动触发表单校验 */
 function handleFileChange(file) {
   importForm.file = file.raw
+  // el-upload 的 on-change 不会自动触发 el-form 的校验，需手动调用
+  formRef.value?.validateField('file')
 }
 
 /**
@@ -174,8 +177,8 @@ async function handleImport() {
     const data = await importCsv(formData)
     importResult.value = data
     ElMessage.success('导入完成')
-  } catch {
-    // 错误由 axios 拦截器统一处理
+  } catch (e) {
+    // axios 拦截器已统一处理业务错误消息，此处不再重复显示
   } finally {
     importing.value = false
   }
@@ -190,7 +193,7 @@ onMounted(() => {
 <style scoped>
 .import-page h2 {
   margin-bottom: 20px;
-  color: #303133;
+  color: var(--color-title);
 }
 
 .format-card {
@@ -203,12 +206,12 @@ onMounted(() => {
 
 .tip-text {
   margin-top: 12px;
-  color: #909399;
+  color: var(--color-muted, #909399);
   font-size: 14px;
 }
 
 .tip-text code {
-  background: #f5f7fa;
+  background: var(--el-fill-color-light);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -219,6 +222,6 @@ onMounted(() => {
 
 .fail-rows h4 {
   margin-bottom: 8px;
-  color: #f56c6c;
+  color: var(--color-expense);
 }
 </style>

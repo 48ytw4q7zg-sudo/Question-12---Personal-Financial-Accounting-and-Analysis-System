@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.finance.common.BusinessException;
 import com.example.finance.common.ErrorCode;
+import com.example.finance.common.EntityValidator;
 import com.example.finance.common.enums.Status;
 import com.example.finance.common.enums.TransactionType;
 import com.example.finance.entity.Account;
@@ -34,7 +35,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 交易记录服务实现
@@ -51,7 +55,7 @@ import java.util.UUID;
  * <ul>
  *   <li>转账记录(transferId非空)禁止修改金额, 仅允许修改备注 (PRD P0-4 异常流程②)</li>
  *   <li>转账使用 @Transactional 包裹余额检查+两条INSERT, 利用InnoDB REPEATABLE READ防并发透支</li>
- *   <li>CSV导入使用 @Transactional 包裹批量插入, 单行解析失败不影响已提交行</li>
+ *   <li>CSV导入使用 @Transactional 包裹批量插入, 整批原子提交(全部成功或全部回滚)</li>
  *   <li>所有操作强制校验 user_id 归属, 确保数据隔离</li>
  * </ul>
  *
@@ -62,18 +66,27 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
 
-  /** 转账默认分类ID（其他，ID=13 · 依赖01-init.sql种子数据） */
-  private static final Long TRANSFER_CATEGORY_ID = 13L;
+  /** sortBy 参数白名单：只允许 time/amount_asc/amount_desc，防止非法排序注入 */
+  private static final Set<String> ALLOWED_SORT_BY = Set.of("time", "amount_asc", "amount_desc");
+  /** 转账默认分类名称（"其他"，运行时查询 category 表获取 ID，不依赖种子数据顺序） */
+  private static final String TRANSFER_CATEGORY_NAME = "其他";
   /** 时间格式化常量（复用避免重复创建 DateTimeFormatter） */
   private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
   // PRD P2-3: 文件大小上限 5MB
   private static final long CSV_MAX_FILE_SIZE = 5 * 1024 * 1024;
   // PRD P2-3: 单次导入上限 1000 条
   private static final int CSV_MAX_RECORDS = 1000;
+  // 分页大小上限保护：防止一次查询海量数据导致 OOM
+  private static final int MAX_PAGE_SIZE = 100;
 
+  /** -> TransactionMapper：交易记录 CRUD + 统计聚合查询数据访问 */
   private final TransactionMapper transactionMapper;
+  /** -> AccountMapper：余额查询 + 悲观锁(for update) + toDTO 关联名称填充 */
   private final AccountMapper accountMapper;
+  /** -> CategoryMapper：转账分类名查询 + CSV导入分类缓存 + toDTO 关联名称填充 */
   private final CategoryMapper categoryMapper;
+  /** -> EntityValidator：跨 Service 共享的 validateAccount/validateAccount 校验 */
+  private final EntityValidator entityValidator;
 
   /**
    * 查询交易记录（分页 + 多条件筛选）
@@ -94,9 +107,28 @@ public class TransactionServiceImpl implements TransactionService {
    * @return 分页结果(含total和records)
    */
   @Override
+  @Transactional(readOnly = true)
   public IPage<TransactionDTO> list(Long userId, Long accountId, Long categoryId,
       String startTime, String endTime, String keyword, String sortBy,
       int pageNum, int pageSize) {
+    // pageSize 上限保护：防止一次查询海量数据导致 OOM（业务逻辑，应由 Service 层处理）
+    pageSize = Math.min(pageSize, MAX_PAGE_SIZE);
+    // sortBy 白名单校验：防止非法排序字段注入（业务逻辑，应由 Service 层处理）
+    if (!ALLOWED_SORT_BY.contains(sortBy)) {
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), String.format("%s: 排序参数只能是time/amount_asc/amount_desc", ErrorCode.PARAM_INVALID.getMsg()));
+    }
+    // PRD P1-1: 时间范围最大跨度1年（防止全表扫描）
+    if (startTime != null && endTime != null) {
+      try {
+        LocalDateTime start = LocalDateTime.parse(startTime, DTF);
+        LocalDateTime end = LocalDateTime.parse(endTime, DTF);
+        if (end.minusYears(1).isAfter(start)) {
+          throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "时间范围最大跨度1年");
+        }
+      } catch (java.time.format.DateTimeParseException e) {
+        throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "时间格式须为yyyy-MM-dd HH:mm:ss");
+      }
+    }
     // R-05-issue-4: 已修复 - RowBounds+独立count是XML动态ORDER BY的标准MyBatis分页模式,Page对象正确封装total/records
     // LIKE 通配符转义：防止用户输入的 % 和 _ 被解释为 LIKE 通配符
     String escapedKeyword = escapeLikeKeyword(keyword);
@@ -128,9 +160,9 @@ public class TransactionServiceImpl implements TransactionService {
   @Transactional
   public TransactionDTO create(Long userId, TransactionRequest request) {
     // 校验账户归属并复用对象
-    Account account = validateAccount(userId, request.getAccountId());
+    Account account = entityValidator.validateAccount(userId, request.getAccountId());
     // 校验分类存在并复用对象
-    Category category = validateCategory(request.getCategoryId());
+    Category category = entityValidator.validateCategory(request.getCategoryId());
 
     Transaction transaction = new Transaction();
     transaction.setUserId(userId);
@@ -178,12 +210,15 @@ public class TransactionServiceImpl implements TransactionService {
         transaction.setUpdateTime(LocalDateTime.now());
         transactionMapper.updateById(transaction);
       }
-      return toDTO(transaction);
+      // 预加载关联对象，避免toDTO单参数版的2次额外DB查询
+      Account transferAccount = accountMapper.selectById(transaction.getAccountId());
+      Category transferCategory = categoryMapper.selectById(transaction.getCategoryId());
+      return toDTO(transaction, transferAccount, transferCategory);
     }
 
     // 普通交易记录允许更新全部字段，重新校验账户归属和分类存在，复用对象
-    Account account = validateAccount(userId, request.getAccountId());
-    Category category = validateCategory(request.getCategoryId());
+    Account account = entityValidator.validateAccount(userId, request.getAccountId());
+    Category category = entityValidator.validateCategory(request.getCategoryId());
     transaction.setAccountId(request.getAccountId());
     transaction.setCategoryId(request.getCategoryId());
     transaction.setType(request.getType());
@@ -246,7 +281,7 @@ public class TransactionServiceImpl implements TransactionService {
     if (fromAccount == null || !fromAccount.getUserId().equals(userId) || fromAccount.getStatus() != Status.ACTIVE.getValue()) {
       throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getCode(), ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getMsg());
     }
-    Account toAccount = validateAccount(userId, request.getToAccountId());
+    Account toAccount = entityValidator.validateAccount(userId, request.getToAccountId());
 
     // 校验不能转给自己
     if (request.getFromAccountId().equals(request.getToAccountId())) {
@@ -258,8 +293,17 @@ public class TransactionServiceImpl implements TransactionService {
     BigDecimal totalExpense = transactionMapper.selectAccountExpense(userId, fromAccount.getId());
     BigDecimal currentBalance = fromAccount.getInitialBalance().add(totalIncome).subtract(totalExpense);
     if (currentBalance.compareTo(request.getAmount()) < 0) {
-      throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE.getCode(), "转出账户余额不足");
+      throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE.getCode(), ErrorCode.INSUFFICIENT_BALANCE.getMsg());
     }
+
+    // 查询"其他"分类ID（运行时查询，不依赖种子数据顺序）
+    Category transferCategory = categoryMapper.selectOne(
+        new LambdaQueryWrapper<Category>().eq(Category::getName, TRANSFER_CATEGORY_NAME)
+    );
+    if (transferCategory == null) {
+      throw new BusinessException(ErrorCode.CATEGORY_NOT_FOUND.getCode(), ErrorCode.CATEGORY_NOT_FOUND.getMsg() + "：未找到「其他」分类，请检查种子数据");
+    }
+    Long transferCategoryId = transferCategory.getId();
 
     // 生成转账关联ID（UUID）
     String transferId = UUID.randomUUID().toString();
@@ -274,7 +318,7 @@ public class TransactionServiceImpl implements TransactionService {
     Transaction outTransaction = new Transaction();
     outTransaction.setUserId(userId);
     outTransaction.setAccountId(request.getFromAccountId());
-    outTransaction.setCategoryId(TRANSFER_CATEGORY_ID);
+    outTransaction.setCategoryId(transferCategoryId);
     outTransaction.setType(TransactionType.EXPENSE.getValue());
     outTransaction.setAmount(request.getAmount());
     outTransaction.setNote(outNote);
@@ -288,7 +332,7 @@ public class TransactionServiceImpl implements TransactionService {
     Transaction inTransaction = new Transaction();
     inTransaction.setUserId(userId);
     inTransaction.setAccountId(request.getToAccountId());
-    inTransaction.setCategoryId(TRANSFER_CATEGORY_ID);
+    inTransaction.setCategoryId(transferCategoryId);
     inTransaction.setType(TransactionType.INCOME.getValue());
     inTransaction.setAmount(request.getAmount());
     inTransaction.setNote(inNote);
@@ -298,11 +342,11 @@ public class TransactionServiceImpl implements TransactionService {
     inTransaction.setUpdateTime(now);
     transactionMapper.insert(inTransaction);
 
-    // 组装返回结果
+    // 组装返回结果（复用已加载的 fromAccount/toAccount/transferCategory，消除4次额外DB查询）
     TransferDTO dto = new TransferDTO();
     dto.setTransferId(transferId);
-    dto.setOutRecord(toDTO(outTransaction));
-    dto.setInRecord(toDTO(inTransaction));
+    dto.setOutRecord(toDTO(outTransaction, fromAccount, transferCategory));
+    dto.setInRecord(toDTO(inTransaction, toAccount, transferCategory));
     return dto;
   }
 
@@ -324,7 +368,7 @@ public class TransactionServiceImpl implements TransactionService {
   @Override
   @Transactional
   public ImportResultDTO importCsv(Long userId, MultipartFile file, Long accountId) {
-    validateAccount(userId, accountId);
+    entityValidator.validateAccount(userId, accountId);
 
     // PRD P2-3 异常流程①: 文件大小超过 5MB → 拒绝
     if (file.getSize() > CSV_MAX_FILE_SIZE) {
@@ -337,6 +381,10 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     ImportResultDTO result = new ImportResultDTO();
+
+    // 预加载所有分类到 Map，避免循环内逐行 selectById（种子数据仅13条，1次查询覆盖全部）
+    Map<Long, Category> categoryCache = categoryMapper.selectList(new LambdaQueryWrapper<Category>()).stream()
+        .collect(Collectors.toMap(Category::getId, c -> c));
 
     try (CSVReader reader = new CSVReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
       String[] line;
@@ -368,8 +416,8 @@ public class TransactionServiceImpl implements TransactionService {
           int type = Integer.parseInt(line[2].trim());
           BigDecimal amount = new BigDecimal(line[3].trim()).setScale(2, RoundingMode.HALF_UP);
 
-          // 语义校验：分类必须存在
-          Category category = categoryMapper.selectById(categoryId);
+          // 语义校验：分类必须存在（从预加载缓存查询，避免逐行DB查询）
+          Category category = categoryCache.get(categoryId);
           if (category == null) {
             ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();
             failRow.setRow(rowNumber);
@@ -402,14 +450,17 @@ public class TransactionServiceImpl implements TransactionService {
           transaction.setCreateTime(LocalDateTime.now());
           transaction.setUpdateTime(LocalDateTime.now());
 
+          // PRD P2-3 业务规则①: 单次导入上限 1000 条（超过上限的行记录为失败，不回滚已插入的记录）
+          if (result.getSuccessCount() >= CSV_MAX_RECORDS) {
+            ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();
+            failRow.setRow(rowNumber);
+            failRow.setReason("单次导入不能超过 " + CSV_MAX_RECORDS + " 条记录");
+            result.getFailRows().add(failRow);
+            continue;
+          }
+
           transactionMapper.insert(transaction);
           result.setSuccessCount(result.getSuccessCount() + 1);
-          // PRD P2-3 业务规则①: 单次导入上限 1000 条
-          if (result.getSuccessCount() > CSV_MAX_RECORDS) {
-            throw new BusinessException(ErrorCode.RECORDS_TOO_MANY.getCode(), "单次导入不能超过 " + CSV_MAX_RECORDS + " 条记录");
-          }
-        } catch (BusinessException e) {
-          throw e;
         } catch (NumberFormatException e) {
           ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();
           failRow.setRow(rowNumber);
@@ -423,33 +474,12 @@ public class TransactionServiceImpl implements TransactionService {
         }
       }
     } catch (Exception e) {
-      throw new BusinessException(ErrorCode.CSV_READ_ERROR.getCode(), "CSV 文件读取失败: " + e.getMessage());
+      log.error("CSV 文件读取失败: {}", e.getMessage(), e);
+      throw new BusinessException(ErrorCode.CSV_READ_ERROR.getCode(), ErrorCode.CSV_READ_ERROR.getMsg());
     }
 
     result.setFailCount(result.getFailRows().size());
     return result;
-  }
-
-  /**
-   * 校验账户归属
-   */
-  private Account validateAccount(Long userId, Long accountId) {
-    Account account = accountMapper.selectById(accountId);
-    if (account == null || !account.getUserId().equals(userId) || account.getStatus() != Status.ACTIVE.getValue()) {
-      throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getCode(), ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getMsg());
-    }
-    return account;
-  }
-
-  /**
-   * 校验分类存在并返回分类对象（复用避免重复查询）
-   */
-  private Category validateCategory(Long categoryId) {
-    Category category = categoryMapper.selectById(categoryId);
-    if (category == null) {
-      throw new BusinessException(ErrorCode.CATEGORY_NOT_FOUND.getCode(), ErrorCode.CATEGORY_NOT_FOUND.getMsg());
-    }
-    return category;
   }
 
   /**
@@ -470,35 +500,6 @@ public class TransactionServiceImpl implements TransactionService {
       throw new BusinessException(ErrorCode.RECORD_NOT_FOUND.getCode(), ErrorCode.RECORD_NOT_FOUND.getMsg());
     }
     return transaction;
-  }
-
-  /**
-   * Entity → DTO 转换（单条记录用，填充关联名称）
-   */
-  private TransactionDTO toDTO(Transaction transaction) {
-    TransactionDTO dto = new TransactionDTO();
-    dto.setId(transaction.getId());
-    dto.setAccountId(transaction.getAccountId());
-    dto.setCategoryId(transaction.getCategoryId());
-    dto.setType(transaction.getType());
-    dto.setAmount(transaction.getAmount());
-    dto.setNote(transaction.getNote());
-    dto.setTime(transaction.getTime() != null ? transaction.getTime().format(DTF) : null);
-    dto.setTransferId(transaction.getTransferId());
-    dto.setCreateTime(transaction.getCreateTime());
-    dto.setUpdateTime(transaction.getUpdateTime());
-
-    // 填充关联名称（仅单条操作时查库，列表查询由 SQL JOIN 填充）
-    Account account = accountMapper.selectById(transaction.getAccountId());
-    if (account != null) {
-      dto.setAccountName(account.getName());
-    }
-    Category category = categoryMapper.selectById(transaction.getCategoryId());
-    if (category != null) {
-      dto.setCategoryName(category.getName());
-    }
-
-    return dto;
   }
 
   /**

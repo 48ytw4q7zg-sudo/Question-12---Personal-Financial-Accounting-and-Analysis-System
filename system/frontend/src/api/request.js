@@ -10,11 +10,14 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '../router'
 
-// 创建 axios 实例，统一配置 baseURL 和超时时间
+// 创建 axios 实例，统一配置 baseURL 和超时时间（支持环境变量覆盖）
 const request = axios.create({
-  baseURL: '/api',      // 与 vite.config.js 的 proxy 代理配置对齐，所有请求自动加 /api 前缀
-  timeout: 10000        // 10 秒超时
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',  // 与 vite.config.js 的 proxy 代理配置对齐
+  timeout: Number(import.meta.env.VITE_API_TIMEOUT) || 10000  // 10 秒超时
 })
+
+// 401 跳转去重标志（防止多个并发 401 请求重复跳转 /login）
+let isRedirecting = false
 
 /**
  * 请求拦截器
@@ -47,10 +50,17 @@ request.interceptors.response.use(res => {
     // 成功 → 返回 data，所有 API 函数拿到的返回值就是 data 部分
     return data
   } else if (code === 401) {
-    // token 过期或未登录 → 清除本地 token，跳转登录页并保留当前路径用于登录后回跳
-    localStorage.removeItem('token')
-    router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
-    ElMessage.error('未登录')
+    // token 过期或未登录 → 清除本地 token，跳转登录页（去重防止并发 401 重复跳转）
+    if (!isRedirecting) {
+      isRedirecting = true
+      localStorage.removeItem('token')
+      ElMessage.error('登录已过期，请重新登录')
+      // 防止 redirect 到 /login 造成循环跳转
+      const currentPath = router.currentRoute.value.fullPath
+      const redirectPath = currentPath.startsWith('/login') ? '/' : currentPath
+      router.push({ path: '/login', query: { redirect: redirectPath } })
+        .finally(() => { isRedirecting = false })
+    }
     return Promise.reject(new Error(message))
   } else {
     // 业务异常（如用户名重复、余额不足等）→ 弹错误提示
@@ -58,8 +68,23 @@ request.interceptors.response.use(res => {
     return Promise.reject(new Error(message))
   }
 }, error => {
-  // 网络层异常（超时、断网、服务器 500 等）
-  ElMessage.error(error.message || '网络异常')
+  // 网络层异常（超时、断网、服务器 5xx 等） — 区分状态码提供更精准提示
+  if (error.response) {
+    const status = error.response.status
+    if (status === 403) {
+      ElMessage.error('无权限访问')
+    } else if (status === 404) {
+      ElMessage.error('请求的资源不存在')
+    } else if (status >= 500) {
+      ElMessage.error('服务器内部错误，请稍后重试')
+    } else {
+      ElMessage.error(error.message || '网络异常')
+    }
+  } else if (error.code === 'ECONNABORTED') {
+    ElMessage.error('请求超时，请检查网络连接')
+  } else {
+    ElMessage.error('网络连接异常，请检查网络')
+  }
   return Promise.reject(error)
 })
 

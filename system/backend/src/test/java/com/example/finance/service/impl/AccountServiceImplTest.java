@@ -8,6 +8,7 @@ import com.example.finance.entity.dto.AccountRequest;
 import com.example.finance.mapper.AccountMapper;
 import com.example.finance.mapper.RecurringBillMapper;
 import com.example.finance.mapper.TransactionMapper;
+import com.example.finance.service.ExchangeRateService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,8 @@ class AccountServiceImplTest {
   private TransactionMapper transactionMapper;
   @Mock
   private RecurringBillMapper recurringBillMapper;
+  @Mock
+  private ExchangeRateService exchangeRateService;
 
   @InjectMocks
   private AccountServiceImpl accountService;

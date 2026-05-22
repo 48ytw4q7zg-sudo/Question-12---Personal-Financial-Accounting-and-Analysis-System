@@ -7,6 +7,7 @@ import com.example.finance.mapper.CategoryMapper;
 import com.example.finance.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -30,6 +31,7 @@ public class CategoryServiceImpl implements CategoryService {
    * @return 分类列表（按 id 升序，含 id/name/type）
    */
   @Override
+  @Transactional(readOnly = true)
   public List<CategoryDTO> list() {
     List<Category> categories = categoryMapper.selectList(
         new LambdaQueryWrapper<Category>().orderByAsc(Category::getId)
