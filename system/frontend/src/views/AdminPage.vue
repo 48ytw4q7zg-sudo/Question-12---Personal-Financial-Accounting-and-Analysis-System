@@ -85,8 +85,9 @@ async function handleToggleRole(row) {
     await toggleRole(row.id)
     ElMessage.success(`${row.username} 角色已切换`)
     await loadUsers()
-  } catch {
-    // 用户取消或非业务错误，静默处理
+  } catch (e) {
+    // 用户取消 ElMessageBox 时 e === 'cancel'，无需处理；其他错误由 axios 拦截器统一处理
+    if (e !== 'cancel') console.error('切换角色失败:', e)
   } finally {
     operating.value = false
   }
@@ -108,8 +109,9 @@ async function handleDelete(row) {
     await deleteUser(row.id)
     ElMessage.success('用户已删除')
     await loadUsers()
-  } catch {
-    // 用户取消删除或非业务错误，静默处理
+  } catch (e) {
+    // 用户取消 ElMessageBox 时 e === 'cancel'，无需处理；其他错误由 axios 拦截器统一处理
+    if (e !== 'cancel') console.error('删除用户失败:', e)
   } finally {
     operating.value = false
   }

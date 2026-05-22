@@ -230,12 +230,16 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     }
 
     // PRD P1-4 异常流程②: 一键生成时关联账户已禁用 → 拒绝生成
-    // 并行预加载 account 和 category（消除2次串行DB查询→1次并行）
+    // 安全校验: generate() 也需校验 account userId 归属（防数据篡改后账单引用他人账户）
     Account account = accountMapper.selectById(bill.getAccountId());
-    if (account == null || account.getStatus() != Status.ACTIVE.getValue()) {
+    if (account == null || !account.getUserId().equals(userId) || account.getStatus() != Status.ACTIVE.getValue()) {
       throw new BusinessException(ErrorCode.BILL_ACCOUNT_DISABLED_GEN.getCode(), ErrorCode.BILL_ACCOUNT_DISABLED_GEN.getMsg());
     }
+    // 安全校验: category 必须存在（分类被删除后账单引用的 categoryId 无效）
     Category category = categoryMapper.selectById(bill.getCategoryId());
+    if (category == null) {
+      throw new BusinessException(ErrorCode.BILL_CATEGORY_NOT_FOUND.getCode(), ErrorCode.BILL_CATEGORY_NOT_FOUND.getMsg());
+    }
 
     // 创建交易记录
     Transaction transaction = new Transaction();
@@ -269,7 +273,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     dto.setUpdateTime(transaction.getUpdateTime());
 
     dto.setAccountName(account.getName());
-    dto.setCategoryName(category != null ? category.getName() : "");
+    dto.setCategoryName(category.getName());
 
     return dto;
   }

@@ -80,9 +80,15 @@ public class BudgetAlertProcessorServiceImpl implements BudgetAlertProcessorServ
             .eq(BudgetAlert::getMonth, monthStr)
     );
 
-    // 查询该用户本月各分类支出汇总（一次性查询，消除 N+1）
+    // 查询该用户本月各分类支出汇总（一次性查询，消除 N+1 · 范围查询利用 idx_user_date 索引）
+    int yearVal = now.getYear();
+    int monthVal = now.getMonthValue();
+    String startOfMonth = String.format("%04d-%02d-01 00:00:00", yearVal, monthVal);
+    String startOfNextMonth = (monthVal == 12)
+        ? String.format("%04d-01-01 00:00:00", yearVal + 1)
+        : String.format("%04d-%02d-01 00:00:00", yearVal, monthVal + 1);
     List<CategorySummaryDTO> summaryList = transactionMapper.selectCategorySummary(
-        userId, now.getYear(), now.getMonthValue(), TransactionType.EXPENSE.getValue() // 支出类型
+        userId, startOfMonth, startOfNextMonth, TransactionType.EXPENSE.getValue() // 支出类型
     );
 
     // 构建 categoryId → totalAmount 映射

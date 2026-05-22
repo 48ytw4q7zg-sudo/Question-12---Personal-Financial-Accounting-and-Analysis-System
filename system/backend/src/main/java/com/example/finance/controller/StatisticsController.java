@@ -79,7 +79,8 @@ public class StatisticsController {
    *
    * @param year    年份（必填）
    * @param request HTTP 请求
-   * @return Result<MonthlySummaryDTO> 年度汇总（month 字段为 null）
+   * @return Result<MonthlySummaryDTO> 年度汇总（month 字段为 null · PRD 原定义 YearlySummaryDTO，
+   *         实际复用 MonthlySummaryDTO 仅为类型简化：月度/年度汇总结构相同，仅 month 字段是否为 null 区分）
    *
    * 被前端 AnalyticsPage.vue 年度汇总卡片调用
    */

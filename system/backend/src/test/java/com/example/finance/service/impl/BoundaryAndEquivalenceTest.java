@@ -209,10 +209,10 @@ class BoundaryAndEquivalenceTest {
       Account a = new Account(); a.setId(1L); a.setUserId(1L); a.setName("测试");
       a.setInitialBalance(new BigDecimal("100.00")); a.setStatus(1); a.setType(1);
       when(accountMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(a));
-      when(transactionMapper.selectAccountIncomeBatch(eq(1L), anyList()))
-          .thenReturn(List.of(Map.of("accountId", 1L, "totalIncome", new BigDecimal("50.25"))));
-      when(transactionMapper.selectAccountExpenseBatch(eq(1L), anyList()))
-          .thenReturn(List.of(Map.of("accountId", 1L, "totalExpense", new BigDecimal("30.10"))));
+      AccountBatchIncomeDTO incDto = new AccountBatchIncomeDTO(); incDto.setAccountId(1L); incDto.setTotalIncome(new BigDecimal("50.25"));
+      when(transactionMapper.selectAccountIncomeBatch(eq(1L), anyList())).thenReturn(List.of(incDto));
+      AccountBatchExpenseDTO expDto = new AccountBatchExpenseDTO(); expDto.setAccountId(1L); expDto.setTotalExpense(new BigDecimal("30.10"));
+      when(transactionMapper.selectAccountExpenseBatch(eq(1L), anyList())).thenReturn(List.of(expDto));
 
       List<AccountBalanceDTO> balances = accountService.getBalance(1L);
       assertEquals(1, balances.size());
@@ -292,7 +292,7 @@ class BoundaryAndEquivalenceTest {
     @Test @DisplayName("等价类: 转账-出/入不同用户 → 越权拒绝")
     void transfer_crossUser() {
       when(accountMapper.selectByIdForUpdate(1L)).thenReturn(acct);
-      when(entityValidator.validateAccount(1L, 2L)).thenThrow(new BusinessException(3004, "账户不存在或已禁用"));
+      when(accountMapper.selectByIdForUpdate(2L)).thenReturn(null);
       TransferRequest req = new TransferRequest();
       req.setFromAccountId(1L); req.setToAccountId(2L); req.setAmount(new BigDecimal("100.00"));
       BusinessException ex = assertThrows(BusinessException.class,
@@ -472,7 +472,7 @@ class BoundaryAndEquivalenceTest {
 
     @Test @DisplayName("等价类: 无数据月 → 返回零值不报错")
     void monthlySummary_empty() {
-      when(transactionMapper.selectMonthlySummary(1L, 2026, 5)).thenReturn(null);
+      when(transactionMapper.selectMonthlySummary(1L, "2026-05-01 00:00:00", "2026-06-01 00:00:00")).thenReturn(null);
       MonthlySummaryDTO summary = statisticsService.getMonthlySummary(1L, 2026, 5);
       assertEquals(BigDecimal.ZERO, summary.getTotalIncome());
       assertEquals(BigDecimal.ZERO, summary.getTotalExpense());
@@ -486,7 +486,7 @@ class BoundaryAndEquivalenceTest {
       dto.setTotalIncome(new BigDecimal("10000.00"));
       dto.setTotalExpense(new BigDecimal("3000.00"));
       dto.setBalance(new BigDecimal("7000.00"));
-      when(transactionMapper.selectMonthlySummary(1L, 2026, 5)).thenReturn(dto);
+      when(transactionMapper.selectMonthlySummary(1L, "2026-05-01 00:00:00", "2026-06-01 00:00:00")).thenReturn(dto);
       MonthlySummaryDTO summary = statisticsService.getMonthlySummary(1L, 2026, 5);
       assertEquals(new BigDecimal("10000.00"), summary.getTotalIncome());
       assertEquals(new BigDecimal("7000.00"), summary.getBalance());
@@ -494,28 +494,28 @@ class BoundaryAndEquivalenceTest {
 
     @Test @DisplayName("等价类: 年度汇总-整年无数据 → 零值")
     void yearlySummary_empty() {
-      when(transactionMapper.selectYearlySummary(1L, 2026)).thenReturn(null);
+      when(transactionMapper.selectYearlySummary(1L, "2026-01-01 00:00:00", "2027-01-01 00:00:00")).thenReturn(null);
       MonthlySummaryDTO summary = statisticsService.getYearlySummary(1L, 2026);
       assertEquals(BigDecimal.ZERO, summary.getTotalIncome());
     }
 
     @Test @DisplayName("边界: 月份=1(最小) — 有效")
     void monthlySummary_january() {
-      when(transactionMapper.selectMonthlySummary(1L, 2026, 1)).thenReturn(null);
+      when(transactionMapper.selectMonthlySummary(1L, "2026-01-01 00:00:00", "2026-02-01 00:00:00")).thenReturn(null);
       MonthlySummaryDTO summary = statisticsService.getMonthlySummary(1L, 2026, 1);
       assertEquals(1, summary.getMonth());
     }
 
     @Test @DisplayName("边界: 月份=12(最大) — 有效")
     void monthlySummary_december() {
-      when(transactionMapper.selectMonthlySummary(1L, 2026, 12)).thenReturn(null);
+      when(transactionMapper.selectMonthlySummary(1L, "2026-12-01 00:00:00", "2027-01-01 00:00:00")).thenReturn(null);
       MonthlySummaryDTO summary = statisticsService.getMonthlySummary(1L, 2026, 12);
       assertEquals(12, summary.getMonth());
     }
 
     @Test @DisplayName("等价类: type=null → 返回全部分类汇总")
     void categorySummary_allTypes() {
-      when(transactionMapper.selectCategorySummary(1L, 2026, 5, null)).thenReturn(Collections.emptyList());
+      when(transactionMapper.selectCategorySummary(1L, "2026-05-01 00:00:00", "2026-06-01 00:00:00", null)).thenReturn(Collections.emptyList());
       List<CategorySummaryDTO> list = statisticsService.getCategorySummary(1L, 2026, 5, null);
       assertNotNull(list);
     }

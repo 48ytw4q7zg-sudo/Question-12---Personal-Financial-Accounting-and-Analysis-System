@@ -291,7 +291,10 @@ async function handleDeactivate(row) {
     loadBills()
   } catch (e) {
     if (e === 'cancel') {
-      // 用户取消，静默处理
+      // 用户取消，无需处理
+    } else {
+      // 其他错误由 axios 拦截器统一处理，此处记录日志便于排查
+      console.error('停用账单失败:', e)
     }
   } finally {
     deactivatingId.value = null
@@ -311,7 +314,10 @@ async function handleGenerate(row) {
     loadBills()
   } catch (e) {
     if (e === 'cancel') {
-      // 用户取消，静默处理
+      // 用户取消，无需处理
+    } else {
+      // 其他错误由 axios 拦截器统一处理，此处记录日志便于排查
+      console.error('生成账单失败:', e)
     }
   } finally {
     generatingId.value = null

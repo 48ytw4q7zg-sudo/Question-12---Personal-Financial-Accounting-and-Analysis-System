@@ -79,11 +79,17 @@ router.beforeEach(async (to, from, next) => {
   // JWT 过期预检：解码 payload 的 exp 字段，提前发现过期（避免先进入页面再被 401 跳走）
   if (token) {
     try {
-      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+      const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+      const decoded = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))
+      const payload = JSON.parse(decoded)
       if (payload.exp && payload.exp * 1000 < Date.now()) {
         tokenExpired = true
       }
-    } catch { /* token 格式异常视为过期 */ tokenExpired = true }
+    } catch {
+      // token 格式异常或被篡改 → 视为过期，记录日志便于安全排查
+      console.warn('JWT token 格式异常或被篡改，视为过期')
+      tokenExpired = true
+    }
   }
 
   // 检查当前路由或其任意父路由是否要求登录（修复子路由 meta 不继承问题）

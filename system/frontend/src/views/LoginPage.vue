@@ -142,15 +142,13 @@ async function handleLogin() {
   try {
     // → 调用 api/user.js 的 login()
     const data = await login(loginForm)
-    // 登录成功：存储 JWT token 到 localStorage（→ api/request.js 请求拦截器读取此 token）
-    localStorage.setItem('token', data.token)
-    // → 调用 stores/user.js 的 setUser()：存储用户信息到 Pinia 状态
-    userStore.setUser({ userId: data.userId, username: data.username || loginForm.username, role: data.role || 0 })
+    // → 调用 stores/user.js 的 setUser()：集中存储 token + 用户信息（token 写入由 store 统一管理）
+    userStore.setUser({ userId: data.userId, username: data.username || loginForm.username, role: data.role || 0, token: data.token })
     ElMessage.success('登录成功')
     // 跳转：优先跳 redirect 参数指定的页面（路由守卫带过来的），否则跳首页
-    // 安全校验：防止开放重定向攻击，只允许站内相对路径（以 / 开头且不含 ://）
+    // 安全校验：防止开放重定向攻击，只允许站内相对路径（以 / 开头且不含 :// 和 //）
     const redirect = route.query.redirect || '/'
-    const safeRedirect = (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.includes('://')) ? redirect : '/'
+    const safeRedirect = (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.includes('://') && !redirect.startsWith('//')) ? redirect : '/'
     router.push(safeRedirect)
   } finally {
     loginLoading.value = false

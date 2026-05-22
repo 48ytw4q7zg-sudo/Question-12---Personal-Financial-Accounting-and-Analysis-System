@@ -117,7 +117,9 @@ function handleLogout() {
  *   <768px   → isMobile=true，隐藏桌面侧栏，启用抽屉
  *   768-991px → 自动折叠侧栏为 64px
  *   ≥992px   → 展开侧栏为 200px
+ * 使用 debounce(200ms) 防抖，避免 resize 高频触发导致性能抖动
  */
+let resizeTimer = null // 防抖计时器引用
 function handleResize() {
   const w = window.innerWidth
   isMobile.value = w < 768
@@ -128,15 +130,22 @@ function handleResize() {
   }
 }
 
-// 组件挂载时初始化响应式状态 + 监听窗口 resize
+// 防抖包装的 resize 处理函数（200ms 防抖，避免 resize 事件高频触发）
+function debouncedResize() {
+  if (resizeTimer) clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(handleResize, 200)
+}
+
+// 组件挂载时初始化响应式状态 + 监听窗口 resize（使用防抖版本）
 onMounted(() => {
   handleResize()
-  window.addEventListener('resize', handleResize)
+  window.addEventListener('resize', debouncedResize)
 })
 
-// 组件卸载时移除 resize 监听，防止内存泄漏
+// 组件卸载时移除 resize 监听 + 清除防抖计时器，防止内存泄漏
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
+  window.removeEventListener('resize', debouncedResize)
+  if (resizeTimer) clearTimeout(resizeTimer)
 })
 </script>
 

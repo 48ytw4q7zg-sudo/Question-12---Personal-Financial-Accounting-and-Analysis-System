@@ -236,10 +236,10 @@ class OrthogonalAndUserScenarioTest {
     void journey_queries() {
       // Balance
       when(accountMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(cashAcct, bankAcct));
-      when(transactionMapper.selectAccountIncomeBatch(anyLong(), anyList())).thenReturn(
-          List.of(Map.of("accountId", 2L, "totalIncome", new BigDecimal("8000.00"))));
-      when(transactionMapper.selectAccountExpenseBatch(anyLong(), anyList())).thenReturn(
-          List.of(Map.of("accountId", 1L, "totalExpense", new BigDecimal("45.00"))));
+      AccountBatchIncomeDTO incomeDTO = new AccountBatchIncomeDTO(); incomeDTO.setAccountId(2L); incomeDTO.setTotalIncome(new BigDecimal("8000.00"));
+      AccountBatchExpenseDTO expenseDTO = new AccountBatchExpenseDTO(); expenseDTO.setAccountId(1L); expenseDTO.setTotalExpense(new BigDecimal("45.00"));
+      when(transactionMapper.selectAccountIncomeBatch(anyLong(), anyList())).thenReturn(List.of(incomeDTO));
+      when(transactionMapper.selectAccountExpenseBatch(anyLong(), anyList())).thenReturn(List.of(expenseDTO));
       List<AccountBalanceDTO> balances = accountService.getBalance(userId);
       assertEquals(2, balances.size());
 
@@ -249,7 +249,7 @@ class OrthogonalAndUserScenarioTest {
       summary.setTotalIncome(new BigDecimal("8000.00"));
       summary.setTotalExpense(new BigDecimal("45.00"));
       summary.setBalance(new BigDecimal("7955.00"));
-      when(transactionMapper.selectMonthlySummary(userId, 2026, 5)).thenReturn(summary);
+      when(transactionMapper.selectMonthlySummary(userId, "2026-05-01 00:00:00", "2026-06-01 00:00:00")).thenReturn(summary);
       MonthlySummaryDTO stats = statisticsService.getMonthlySummary(userId, 2026, 5);
       assertEquals(new BigDecimal("7955.00"), stats.getBalance());
 
@@ -260,7 +260,7 @@ class OrthogonalAndUserScenarioTest {
       when(categoryMapper.selectByIds(anySet())).thenReturn(List.of(foodCat));
       CategorySummaryDTO catSummary = new CategorySummaryDTO();
       catSummary.setCategoryId(1L); catSummary.setTotalAmount(new BigDecimal("45.00"));
-      when(transactionMapper.selectCategorySummary(userId, 2026, 5, 2)).thenReturn(List.of(catSummary));
+      when(transactionMapper.selectCategorySummary(userId, "2026-05-01 00:00:00", "2026-06-01 00:00:00", 2)).thenReturn(List.of(catSummary));
       List<BudgetProgressDTO> progress = budgetService.getProgress(userId, "2026", "5");
       assertEquals(1, progress.size());
       assertFalse(progress.get(0).isOverspent());
@@ -309,16 +309,14 @@ class OrthogonalAndUserScenarioTest {
 
       // Simulate year of transactions via batch queries
       when(accountMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(a1, a2, a3));
-      when(transactionMapper.selectAccountIncomeBatch(eq(userId), anyList())).thenReturn(List.of(
-          Map.of("accountId", 1L, "totalIncome", new BigDecimal("5000.00")),
-          Map.of("accountId", 2L, "totalIncome", new BigDecimal("120000.00")),
-          Map.of("accountId", 3L, "totalIncome", new BigDecimal("8000.00"))
-      ));
-      when(transactionMapper.selectAccountExpenseBatch(eq(userId), anyList())).thenReturn(List.of(
-          Map.of("accountId", 1L, "totalExpense", new BigDecimal("4500.00")),
-          Map.of("accountId", 2L, "totalExpense", new BigDecimal("110000.00")),
-          Map.of("accountId", 3L, "totalExpense", new BigDecimal("7500.00"))
-      ));
+      AccountBatchIncomeDTO inc1 = new AccountBatchIncomeDTO(); inc1.setAccountId(1L); inc1.setTotalIncome(new BigDecimal("5000.00"));
+      AccountBatchIncomeDTO inc2 = new AccountBatchIncomeDTO(); inc2.setAccountId(2L); inc2.setTotalIncome(new BigDecimal("120000.00"));
+      AccountBatchIncomeDTO inc3 = new AccountBatchIncomeDTO(); inc3.setAccountId(3L); inc3.setTotalIncome(new BigDecimal("8000.00"));
+      AccountBatchExpenseDTO exp1 = new AccountBatchExpenseDTO(); exp1.setAccountId(1L); exp1.setTotalExpense(new BigDecimal("4500.00"));
+      AccountBatchExpenseDTO exp2 = new AccountBatchExpenseDTO(); exp2.setAccountId(2L); exp2.setTotalExpense(new BigDecimal("110000.00"));
+      AccountBatchExpenseDTO exp3 = new AccountBatchExpenseDTO(); exp3.setAccountId(3L); exp3.setTotalExpense(new BigDecimal("7500.00"));
+      when(transactionMapper.selectAccountIncomeBatch(eq(userId), anyList())).thenReturn(List.of(inc1, inc2, inc3));
+      when(transactionMapper.selectAccountExpenseBatch(eq(userId), anyList())).thenReturn(List.of(exp1, exp2, exp3));
 
       List<AccountBalanceDTO> balances = accountService.getBalance(userId);
       BigDecimal totalBalance = balances.stream()
@@ -457,7 +455,7 @@ class OrthogonalAndUserScenarioTest {
       Account from = new Account(); from.setId(1L); from.setUserId(1L); from.setName("A"); from.setInitialBalance(new BigDecimal("5000.00")); from.setStatus(1);
       Account to = new Account(); to.setId(2L); to.setUserId(1L); to.setName("B"); to.setInitialBalance(new BigDecimal("1000.00")); to.setStatus(1);
       when(accountMapper.selectByIdForUpdate(1L)).thenReturn(from);
-      when(entityValidator.validateAccount(1L, 2L)).thenReturn(to);
+      when(accountMapper.selectByIdForUpdate(2L)).thenReturn(to);
       Category transferCat = new Category(); transferCat.setId(13L); transferCat.setName("其他"); transferCat.setType(1);
       when(categoryMapper.selectOne(any(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class))).thenReturn(transferCat);
       when(transactionMapper.selectAccountIncome(anyLong(), anyLong())).thenReturn(BigDecimal.ZERO);

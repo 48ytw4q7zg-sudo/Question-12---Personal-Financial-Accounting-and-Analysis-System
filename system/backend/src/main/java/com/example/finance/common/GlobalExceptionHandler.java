@@ -153,15 +153,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * 权限拒绝 — Spring Security AccessDeniedException 或 ServletException 中权限相关子类
+   * 权限拒绝 — ServletException 中权限相关子类
    * 项目权限校验主要由 LoginInterceptor + AdminServiceImpl 抛 BusinessException(6004) 实现，
    * 此处理器覆盖框架层可能抛出的 403 异常场景 — HTTP 200 + Result.error(403, msg)
+   * 注: 项目仅引入 spring-security-crypto 子模块（不含 AccessDeniedException），故用异常类名判断替代
    */
   @ExceptionHandler(jakarta.servlet.ServletException.class)
   public ResponseEntity<Result<?>> handleServletException(jakarta.servlet.ServletException e) {
-    // 区分权限异常和其他 ServletException：权限异常返回 403，其他返回 500
-    if (e.getMessage() != null && (e.getMessage().contains("Access") || e.getMessage().contains("Forbidden") || e.getMessage().contains("权限"))) {
-      log.warn("权限异常: {}", e.getMessage());
+    // 基于异常类名判断权限（比字符串消息匹配更稳定，不依赖 locale）
+    String className = e.getClass().getSimpleName();
+    if (className.contains("AccessDenied") || className.contains("Forbidden")) {
+      log.warn("权限异常({}): {}", className, e.getMessage());
       return new ResponseEntity<>(Result.error(HTTP_FORBIDDEN, "无权限访问"), HttpStatus.OK);
     }
     log.warn("Servlet 请求处理异常: {}", e.getMessage());

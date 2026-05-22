@@ -119,7 +119,8 @@ async function handleSubmit() {
     // 转账后刷新账户列表（余额可能已变化）
     await loadAccounts()
   } catch (e) {
-    // axios 拦截器已统一处理业务错误消息，此处不再重复显示
+    // axios 拦截器已统一处理业务错误消息（如余额不足、账户禁用等），此处仅记录非业务异常
+    if (e && e.message && !e.message.includes('业务')) console.error('转账异常:', e)
   } finally {
     submitting.value = false
   }

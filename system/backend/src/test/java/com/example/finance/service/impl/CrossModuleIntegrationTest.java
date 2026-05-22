@@ -104,10 +104,10 @@ class CrossModuleIntegrationTest {
 
       // 3. Verify balance (1000 + 0 - 200 = 800)
       when(accountMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(acct));
-      when(transactionMapper.selectAccountIncomeBatch(eq(1L), anyList()))
-          .thenReturn(List.of(Map.of("accountId", 1L, "totalIncome", BigDecimal.ZERO)));
-      when(transactionMapper.selectAccountExpenseBatch(eq(1L), anyList()))
-          .thenReturn(List.of(Map.of("accountId", 1L, "totalExpense", new BigDecimal("200.00"))));
+      AccountBatchIncomeDTO inc1 = new AccountBatchIncomeDTO(); inc1.setAccountId(1L); inc1.setTotalIncome(BigDecimal.ZERO);
+      when(transactionMapper.selectAccountIncomeBatch(eq(1L), anyList())).thenReturn(List.of(inc1));
+      AccountBatchExpenseDTO exp1 = new AccountBatchExpenseDTO(); exp1.setAccountId(1L); exp1.setTotalExpense(new BigDecimal("200.00"));
+      when(transactionMapper.selectAccountExpenseBatch(eq(1L), anyList())).thenReturn(List.of(exp1));
       List<AccountBalanceDTO> balances = accountService.getBalance(1L);
       assertEquals(new BigDecimal("800.00"), balances.get(0).getCurrentBalance());
     }
@@ -115,10 +115,10 @@ class CrossModuleIntegrationTest {
     @Test @DisplayName("链: 多笔交易→余额聚合正确(收入+支出混合)")
     void multipleTransactionsBalanceCorrect() {
       when(accountMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(acct));
-      when(transactionMapper.selectAccountIncomeBatch(eq(1L), anyList()))
-          .thenReturn(List.of(Map.of("accountId", 1L, "totalIncome", new BigDecimal("5000.00"))));
-      when(transactionMapper.selectAccountExpenseBatch(eq(1L), anyList()))
-          .thenReturn(List.of(Map.of("accountId", 1L, "totalExpense", new BigDecimal("3200.50"))));
+      AccountBatchIncomeDTO inc2 = new AccountBatchIncomeDTO(); inc2.setAccountId(1L); inc2.setTotalIncome(new BigDecimal("5000.00"));
+      when(transactionMapper.selectAccountIncomeBatch(eq(1L), anyList())).thenReturn(List.of(inc2));
+      AccountBatchExpenseDTO exp2 = new AccountBatchExpenseDTO(); exp2.setAccountId(1L); exp2.setTotalExpense(new BigDecimal("3200.50"));
+      when(transactionMapper.selectAccountExpenseBatch(eq(1L), anyList())).thenReturn(List.of(exp2));
       List<AccountBalanceDTO> balances = accountService.getBalance(1L);
       assertEquals(new BigDecimal("2799.50"), balances.get(0).getCurrentBalance());
     }
@@ -163,7 +163,7 @@ class CrossModuleIntegrationTest {
     @Test @DisplayName("链: 转账成功→两账户余额守恒(转出-支出+转入+收入=0)")
     void transfer_balanceConservation() {
       when(accountMapper.selectByIdForUpdate(1L)).thenReturn(fromAcct);
-      when(entityValidator.validateAccount(1L, 2L)).thenReturn(toAcct);
+      when(accountMapper.selectByIdForUpdate(2L)).thenReturn(toAcct);
       when(categoryMapper.selectOne(any(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class))).thenReturn(cat);
       when(transactionMapper.selectAccountIncome(eq(1L), eq(1L))).thenReturn(new BigDecimal("3000.00"));
       when(transactionMapper.selectAccountExpense(eq(1L), eq(1L))).thenReturn(new BigDecimal("1000.00"));
@@ -188,7 +188,7 @@ class CrossModuleIntegrationTest {
       summary.setTotalIncome(new BigDecimal("8000.00"));
       summary.setTotalExpense(new BigDecimal("2500.00"));
       summary.setBalance(new BigDecimal("5500.00"));
-      when(transactionMapper.selectMonthlySummary(1L, 2026, 5)).thenReturn(summary);
+      when(transactionMapper.selectMonthlySummary(1L, "2026-05-01 00:00:00", "2026-06-01 00:00:00")).thenReturn(summary);
       MonthlySummaryDTO result = statisticsService.getMonthlySummary(1L, 2026, 5);
       assertEquals(new BigDecimal("8000.00"), result.getTotalIncome());
       assertEquals(new BigDecimal("2500.00"), result.getTotalExpense());
@@ -218,7 +218,7 @@ class CrossModuleIntegrationTest {
 
       CategorySummaryDTO summary = new CategorySummaryDTO();
       summary.setCategoryId(1L); summary.setTotalAmount(new BigDecimal("800.00"));
-      when(transactionMapper.selectCategorySummary(1L, 2026, 5, 2))
+      when(transactionMapper.selectCategorySummary(1L, "2026-05-01 00:00:00", "2026-06-01 00:00:00", 2))
           .thenReturn(List.of(summary));
 
       List<BudgetProgressDTO> progress = budgetService.getProgress(1L, "2026", "5");
@@ -236,7 +236,7 @@ class CrossModuleIntegrationTest {
 
       CategorySummaryDTO summary = new CategorySummaryDTO();
       summary.setCategoryId(1L); summary.setTotalAmount(new BigDecimal("1200.00"));
-      when(transactionMapper.selectCategorySummary(1L, 2026, 5, 2))
+      when(transactionMapper.selectCategorySummary(1L, "2026-05-01 00:00:00", "2026-06-01 00:00:00", 2))
           .thenReturn(List.of(summary));
 
       List<BudgetProgressDTO> progress = budgetService.getProgress(1L, "2026", "5");
@@ -254,7 +254,7 @@ class CrossModuleIntegrationTest {
 
       CategorySummaryDTO s1 = new CategorySummaryDTO(); s1.setCategoryId(1L); s1.setTotalAmount(new BigDecimal("1200.00"));
       CategorySummaryDTO s2 = new CategorySummaryDTO(); s2.setCategoryId(2L); s2.setTotalAmount(new BigDecimal("300.00"));
-      when(transactionMapper.selectCategorySummary(1L, 2026, 5, 2))
+      when(transactionMapper.selectCategorySummary(1L, "2026-05-01 00:00:00", "2026-06-01 00:00:00", 2))
           .thenReturn(List.of(s1, s2));
 
       List<BudgetProgressDTO> alerts = budgetService.getAlert(1L, "2026", "5");
@@ -408,7 +408,7 @@ class CrossModuleIntegrationTest {
     @Test @DisplayName("场景: 空数据Dashboard→不崩溃(零收入零支出零结余)")
     void emptyDashboard_zeroValuesReturned() {
       StatisticsServiceImpl stats = new StatisticsServiceImpl(transactionMapper);
-      when(transactionMapper.selectMonthlySummary(1L, 2026, 5)).thenReturn(null);
+      when(transactionMapper.selectMonthlySummary(1L, "2026-05-01 00:00:00", "2026-06-01 00:00:00")).thenReturn(null);
       MonthlySummaryDTO s = stats.getMonthlySummary(1L, 2026, 5);
       assertEquals(BigDecimal.ZERO, s.getTotalIncome());
       assertEquals(BigDecimal.ZERO, s.getTotalExpense());

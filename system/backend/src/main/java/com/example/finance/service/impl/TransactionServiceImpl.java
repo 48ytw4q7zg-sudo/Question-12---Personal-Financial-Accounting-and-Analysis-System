@@ -276,12 +276,15 @@ public class TransactionServiceImpl implements TransactionService {
   @Override
   @Transactional
   public TransferDTO transfer(Long userId, TransferRequest request) {
-    // 校验转出和转入账户归属（转出账户加悲观锁防并发透支 TOCTOU）
+    // 校验转出和转入账户归属（两账户均加悲观锁防并发透支/禁用 TOCTOU）
     Account fromAccount = accountMapper.selectByIdForUpdate(request.getFromAccountId());
     if (fromAccount == null || !fromAccount.getUserId().equals(userId) || fromAccount.getStatus() != Status.ACTIVE.getValue()) {
       throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getCode(), ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getMsg());
     }
-    Account toAccount = entityValidator.validateAccount(userId, request.getToAccountId());
+    Account toAccount = accountMapper.selectByIdForUpdate(request.getToAccountId());
+    if (toAccount == null || !toAccount.getUserId().equals(userId) || toAccount.getStatus() != Status.ACTIVE.getValue()) {
+      throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getCode(), ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getMsg());
+    }
 
     // 校验不能转给自己
     if (request.getFromAccountId().equals(request.getToAccountId())) {

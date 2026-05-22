@@ -392,7 +392,8 @@ async function handleDelete(row) {
     loadTransactions()
   } catch (e) {
     if (e !== 'cancel') {
-      // axios 拦截器已统一处理业务错误
+      // axios 拦截器已统一处理业务错误，此处记录日志便于排查非业务异常
+      console.error('删除记录失败:', e)
     }
   } finally {
     deletingId.value = null

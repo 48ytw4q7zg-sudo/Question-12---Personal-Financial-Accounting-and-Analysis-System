@@ -297,7 +297,10 @@ async function handleDelete(row) {
     loadBalance()
   } catch (e) {
     if (e === 'cancel') {
-      // 用户取消删除，静默处理
+      // 用户取消删除，无需处理
+    } else {
+      // 其他错误（网络异常等）由 axios 拦截器统一处理，此处记录日志便于排查
+      console.error('删除账户失败:', e)
     }
   } finally {
     deletingId.value = null

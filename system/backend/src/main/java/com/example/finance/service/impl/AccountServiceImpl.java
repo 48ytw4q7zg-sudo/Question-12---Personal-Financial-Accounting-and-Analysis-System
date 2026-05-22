@@ -7,6 +7,8 @@ import com.example.finance.common.enums.Status;
 import com.example.finance.entity.Account;
 import com.example.finance.entity.RecurringBill;
 import com.example.finance.entity.Transaction;
+import com.example.finance.entity.dto.AccountBatchExpenseDTO;
+import com.example.finance.entity.dto.AccountBatchIncomeDTO;
 import com.example.finance.entity.dto.AccountBalanceDTO;
 import com.example.finance.entity.dto.AccountDTO;
 import com.example.finance.entity.dto.AccountRequest;
@@ -26,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 账户服务实现（PRD P0-2 账户 CRUD + P0-5 账户余额汇总）
@@ -80,6 +83,17 @@ public class AccountServiceImpl implements AccountService {
   @Override
   @Transactional
   public AccountDTO create(Long userId, AccountRequest request) {
+    // 校验同用户下账户名不重复（防止创建多个同名账户）
+    long sameNameCount = accountMapper.selectCount(
+        new LambdaQueryWrapper<Account>()
+            .eq(Account::getUserId, userId)
+            .eq(Account::getName, request.getName())
+            .eq(Account::getStatus, Status.ACTIVE.getValue())
+    );
+    if (sameNameCount > 0) {
+      throw new BusinessException(ErrorCode.ACCOUNT_NAME_EMPTY.getCode(), "账户名「" + request.getName() + "」已存在");
+    }
+
     Account account = new Account();
     account.setUserId(userId);
     account.setName(request.getName());
@@ -178,28 +192,25 @@ public class AccountServiceImpl implements AccountService {
             .eq(Account::getStatus, Status.ACTIVE.getValue())
     );
 
-    // R-05-issue-5: 已修复 - 批量查询消除2N，改为2次DB(GROUP BY) + Map索引
+    // R-05-issue-5: 已修复 - 批量查询消除2N，改为2次DB(GROUP BY) + 类型化DTO索引
     List<Long> accountIds = accounts.stream().map(Account::getId).toList();
 
-    // 批量查询所有账户的收入和支出（各1次DB查询 · N+1消除）
-    List<Map<String, Object>> incomeRows = accountIds.isEmpty() ? List.of()
+    // 批量查询所有账户的收入和支出（各1次DB查询 · N+1消除 · 使用类型化DTO替代Map<String,Object>）
+    List<AccountBatchIncomeDTO> incomeRows = accountIds.isEmpty() ? List.of()
         : transactionMapper.selectAccountIncomeBatch(userId, accountIds);
-    List<Map<String, Object>> expenseRows = accountIds.isEmpty() ? List.of()
+    List<AccountBatchExpenseDTO> expenseRows = accountIds.isEmpty() ? List.of()
         : transactionMapper.selectAccountExpenseBatch(userId, accountIds);
 
-    Map<Long, BigDecimal> incomeMap = new java.util.HashMap<>();
-    for (Map<String, Object> row : incomeRows) {
-      incomeMap.put(((Number) row.get("accountId")).longValue(), (BigDecimal) row.get("totalIncome"));
-    }
-    Map<Long, BigDecimal> expenseMap = new java.util.HashMap<>();
-    for (Map<String, Object> row : expenseRows) {
-      expenseMap.put(((Number) row.get("accountId")).longValue(), (BigDecimal) row.get("totalExpense"));
-    }
+    // 类型化 DTO → Map<Long, BigDecimal> 转换（编译期类型安全，不再需要 Number 强转）
+    Map<Long, BigDecimal> incomeMap = incomeRows.stream()
+        .collect(Collectors.toMap(AccountBatchIncomeDTO::getAccountId, AccountBatchIncomeDTO::getTotalIncome));
+    Map<Long, BigDecimal> expenseMap = expenseRows.stream()
+        .collect(Collectors.toMap(AccountBatchExpenseDTO::getAccountId, AccountBatchExpenseDTO::getTotalExpense));
 
     // 提前一次性查询汇率数据，避免循环内逐账户重复查询
     // 异常保护：汇率服务失败时回退为CNY-only模式，不影响余额查询核心功能
     Map<String, BigDecimal> ratesInverseMap = new java.util.HashMap<>();
-    if (!accountIds.isEmpty() && exchangeRateService != null) {
+    if (!accountIds.isEmpty()) {
       try {
         ExchangeRateDTO ratesData = exchangeRateService.getExchangeRates();
         if (ratesData.getRatesInverse() != null) {

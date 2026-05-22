@@ -19,6 +19,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @RequiredArgsConstructor
 public class WebMvcConfig implements WebMvcConfigurer {
 
+  /** → LoginInterceptor：JWT 登录拦截器（校验 Authorization 头中的 Bearer token） */
   private final LoginInterceptor loginInterceptor;
 
   /**

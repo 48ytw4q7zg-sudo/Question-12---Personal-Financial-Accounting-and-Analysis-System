@@ -62,6 +62,7 @@ public class StatisticsServiceImpl implements StatisticsService {
    * <p>对应 PRD P1-2 GET /api/statistics/monthly。</p>
    * <p>统计指定月份的收入总额/支出总额/结余(收入-支出)。</p>
    * <p>无数据时返回零值, 不返回null。</p>
+   * <p>性能优化: 使用范围查询(startOfMonth &lt; time &lt; startOfNextMonth)替代 YEAR()/MONTH() 函数，利用 idx_user_date 索引。</p>
    *
    * @param userId 当前用户ID(从JWT token解析)
    * @param year 年份(如2026)
@@ -72,8 +73,16 @@ public class StatisticsServiceImpl implements StatisticsService {
   @Transactional(readOnly = true)
   public MonthlySummaryDTO getMonthlySummary(Long userId, int year, int month) {
     validateYearMonth(year, month);
-    MonthlySummaryDTO summary = transactionMapper.selectMonthlySummary(userId, year, month);
-    return zeroFillIfNull(summary, year, month);
+    String startOfMonth = String.format("%04d-%02d-01 00:00:00", year, month);
+    String startOfNextMonth = (month == 12)
+        ? String.format("%04d-01-01 00:00:00", year + 1)
+        : String.format("%04d-%02d-01 00:00:00", year, month + 1);
+    MonthlySummaryDTO summary = transactionMapper.selectMonthlySummary(userId, startOfMonth, startOfNextMonth);
+    summary = zeroFillIfNull(summary, year, month);
+    // 范围查询不传 year/month 到 SQL，需手动设置
+    summary.setYear(year);
+    summary.setMonth(month);
+    return summary;
   }
 
   /**
@@ -81,6 +90,7 @@ public class StatisticsServiceImpl implements StatisticsService {
    *
    * <p>对应 PRD P1-2 GET /api/statistics/yearly。</p>
    * <p>统计指定年份的收入总额/支出总额/结余。</p>
+   * <p>性能优化: 使用范围查询(startOfYear &lt; time &lt; startOfNextYear)替代 YEAR() 函数，利用 idx_user_date 索引。</p>
    *
    * @param userId 当前用户ID(从JWT token解析)
    * @param year 年份(如2026)
@@ -90,8 +100,12 @@ public class StatisticsServiceImpl implements StatisticsService {
   @Transactional(readOnly = true)
   public MonthlySummaryDTO getYearlySummary(Long userId, int year) {
     validateYearMonth(year, null);
-    MonthlySummaryDTO summary = transactionMapper.selectYearlySummary(userId, year);
-    return zeroFillIfNull(summary, year, null);
+    String startOfYear = String.format("%04d-01-01 00:00:00", year);
+    String startOfNextYear = String.format("%04d-01-01 00:00:00", year + 1);
+    MonthlySummaryDTO summary = transactionMapper.selectYearlySummary(userId, startOfYear, startOfNextYear);
+    summary = zeroFillIfNull(summary, year, null);
+    summary.setYear(year);
+    return summary;
   }
 
   /** 空值填充：聚合查询无匹配行时返回零值 DTO，避免前端 null 处理 */
@@ -112,6 +126,7 @@ public class StatisticsServiceImpl implements StatisticsService {
    *
    * <p>对应 PRD P1-6(ECharts饼图) + P0-6(分类浏览页本月消费)。</p>
    * <p>type参数: 1=收入汇总, 2=支出汇总, null=全部。</p>
+   * <p>性能优化: 使用范围查询替代 YEAR()/MONTH()，利用 idx_user_date 索引。</p>
    *
    * @param userId 当前用户ID(从JWT token解析)
    * @param year 年份
@@ -123,7 +138,11 @@ public class StatisticsServiceImpl implements StatisticsService {
   @Transactional(readOnly = true)
   public List<CategorySummaryDTO> getCategorySummary(Long userId, int year, int month, Integer type) {
     validateYearMonth(year, month);
-    List<CategorySummaryDTO> result = transactionMapper.selectCategorySummary(userId, year, month, type);
+    String startOfMonth = String.format("%04d-%02d-01 00:00:00", year, month);
+    String startOfNextMonth = (month == 12)
+        ? String.format("%04d-01-01 00:00:00", year + 1)
+        : String.format("%04d-%02d-01 00:00:00", year, month + 1);
+    List<CategorySummaryDTO> result = transactionMapper.selectCategorySummary(userId, startOfMonth, startOfNextMonth, type);
     // null保护: Mapper返回null时(无数据), 返回空列表而非null, 防止前端NPE
     return result != null ? result : List.of();
   }
@@ -134,6 +153,7 @@ public class StatisticsServiceImpl implements StatisticsService {
    * <p>对应 PRD P2-1 GET /api/statistics/trend。</p>
    * <p>返回指定年份12个月的收入/支出数据, 用于ECharts折线图。</p>
    * <p>无数据月份返回totalIncome=0/totalExpense=0。</p>
+   * <p>性能优化: 使用范围查询替代 YEAR()，利用 idx_user_date 索引。</p>
    *
    * @param userId 当前用户ID(从JWT token解析)
    * @param year 年份(如2026)
@@ -143,7 +163,9 @@ public class StatisticsServiceImpl implements StatisticsService {
   @Transactional(readOnly = true)
   public List<MonthlyTrendDTO> getTrend(Long userId, int year) {
     validateYearMonth(year, null);
-    List<MonthlyTrendDTO> result = transactionMapper.selectTrend(userId, year);
+    String startOfYear = String.format("%04d-01-01 00:00:00", year);
+    String startOfNextYear = String.format("%04d-01-01 00:00:00", year + 1);
+    List<MonthlyTrendDTO> result = transactionMapper.selectTrend(userId, startOfYear, startOfNextYear);
     // null保护: Mapper返回null时(无数据), 返回空列表而非null, 防止前端NPE
     return result != null ? result : List.of();
   }

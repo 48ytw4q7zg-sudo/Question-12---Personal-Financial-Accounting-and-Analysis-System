@@ -9,6 +9,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '../router'
+import { useUserStore } from '../stores/user'
 
 // 创建 axios 实例，统一配置 baseURL 和超时时间（支持环境变量覆盖）
 const request = axios.create({
@@ -50,10 +51,12 @@ request.interceptors.response.use(res => {
     // 成功 → 返回 data，所有 API 函数拿到的返回值就是 data 部分
     return data
   } else if (code === 401) {
-    // token 过期或未登录 → 清除本地 token，跳转登录页（去重防止并发 401 重复跳转）
+    // token 过期或未登录 → 跳转登录页（去重防止并发 401 重复跳转）
     if (!isRedirecting) {
       isRedirecting = true
-      localStorage.removeItem('token')
+      // 清除 token + Pinia store 状态：统一清除 localStorage 和 Pinia store，避免 isLoggedIn 保持 true
+      const userStore = useUserStore()
+      userStore.clearUser()
       ElMessage.error('登录已过期，请重新登录')
       // 防止 redirect 到 /login 造成循环跳转
       const currentPath = router.currentRoute.value.fullPath

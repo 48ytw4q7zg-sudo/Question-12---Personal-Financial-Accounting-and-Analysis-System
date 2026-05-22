@@ -29,7 +29,7 @@ class StatisticsServiceImplTest {
   @Test
   @DisplayName("月度汇总 - 无数据时返回零值而非null")
   void monthlySummary_nullReturnsZero() {
-    when(transactionMapper.selectMonthlySummary(1L, 2026, 5)).thenReturn(null);
+    when(transactionMapper.selectMonthlySummary(1L, "2026-05-01 00:00:00", "2026-06-01 00:00:00")).thenReturn(null);
 
     MonthlySummaryDTO result = statisticsService.getMonthlySummary(1L, 2026, 5);
     assertNotNull(result);
@@ -47,21 +47,24 @@ class StatisticsServiceImplTest {
     dto.setTotalIncome(new BigDecimal("8000.00"));
     dto.setTotalExpense(new BigDecimal("2670.00"));
     dto.setBalance(new BigDecimal("5330.00"));
-    when(transactionMapper.selectMonthlySummary(1L, 2026, 5)).thenReturn(dto);
+    when(transactionMapper.selectMonthlySummary(1L, "2026-05-01 00:00:00", "2026-06-01 00:00:00")).thenReturn(dto);
 
     MonthlySummaryDTO result = statisticsService.getMonthlySummary(1L, 2026, 5);
     assertEquals(new BigDecimal("8000.00"), result.getTotalIncome());
     assertEquals(5330.00, result.getBalance().doubleValue(), 0.01);
+    assertEquals(2026, result.getYear());
+    assertEquals(5, result.getMonth());
   }
 
   @Test
   @DisplayName("年度汇总 - 无数据时返回零值")
   void yearlySummary_nullReturnsZero() {
-    when(transactionMapper.selectYearlySummary(1L, 2026)).thenReturn(null);
+    when(transactionMapper.selectYearlySummary(1L, "2026-01-01 00:00:00", "2027-01-01 00:00:00")).thenReturn(null);
 
     MonthlySummaryDTO result = statisticsService.getYearlySummary(1L, 2026);
     assertNotNull(result);
     assertEquals(BigDecimal.ZERO, result.getBalance());
+    assertEquals(2026, result.getYear());
   }
 
   @Test
@@ -73,7 +76,7 @@ class StatisticsServiceImplTest {
     dto.setType(2);
     dto.setTotalAmount(new BigDecimal("500.00"));
     dto.setTransactionCount(10L);
-    when(transactionMapper.selectCategorySummary(1L, 2026, 5, 2)).thenReturn(List.of(dto));
+    when(transactionMapper.selectCategorySummary(1L, "2026-05-01 00:00:00", "2026-06-01 00:00:00", 2)).thenReturn(List.of(dto));
 
     List<CategorySummaryDTO> result = statisticsService.getCategorySummary(1L, 2026, 5, 2);
     assertEquals(1, result.size());
@@ -85,7 +88,7 @@ class StatisticsServiceImplTest {
   @Test
   @DisplayName("分类汇总 - 空数据返回空列表")
   void categorySummary_emptyReturnsEmptyList() {
-    when(transactionMapper.selectCategorySummary(1L, 2026, 5, null)).thenReturn(List.of());
+    when(transactionMapper.selectCategorySummary(1L, "2026-05-01 00:00:00", "2026-06-01 00:00:00", null)).thenReturn(List.of());
 
     List<CategorySummaryDTO> result = statisticsService.getCategorySummary(1L, 2026, 5, null);
     assertNotNull(result);
@@ -99,7 +102,7 @@ class StatisticsServiceImplTest {
     dto.setMonth("2026-05");
     dto.setTotalIncome(new BigDecimal("8000.00"));
     dto.setTotalExpense(new BigDecimal("3000.00"));
-    when(transactionMapper.selectTrend(1L, 2026)).thenReturn(List.of(dto));
+    when(transactionMapper.selectTrend(1L, "2026-01-01 00:00:00", "2027-01-01 00:00:00")).thenReturn(List.of(dto));
 
     List<MonthlyTrendDTO> result = statisticsService.getTrend(1L, 2026);
     assertEquals(1, result.size());
@@ -111,10 +114,30 @@ class StatisticsServiceImplTest {
   @Test
   @DisplayName("趋势查询 - 空数据返回空列表")
   void trend_emptyReturnsEmptyList() {
-    when(transactionMapper.selectTrend(1L, 2026)).thenReturn(List.of());
+    when(transactionMapper.selectTrend(1L, "2026-01-01 00:00:00", "2027-01-01 00:00:00")).thenReturn(List.of());
 
     List<MonthlyTrendDTO> result = statisticsService.getTrend(1L, 2026);
     assertNotNull(result);
     assertTrue(result.isEmpty());
+  }
+
+  @Test
+  @DisplayName("月度汇总 - 12月边界正确跨越到次年1月")
+  void monthlySummary_decemberBoundary() {
+    when(transactionMapper.selectMonthlySummary(1L, "2026-12-01 00:00:00", "2027-01-01 00:00:00")).thenReturn(null);
+
+    MonthlySummaryDTO result = statisticsService.getMonthlySummary(1L, 2026, 12);
+    assertNotNull(result);
+    assertEquals(2026, result.getYear());
+    assertEquals(12, result.getMonth());
+  }
+
+  @Test
+  @DisplayName("参数校验 - 年份超出范围抛异常")
+  void validateYearMonth_outOfRange() {
+    assertThrows(com.example.finance.common.BusinessException.class,
+        () -> statisticsService.getMonthlySummary(1L, 1999, 5));
+    assertThrows(com.example.finance.common.BusinessException.class,
+        () -> statisticsService.getMonthlySummary(1L, 2101, 5));
   }
 }

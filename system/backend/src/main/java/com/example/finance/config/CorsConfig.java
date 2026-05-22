@@ -10,6 +10,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * CORS 跨域配置（OWASP A01 安全加固 · 区分开发/生产环境）
@@ -28,9 +29,9 @@ public class CorsConfig {
   /** CORS 预检请求缓存时间（秒） */
   private static final long CORS_PREFLIGHT_CACHE_SECONDS = 3600L;
   /** CORS 允许的 HTTP 方法 */
-  private static final java.util.List<String> ALLOWED_METHODS = Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS");
+  private static final List<String> ALLOWED_METHODS = Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS");
   /** CORS 允许的请求头 */
-  private static final java.util.List<String> ALLOWED_HEADERS = Arrays.asList("Authorization", "Content-Type", "Accept");
+  private static final List<String> ALLOWED_HEADERS = Arrays.asList("Authorization", "Content-Type", "Accept");
 
   // OWASP A01: 开发默认 localhost, 生产必须通过 CORS_ALLOWED_ORIGINS 环境变量限定
   @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:5174}")

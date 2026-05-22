@@ -1,6 +1,8 @@
 package com.example.finance.interceptor;
 
+import com.example.finance.common.BusinessException;
 import com.example.finance.common.Result;
+import com.example.finance.common.enums.UserRole;
 import com.example.finance.util.JwtUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -65,7 +67,7 @@ public class LoginInterceptor implements HandlerInterceptor {
 
     // 将 userId + role 存入请求属性，供 Controller 使用
     request.setAttribute("userId", payload.getUserId());
-    request.setAttribute("role", payload.getRole() != null ? payload.getRole() : com.example.finance.common.enums.UserRole.NORMAL.getValue());
+    request.setAttribute("role", payload.getRole() != null ? payload.getRole() : UserRole.NORMAL.getValue());
     return true;
   }
 
@@ -76,7 +78,7 @@ public class LoginInterceptor implements HandlerInterceptor {
   public static Long getUserId(HttpServletRequest request) {
     Long userId = (Long) request.getAttribute("userId");
     if (userId == null) {
-      throw new com.example.finance.common.BusinessException(
+      throw new BusinessException(
           CODE_UNAUTHORIZED, "未登录或 token 已过期");
     }
     return userId;

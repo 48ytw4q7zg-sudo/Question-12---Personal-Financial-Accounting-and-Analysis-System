@@ -116,7 +116,7 @@ class BudgetSchedulerTest {
     Budget budget = createBudget(1L, 1L, 1L, "2026-05", new BigDecimal("10000.00"));
     CategorySummaryDTO summary = createSummary(1L, new BigDecimal("100.00")); // 1%
 
-    when(transactionMapper.selectCategorySummary(anyLong(), anyInt(), anyInt(), eq(2)))
+    when(transactionMapper.selectCategorySummary(anyLong(), anyString(), anyString(), eq(2)))
         .thenReturn(List.of(summary));
 
     LocalDateTime now = LocalDateTime.of(2026, 5, 5, 2, 0);
@@ -135,7 +135,7 @@ class BudgetSchedulerTest {
     Budget budget = createBudget(1L, 1L, 1L, "2026-05", new BigDecimal("1000.00"));
     CategorySummaryDTO summary = createSummary(1L, new BigDecimal("1200.00")); // 120%
 
-    when(transactionMapper.selectCategorySummary(anyLong(), anyInt(), anyInt(), eq(2)))
+    when(transactionMapper.selectCategorySummary(anyLong(), anyString(), anyString(), eq(2)))
         .thenReturn(List.of(summary));
 
     LocalDateTime now = LocalDateTime.of(2026, 5, 5, 2, 0);
@@ -159,7 +159,7 @@ class BudgetSchedulerTest {
     Budget budget = createBudget(1L, 1L, 1L, "2026-05", new BigDecimal("1000.00"));
     CategorySummaryDTO summary = createSummary(1L, new BigDecimal("850.00")); // 85%
 
-    when(transactionMapper.selectCategorySummary(anyLong(), anyInt(), anyInt(), eq(2)))
+    when(transactionMapper.selectCategorySummary(anyLong(), anyString(), anyString(), eq(2)))
         .thenReturn(List.of(summary));
 
     LocalDateTime now = LocalDateTime.of(2026, 5, 5, 2, 0);
@@ -181,7 +181,7 @@ class BudgetSchedulerTest {
     Budget budget = createBudget(1L, 1L, 1L, "2026-05", new BigDecimal("1000.00"));
     CategorySummaryDTO summary = createSummary(1L, new BigDecimal("300.00"));
 
-    when(transactionMapper.selectCategorySummary(anyLong(), anyInt(), anyInt(), eq(2)))
+    when(transactionMapper.selectCategorySummary(anyLong(), anyString(), anyString(), eq(2)))
         .thenReturn(List.of(summary));
 
     LocalDateTime now = LocalDateTime.of(2026, 5, 5, 2, 0);
@@ -205,7 +205,7 @@ class BudgetSchedulerTest {
     Budget budget = createBudget(1L, 2L, 3L, "2026-05", new BigDecimal("500.00"));
     CategorySummaryDTO summary = createSummary(3L, new BigDecimal("600.00")); // 超支
 
-    when(transactionMapper.selectCategorySummary(anyLong(), anyInt(), anyInt(), eq(2)))
+    when(transactionMapper.selectCategorySummary(anyLong(), anyString(), anyString(), eq(2)))
         .thenReturn(List.of(summary));
 
     LocalDateTime now = LocalDateTime.of(2026, 5, 5, 2, 0);
@@ -233,7 +233,7 @@ class BudgetSchedulerTest {
     Budget budget = createBudget(1L, 1L, 1L, "2026-05", new BigDecimal("1000.00"));
     CategorySummaryDTO summary = createSummary(1L, new BigDecimal("500.00"));
 
-    when(transactionMapper.selectCategorySummary(anyLong(), anyInt(), anyInt(), eq(2)))
+    when(transactionMapper.selectCategorySummary(anyLong(), anyString(), anyString(), eq(2)))
         .thenReturn(List.of(summary));
 
     LocalDateTime now = LocalDateTime.of(2026, 5, 5, 2, 0);
@@ -256,7 +256,7 @@ class BudgetSchedulerTest {
   void noExpenseForCategory_normal() {
     Budget budget = createBudget(1L, 1L, 1L, "2026-05", new BigDecimal("1000.00"));
 
-    when(transactionMapper.selectCategorySummary(anyLong(), anyInt(), anyInt(), eq(2)))
+    when(transactionMapper.selectCategorySummary(anyLong(), anyString(), anyString(), eq(2)))
         .thenReturn(Collections.emptyList());
 
     LocalDateTime now = LocalDateTime.of(2026, 5, 5, 2, 0);
@@ -278,7 +278,7 @@ class BudgetSchedulerTest {
     Budget budget = createBudget(1L, 1L, 1L, "2026-05", new BigDecimal("0.00"));
     CategorySummaryDTO summary = createSummary(1L, new BigDecimal("100.00"));
 
-    when(transactionMapper.selectCategorySummary(anyLong(), anyInt(), anyInt(), eq(2)))
+    when(transactionMapper.selectCategorySummary(anyLong(), anyString(), anyString(), eq(2)))
         .thenReturn(List.of(summary));
 
     LocalDateTime now = LocalDateTime.of(2026, 5, 5, 2, 0);

@@ -144,7 +144,7 @@ class TransactionServiceImplTest {
   @DisplayName("转账失败 - 不能转给自己")
   void transfer_sameAccount() {
     when(accountMapper.selectByIdForUpdate(1L)).thenReturn(testAccount);
-    when(entityValidator.validateAccount(1L, 1L)).thenReturn(testAccount);
+    when(accountMapper.selectByIdForUpdate(1L)).thenReturn(testAccount);
 
     TransferRequest request = new TransferRequest();
     request.setFromAccountId(1L);
@@ -168,7 +168,7 @@ class TransactionServiceImplTest {
     toAccount.setStatus(1);
 
     when(accountMapper.selectByIdForUpdate(1L)).thenReturn(fromAccount);
-    when(entityValidator.validateAccount(1L, 2L)).thenReturn(toAccount);
+    when(accountMapper.selectByIdForUpdate(2L)).thenReturn(toAccount);
     // 账户当前余额 = 5000 + 0 - 0 = 5000，要转 10000 不够
     when(transactionMapper.selectAccountIncome(eq(1L), eq(1L))).thenReturn(BigDecimal.ZERO);
     when(transactionMapper.selectAccountExpense(eq(1L), eq(1L))).thenReturn(BigDecimal.ZERO);

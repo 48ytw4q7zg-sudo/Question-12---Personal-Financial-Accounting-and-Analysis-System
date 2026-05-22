@@ -178,7 +178,8 @@ async function handleImport() {
     importResult.value = data
     ElMessage.success('导入完成')
   } catch (e) {
-    // axios 拦截器已统一处理业务错误消息，此处不再重复显示
+    // axios 拦截器已统一处理业务错误消息（如文件超限、格式错误等），此处仅记录非业务异常
+    if (e && e.message && !e.message.includes('业务')) console.error('CSV导入异常:', e)
   } finally {
     importing.value = false
   }

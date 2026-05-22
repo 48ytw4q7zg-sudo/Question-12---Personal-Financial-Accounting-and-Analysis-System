@@ -279,7 +279,10 @@ async function handleDeleteBudget(row) {
     loadData()
   } catch (e) {
     if (e === 'cancel') {
-      // 用户取消，静默处理
+      // 用户取消，无需处理
+    } else {
+      // 其他错误由 axios 拦截器统一处理，此处记录日志便于排查
+      console.error('删除预算失败:', e)
     }
   } finally {
     deletingId.value = null

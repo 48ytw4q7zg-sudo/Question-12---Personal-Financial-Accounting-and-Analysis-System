@@ -174,7 +174,7 @@ public class BudgetServiceImpl implements BudgetService {
                 .eq(Budget::getCategoryId, request.getCategoryId())
                 .eq(Budget::getMonth, request.getMonth())
         );
-        // null 保护：极端场景（记录被并发删除）重新插入
+        // null 保护：极端场景（记录被并发删除）重新插入（最多重试1次）
         if (budget == null) {
           budget = new Budget();
           budget.setUserId(userId);
@@ -183,7 +183,24 @@ public class BudgetServiceImpl implements BudgetService {
           budget.setCreateTime(LocalDateTime.now());
           budget.setUpdateTime(LocalDateTime.now());
           budget.setAmount(request.getAmount());
-          budgetMapper.insert(budget);
+          try {
+            budgetMapper.insert(budget);
+          } catch (DuplicateKeyException ex2) {
+            // 二次并发冲突：再次查询并更新
+            log.warn("预算二次并发插入冲突，再次回退更新: userId={}, categoryId={}, month={}", userId, request.getCategoryId(), request.getMonth());
+            budget = budgetMapper.selectOne(
+                new LambdaQueryWrapper<Budget>()
+                    .eq(Budget::getUserId, userId)
+                    .eq(Budget::getCategoryId, request.getCategoryId())
+                    .eq(Budget::getMonth, request.getMonth())
+            );
+            if (budget == null) {
+              throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "预算保存失败，请重试");
+            }
+            budget.setAmount(request.getAmount());
+            budget.setUpdateTime(LocalDateTime.now());
+            budgetMapper.updateById(budget);
+          }
         } else {
           budget.setAmount(request.getAmount());
           budget.setUpdateTime(LocalDateTime.now());
@@ -259,8 +276,12 @@ public class BudgetServiceImpl implements BudgetService {
         : categoryMapper.selectByIds(categoryIds).stream()
             .collect(Collectors.toMap(Category::getId, Category::getName));
 
-    // R-05-issue-2: 已修复 - selectCategorySummary提到循环外消除N+1查询
-    List<CategorySummaryDTO> summaryList = transactionMapper.selectCategorySummary(userId, yearInt, monthInt, TransactionType.EXPENSE.getValue());
+    // R-05-issue-2: 已修复 - selectCategorySummary提到循环外消除N+1查询 · 范围查询利用 idx_user_date 索引
+    String startOfMonth = String.format("%04d-%02d-01 00:00:00", yearInt, monthInt);
+    String startOfNextMonth = (monthInt == 12)
+        ? String.format("%04d-01-01 00:00:00", yearInt + 1)
+        : String.format("%04d-%02d-01 00:00:00", yearInt, monthInt + 1);
+    List<CategorySummaryDTO> summaryList = transactionMapper.selectCategorySummary(userId, startOfMonth, startOfNextMonth, TransactionType.EXPENSE.getValue());
     Map<Long, BigDecimal> spentMap = summaryList.stream()
         .collect(Collectors.toMap(
             CategorySummaryDTO::getCategoryId,

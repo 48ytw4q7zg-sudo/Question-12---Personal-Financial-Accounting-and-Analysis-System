@@ -36,7 +36,10 @@ export const useUserStore = defineStore('user', () => {
     try {
       const token = localStorage.getItem('token')
       // JWT payload 是 base64url 编码的 JSON，解码提取 userId/username/role
-      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+      // 使用 Unicode 安全的 base64url 解码：atob 不支持 Unicode，需先转码再 decodeURIComponent
+      const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+      const decoded = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))
+      const payload = JSON.parse(decoded)
       userId.value = payload.userId || payload.sub || null
       username.value = payload.username || ''
       role.value = payload.role || 0
@@ -46,14 +49,17 @@ export const useUserStore = defineStore('user', () => {
   }
 
   /**
-   * 设置用户信息（登录成功后调用）
-   * 同时将 token 写入 localStorage，确保刷新后可从 JWT 恢复
-   * @param {Object} user - { userId, username, role }
+   * 设置用户信息并存储 token（登录成功后调用）
+   * token 操作集中在此处，LoginPage/request.js/router 不再直接操作 localStorage
+   * @param {Object} user - { userId, username, role, token }
    */
   function setUser(user) {
     userId.value = user.userId
     username.value = user.username
     role.value = user.role !== null && user.role !== undefined ? user.role : 0
+    if (user.token) {
+      localStorage.setItem('token', user.token)
+    }
     _tokenPresent.value = true
   }
 
