@@ -1,0 +1,4 @@
+provider: deepseek
+model: deepseek-v4-pro
+embedder: mock
+reasoning: auto

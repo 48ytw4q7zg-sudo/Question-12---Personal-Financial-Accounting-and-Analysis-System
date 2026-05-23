@@ -53,6 +53,9 @@
     ],
     "defaultMode": "acceptEdits"
   },
+  "enabledMcpjsonServers": [
+    "repowise"
+  ],
   "hooks": {
     "PostToolUse": [
       {
@@ -89,5 +92,6 @@
       "Bash(git pull gitee2 *)",
       "Bash(git pull origin *)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true
 }
