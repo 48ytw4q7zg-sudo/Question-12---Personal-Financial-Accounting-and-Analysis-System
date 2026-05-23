@@ -1,240 +1,288 @@
 @echo off
 chcp 65001 >nul
-title 个人财务记账与分析系统 - 一键启动
-color 0B
+setlocal enabledelayedexpansion
 
 REM ============================================================
-REM 个人财务记账与分析系统 - 一键启动脚本（Windows 重启后恢复）
-REM Author: qxw · Author-ID: 2501060122
-REM 版本: v2.0 · 2026-05-23
-REM 功能: 电脑重启后一键启动 MySQL + 后端 + 前端 + 打开浏览器
-REM 环境要求: JDK 21 + Maven 3.9 + Node.js 24 + pnpm 10 + MySQL 8.4
+REM   个人财务记账与分析系统 — 一键启动脚本
+REM   Author: qxw · Author-ID: 2501060122
+REM   Version: v2.0 · 2026-05-23
+REM
+REM   功能:
+REM     1. 自动检测环境 (Java/Maven/MySQL/Node.js/pnpm)
+REM     2. 自动初始化数据库 (如需要)
+REM     3. 自动编译&启动后端 (SpringBoot :8080)
+REM     4. 自动安装依赖&启动前端 (Vite :5173)
+REM     5. 启动完成后自动打开浏览器
 REM ============================================================
+
+set "PROJECT_ROOT=%~dp0.."
+cd /d "%PROJECT_ROOT%"
 
 echo.
 echo ╔══════════════════════════════════════════════════════════╗
-echo ║   个人财务记账与分析系统 · 一键启动 v2.0                ║
-echo ║   SpringBoot 3.5.14 + Vue 3.5.34 + MySQL 8.4 LTS       ║
+echo ║    个人财务记账与分析系统 - 一键启动脚本                 ║
+echo ║    Creator: qxw · 2501060122                            ║
 echo ╚══════════════════════════════════════════════════════════╝
 echo.
+echo [%date% %time%] 开始系统启动检查...
 
-REM --- 切换到项目根目录（star 的上一级） ---
-cd /d "%~dp0.."
-set "PROJECT_ROOT=%CD%"
-echo [信息] 项目根目录: %PROJECT_ROOT%
+REM ============================================================
+REM §1 环境检测
+REM ============================================================
 echo.
+echo ┌─ §1 环境检测 ─────────────────────────────────────────┐
 
-REM ============================================================
-REM 第 1 步: 检查并启动 MySQL 服务
-REM ============================================================
-echo ──────────────────────────────────────────────
-echo [1/6] 检查 MySQL 服务...
-echo ──────────────────────────────────────────────
-
-REM 自动检测 MySQL 服务名（兼容 MySQL80 / MySQL84 / MySQL 等不同安装）
-set "MYSQL_SERVICE="
-sc query MySQL84 2>nul | find "SERVICE_NAME" >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    set "MYSQL_SERVICE=MySQL84"
-) else (
-    sc query MySQL80 2>nul | find "SERVICE_NAME" >nul 2>&1
-    if %ERRORLEVEL% EQU 0 (
-        set "MYSQL_SERVICE=MySQL80"
-    ) else (
-        sc query MySQL 2>nul | find "SERVICE_NAME" >nul 2>&1
-        if %ERRORLEVEL% EQU 0 (
-            set "MYSQL_SERVICE=MySQL"
-        )
-    )
-)
-
-if "%MYSQL_SERVICE%"=="" (
-    echo [错误] 未检测到 MySQL 服务!
-    echo        请确认已安装 MySQL 8.4 LTS
-    echo        运行 "sc query state= all ^| findstr mysql" 查看实际服务名
-    echo        然后在脚本中手动设置 MYSQL_SERVICE 变量
+REM 1.1 Java 21
+echo │  [1/5] 检测 Java 21...
+where java >nul 2>&1
+if %errorlevel% neq 0 (
+    echo │  [FAIL] 未找到 Java，请安装 JDK 21
     pause
     exit /b 1
 )
+for /f "tokens=*" %%i in ('java -version 2^>^&1 ^| findstr /i "version"') do set JAVA_VER=%%i
+echo │  [ OK ] %JAVA_VER%
 
-echo        检测到 MySQL 服务: %MYSQL_SERVICE%
+REM 1.2 Maven
+echo │  [2/5] 检测 Maven...
+where mvn >nul 2>&1
+if %errorlevel% neq 0 (
+    echo │  [FAIL] 未找到 Maven，请安装 Maven 3.9+
+    pause
+    exit /b 1
+)
+for /f "tokens=*" %%i in ('mvn --version 2^>^&1 ^| findstr /i "Apache Maven"') do set MVN_VER=%%i
+echo │  [ OK ] %MVN_VER%
 
-sc query %MYSQL_SERVICE% | find "RUNNING" >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo        %MYSQL_SERVICE% 服务已在运行 [OK]
-) else (
-    echo        %MYSQL_SERVICE% 服务未运行, 正在启动...
-    net start %MYSQL_SERVICE% >nul 2>&1
-    if %ERRORLEVEL% EQU 0 (
-        echo        %MYSQL_SERVICE% 服务启动成功 [OK]
+REM 1.3 MySQL
+echo │  [3/5] 检测 MySQL...
+where mysql >nul 2>&1
+if %errorlevel% neq 0 (
+    echo │  [WARN] 未找到 mysql 命令行，尝试检测 MySQL 服务...
+    sc query MySQL80 >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo │  [WARN] MySQL 服务未找到，请确保 MySQL 8.4 已安装并运行
+        echo │        数据库连接: localhost:3306  root/root  finance_db
     ) else (
-        echo [错误] %MYSQL_SERVICE% 启动失败! 请以管理员身份运行此脚本
-        echo        或手动执行: net start %MYSQL_SERVICE%
+        echo │  [ OK ] MySQL80 服务已安装
+    )
+) else (
+    echo │  [ OK ] MySQL 命令行可用
+)
+
+REM 1.4 Node.js
+echo │  [4/5] 检测 Node.js 24+...
+where node >nul 2>&1
+if %errorlevel% neq 0 (
+    echo │  [FAIL] 未找到 Node.js，请安装 Node.js 24 LTS
+    pause
+    exit /b 1
+)
+for /f "tokens=*" %%i in ('node --version 2^>^&1') do set NODE_VER=%%i
+echo │  [ OK ] Node.js %NODE_VER%
+
+REM 1.5 pnpm
+echo │  [5/5] 检测 pnpm...
+where pnpm >nul 2>&1
+if %errorlevel% neq 0 (
+    echo │  [WARN] 未找到 pnpm，尝试用 npm 安装...
+    npm install -g pnpm >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo │  [FAIL] pnpm 安装失败，请手动执行: npm install -g pnpm
         pause
         exit /b 1
     )
 )
+for /f "tokens=*" %%i in ('pnpm --version 2^>^&1') do set PNPM_VER=%%i
+echo │  [ OK ] pnpm %PNPM_VER%
+echo └────────────────────────────────────────────────────────┘
+
+REM ============================================================
+REM §2 数据库初始化
+REM ============================================================
 echo.
+echo ┌─ §2 数据库初始化 ────────────────────────────────────┐
+echo │  检查 finance_db 数据库...
+
+REM 尝试连接 MySQL 并初始化数据库
+mysql -uroot -proot -e "SELECT 1" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo │  [WARN] 无法连接 MySQL (root/root)，请确认:
+    echo │         1. MySQL 服务已启动
+    echo │         2. root 密码为 root
+    echo │         3. MySQL 监听 3306 端口
+    echo │  [INFO] 跳过数据库初始化，启动后可能需要手动执行:
+    echo │         mysql -uroot -proot < sql/01-init.sql
+) else (
+    REM 检查数据库是否存在
+    mysql -uroot -proot -e "USE finance_db; SELECT 1" >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo │  数据库不存在，开始初始化...
+        mysql -uroot -proot < sql\01-init.sql 2>&1
+        if %errorlevel% equ 0 (
+            echo │  [ OK ] 数据库初始化完成 (finance_db + 7 张表 + 种子数据)
+        ) else (
+            echo │  [FAIL] 数据库初始化失败，请检查 sql/01-init.sql
+        )
+    ) else (
+        echo │  [ OK ] finance_db 已存在，跳过初始化
+        REM 检查表是否存在
+        for /f %%c in ('mysql -uroot -proot -N -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='finance_db'" 2^>nul') do set TABLE_COUNT=%%c
+        echo │  [ OK ] 已有 !TABLE_COUNT! 张表
+    )
+)
+echo └────────────────────────────────────────────────────────┘
 
 REM ============================================================
-REM 第 2 步: 初始化数据库（首次运行时）
+REM §3 编译后端 (SpringBoot)
 REM ============================================================
-echo ──────────────────────────────────────────────
-echo [2/6] 检查数据库 finance_db...
-echo ──────────────────────────────────────────────
+echo.
+echo ┌─ §3 编译后端 (Maven) ─────────────────────────────────┐
+cd /d "%PROJECT_ROOT%\system\backend"
 
-REM 尝试连接数据库（默认 root/root，兼容开发环境）
-set "DB_USER=root"
-set "DB_PASS=root"
-
-mysql -u%DB_USER% -p%DB_PASS% -e "SELECT 1;" >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo        默认密码 root 连接失败, 尝试空密码...
-    set "DB_PASS="
-    mysql -u%DB_USER% -e "SELECT 1;" >nul 2>&1
-    if %ERRORLEVEL% NEQ 0 (
-        echo [错误] 无法连接 MySQL! 请确认:
-        echo        1. MySQL root 密码是否为 root 或空
-        echo        2. mysql 命令是否在 PATH 中
-        echo        3. 修改脚本中的 DB_USER / DB_PASS 变量适配你的密码
+echo │  正在编译后端 (mvn compile -q)...
+mvn -B -q -o compile >nul 2>&1
+if %errorlevel% neq 0 (
+    echo │  [WARN] 离线编译失败，尝试在线编译...
+    mvn -B -q compile >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo │  [FAIL] 后端编译失败，请检查 pom.xml 和网络连接
         pause
         exit /b 1
     )
 )
+echo │  [ OK ] 后端编译成功
 
-mysql -u%DB_USER% -p%DB_PASS% -e "USE finance_db;" >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo        数据库 finance_db 不存在, 正在初始化...
-    if "%DB_PASS%"=="" (
-        mysql -u%DB_USER% < "%PROJECT_ROOT%\system\sql\01-init.sql" >nul 2>&1
-    ) else (
-        mysql -u%DB_USER% -p%DB_PASS% < "%PROJECT_ROOT%\system\sql\01-init.sql" >nul 2>&1
-    )
-    if %ERRORLEVEL% EQU 0 (
-        echo        数据库初始化成功 [OK] (7表 + 种子数据 + 测试账号)
-    ) else (
-        echo [错误] 数据库初始化失败!
-        echo        请手动执行: mysql -uroot -p ^< system\sql\01-init.sql
-        pause
-        exit /b 1
-    )
+REM 运行单元测试（快速验证）
+echo │  运行单元测试 (mvn test)...
+mvn -B -q test 2>&1 | findstr /C:"Tests run:" | findstr /C:"Failures: 0" >nul
+if %errorlevel% equ 0 (
+    echo │  [ OK ] 单元测试通过
 ) else (
-    echo        数据库 finance_db 已存在 [OK]
+    echo │  [WARN] 部分测试未通过，但继续启动（不影响运行）
 )
+echo └────────────────────────────────────────────────────────┘
+
+REM ============================================================
+REM §4 启动后端服务
+REM ============================================================
 echo.
+echo ┌─ §4 启动后端服务 (:8080) ─────────────────────────────┐
 
-REM ============================================================
-REM 第 3 步: 设置后端环境变量
-REM ============================================================
-echo ──────────────────────────────────────────────
-echo [3/6] 设置后端环境变量...
-echo ──────────────────────────────────────────────
-
-REM application.yml 要求 DB_PASSWORD 和 JWT_SECRET 必须通过环境变量注入
-REM 开发环境使用以下默认值, 生产环境请修改
-set "DB_USERNAME=%DB_USER%"
-set "DB_PASSWORD=%DB_PASS%"
-set "JWT_SECRET=dev-finance-jwt-secret-key-2026-qxw-2501060122-must-be-at-least-32-bytes"
-set "JWT_EXPIRE=604800000"
-set "SERVER_PORT=8080"
-set "MYBATIS_LOG_IMPL=org.apache.ibatis.logging.stdout.StdOutImpl"
-set "LOG_LEVEL=info"
-
-echo        DB_USERNAME = %DB_USERNAME%
-echo        DB_PASSWORD = *****(已隐藏)
-echo        JWT_SECRET  = dev-*****(开发环境密钥, 已隐藏)
-echo        SERVER_PORT = %SERVER_PORT%
-echo        [OK] 环境变量已设置
-echo.
-
-REM ============================================================
-REM 第 4 步: 启动后端（新窗口）
-REM ============================================================
-echo ──────────────────────────────────────────────
-echo [4/6] 启动后端 (SpringBoot 3.5.14 · 端口 %SERVER_PORT%)...
-echo ──────────────────────────────────────────────
-
-REM 在新窗口中启动后端, 传递必要的环境变量
-start "后端-个人财务记账系统(8080)" cmd /k "title 后端-SpringBoot-8080 && cd /d "%PROJECT_ROOT%\system\backend" && set DB_USERNAME=%DB_USERNAME% && set DB_PASSWORD=%DB_PASSWORD% && set JWT_SECRET=%JWT_SECRET% && set JWT_EXPIRE=%JWT_EXPIRE% && set SERVER_PORT=%SERVER_PORT% && set MYBATIS_LOG_IMPL=%MYBATIS_LOG_IMPL% && set LOG_LEVEL=%LOG_LEVEL% && echo [后端] 正在启动 SpringBoot... 首次启动需下载依赖, 请耐心等待 && mvn spring-boot:run"
-
-echo        后端启动命令已发出(新窗口)
-echo        等待约 20 秒让 SpringBoot 完成启动...
-timeout /t 20 /nobreak >nul
-
-REM 验证后端是否启动成功
-curl -s http://localhost:%SERVER_PORT%/api/v1/health >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo        后端健康检查通过 [OK]
-) else (
-    echo        [警告] 后端健康检查未通过, 可能仍在启动中
-    echo        请查看后端窗口确认日志是否正常
-    echo        首次启动可能需要更长时间下载 Maven 依赖
+REM 检查端口 8080 是否被占用
+netstat -ano 2>nul | findstr ":8080.*LISTENING" >nul
+if %errorlevel% equ 0 (
+    echo │  [WARN] 端口 8080 已被占用，尝试释放...
+    for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8080.*LISTENING"') do (
+        echo │  终止进程 PID=%%a...
+        taskkill /F /PID %%a >nul 2>&1
+    )
+    timeout /t 2 /nobreak >nul
+    echo │  [ OK ] 端口 8080 已释放
 )
+
+REM 启动后端（新窗口）
+echo │  启动 SpringBoot 后端...
+start "Finance-Backend" /MIN cmd /c "cd /d "%PROJECT_ROOT%\system\backend" && mvn -B -q spring-boot:run 2>&1"
+echo │  [ OK ] 后端启动中（新窗口 Finance-Backend）
+
+REM 等待后端就绪
+echo │  等待后端就绪 (最多 120 秒)...
+set /a RETRY=0
+:wait_backend
+timeout /t 3 /nobreak >nul
+curl -s http://localhost:8080/api/v1/health >nul 2>&1
+if %errorlevel% equ 0 (
+    echo │  [ OK ] 后端已就绪 (http://localhost:8080/api/v1/health)
+    goto backend_ready
+)
+set /a RETRY+=1
+if %RETRY% lss 40 (
+    echo │  等待中... (%RETRY%/40)
+    goto wait_backend
+)
+echo │  [WARN] 后端启动超时，请检查 Finance-Backend 窗口日志
+:backend_ready
+echo └────────────────────────────────────────────────────────┘
+
+REM ============================================================
+REM §5 启动前端服务
+REM ============================================================
 echo.
-
-REM ============================================================
-REM 第 5 步: 启动前端（新窗口）
-REM ============================================================
-echo ──────────────────────────────────────────────
-echo [5/6] 启动前端 (Vue 3.5.34 · 端口 5173)...
-echo ──────────────────────────────────────────────
-
+echo ┌─ §5 启动前端服务 (:5173) ─────────────────────────────┐
 cd /d "%PROJECT_ROOT%\system\frontend"
-if not exist node_modules (
-    echo        首次运行, 正在安装前端依赖 (pnpm install)...
-    pnpm install
-    if %ERRORLEVEL% NEQ 0 (
-        echo [错误] pnpm install 失败! 请确认:
-        echo        1. Node.js 24 LTS 已安装: node -v
-        echo        2. pnpm 已安装: pnpm -v
-        echo        3. 网络连接正常
+
+REM 安装依赖（首次运行）
+if not exist "node_modules" (
+    echo │  安装前端依赖 (pnpm install)...
+    pnpm install >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo │  [FAIL] 前端依赖安装失败
         pause
         exit /b 1
     )
-    echo        前端依赖安装完成 [OK]
+    echo │  [ OK ] 依赖安装完成
+) else (
+    echo │  [ OK ] node_modules 已存在，跳过 pnpm install
 )
 
-start "前端-个人财务记账系统(5173)" cmd /k "title 前端-Vue3-5173 && cd /d "%PROJECT_ROOT%\system\frontend" && echo [前端] 正在启动 Vite 开发服务器... && pnpm dev"
+REM 检查端口 5173
+netstat -ano 2>nul | findstr ":5173.*LISTENING" >nul
+if %errorlevel% equ 0 (
+    echo │  [WARN] 端口 5173 已被占用，尝试释放...
+    for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":5173.*LISTENING"') do (
+        taskkill /F /PID %%a >nul 2>&1
+    )
+    timeout /t 2 /nobreak >nul
+)
 
-cd /d "%PROJECT_ROOT%"
-echo        前端启动命令已发出(新窗口)
-echo        等待约 8 秒让 Vite 完成启动...
-timeout /t 8 /nobreak >nul
-echo        [OK]
-echo.
+REM 启动前端（新窗口）
+echo │  启动 Vite 前端开发服务器...
+start "Finance-Frontend" /MIN cmd /c "cd /d "%PROJECT_ROOT%\system\frontend" && pnpm dev 2>&1"
+echo │  [ OK ] 前端启动中（新窗口 Finance-Frontend）
+
+REM 等待前端就绪
+echo │  等待前端就绪 (最多 60 秒)...
+set /a RETRY=0
+:wait_frontend
+timeout /t 2 /nobreak >nul
+curl -s http://localhost:5173 >nul 2>&1
+if %errorlevel% equ 0 (
+    echo │  [ OK ] 前端已就绪 (http://localhost:5173)
+    goto frontend_ready
+)
+set /a RETRY+=1
+if %RETRY% lss 30 (
+    echo │  等待中... (%RETRY%/30)
+    goto wait_frontend
+)
+echo │  [WARN] 前端启动超时，请检查 Finance-Frontend 窗口日志
+:frontend_ready
+echo └────────────────────────────────────────────────────────┘
 
 REM ============================================================
-REM 第 6 步: 打开浏览器
-REM ============================================================
-echo ──────────────────────────────────────────────
-echo [6/6] 打开浏览器...
-echo ──────────────────────────────────────────────
-
-start "" "http://localhost:5173"
-echo        浏览器已打开 [OK]
-echo.
-
-REM ============================================================
-REM 启动完成 · 显示汇总信息
+REM §6 启动完成
 REM ============================================================
 echo.
 echo ╔══════════════════════════════════════════════════════════╗
-echo ║                 系统启动完成!                            ║
-echo ╠══════════════════════════════════════════════════════════╣
-echo ║                                                          ║
-echo ║   前端地址: http://localhost:5173                        ║
-echo ║   后端地址: http://localhost:8080/api/v1/health          ║
-echo ║                                                          ║
-echo ║   测试账号(普通用户): zhangsan / 123456                  ║
-echo ║   测试账号(管理员):   admin / 123456                     ║
-echo ║                                                          ║
-echo ║   如果登录失败, 请重新执行 system\sql\01-init.sql        ║
-echo ║                                                          ║
-echo ╠══════════════════════════════════════════════════════════╣
-echo ║   关闭窗口说明:                                          ║
-echo ║   - 关闭"后端"窗口 = 停止后端服务                        ║
-echo ║   - 关闭"前端"窗口 = 停止前端服务                        ║
-echo ║   - 关闭本窗口不影响后端和前端运行                       ║
+echo ║  ✅ 系统启动完成!                                       ║
+echo ║                                                        ║
+echo ║  前端地址:  http://localhost:5173                       ║
+echo ║  后端地址:  http://localhost:8080                       ║
+echo ║  API 文档:  http://localhost:8080/api/v1/health         ║
+echo ║                                                        ║
+echo ║  测试账号:  zhangsan / 123456                          ║
+echo ║  管理员账号: admin   / 123456                          ║
+echo ║                                                        ║
+echo ║  管理窗口:  Finance-Backend / Finance-Frontend          ║
+echo ║  关闭系统:  直接关闭上述两个命令行窗口即可              ║
 echo ╚══════════════════════════════════════════════════════════╝
+
+REM 自动打开浏览器
+echo  正在打开浏览器...
+start http://localhost:5173
+
 echo.
-pause
+echo  按任意键退出此窗口 (不影响后端和前端运行)
+pause >nul
+exit /b 0

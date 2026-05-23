@@ -1,6 +1,7 @@
 package com.example.finance.entity.dto;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -16,12 +17,14 @@ import java.math.BigDecimal;
 @Data
 public class TransferRequest {
 
-  /** 转出账户 ID（必须存在且余额充足） */
+  /** 转出账户 ID（必须存在且余额充足 · @Min(1) 拦截 0 和负数传入数据库） */
   @NotNull(message = "转出账户不能为空")
+  @Min(value = 1, message = "转出账户ID必须为正整数")
   private Long fromAccountId;
 
-  /** 转入账户 ID（必须存在且 ≠ fromAccountId） */
+  /** 转入账户 ID（必须存在且 ≠ fromAccountId · @Min(1) 拦截 0 和负数传入数据库） */
   @NotNull(message = "转入账户不能为空")
+  @Min(value = 1, message = "转入账户ID必须为正整数")
   private Long toAccountId;
 
   /** 转账金额（DECIMAL(12,2)，必须 > 0.01） */

@@ -37,10 +37,17 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 /**
  * 判断错误是否可重试
- * @param {Error} error - axios错误对象
+ * 重试范围: ① 网络异常(无 response) ② 请求超时(ECONNABORTED) ③ 5xx 服务器错误
+ * 不重试场景: ① 业务码非200(已被响应拦截器 reject 并标记 noRetry) ② 4xx 客户端错误 ③ 显式 noRetry 标志
+ * @param {Error} error - axios错误对象 或 业务错误对象(含 noRetry 标志)
  * @returns {boolean} 是否可重试
  */
 const isRetryable = (error) => {
+  // P1-7 修复(Q-CR Loop1):业务错误(401/余额不足/参数非法等)显式标记 noRetry,直接跳过重试
+  // 否则响应拦截器 reject 的 Error 对象因无 response 字段会被误判为网络错误而触发 3 次重试
+  if (error && error.noRetry === true) {                     // 业务错误显式标记
+    return false                                              // 不重试
+  }
   // 网络错误或超时
   if (!error.response || error.code === 'ECONNABORTED') {
     return true
@@ -88,20 +95,33 @@ request.interceptors.response.use(res => {
     if (!isRedirecting) {
       isRedirecting = true                                  // 设置跳转标志防止重复
       // 清除 token + Pinia store 状态：统一清除 localStorage 和 Pinia store，避免 isLoggedIn 保持 true
-      const userStore = useUserStore()                      // 获取用户store实例
+      const userStore = useUserStore()                      // 获取用户store实例（stores/user.js）
       userStore.clearUser()                                 // 清除用户状态和token
       ElMessage.error('登录已过期，请重新登录')               // 提示过期
       // 防止 redirect 到 /login 造成循环跳转
       const currentPath = router.currentRoute.value.fullPath // 当前路由路径
       const redirectPath = currentPath.startsWith('/login') ? '/' : currentPath // 防循环跳转
+      // P0-1 修复（Q-CR Loop1）：先声明 redirectTimeoutId 再使用,避免 TDZ ReferenceError
+      // 旧代码在 .finally 闭包内引用了在其后 setTimeout 才赋值的 redirectTimeoutId,
+      // 由于 const 的暂时性死区(TDZ),401 跳转流程会必抛 ReferenceError 导致 isRedirecting 永久卡死。
+      const redirectTimeoutId = setTimeout(() => { isRedirecting = false }, 2000) // 先创建 2s 超时看门狗(导航失败时强制解锁)
       router.push({ path: '/login', query: { redirect: redirectPath } }) // 跳转登录页
-        .finally(() => { isRedirecting = false })           // 跳转完成重置标志
+        .finally(() => {
+          clearTimeout(redirectTimeoutId)                   // 清除超时看门狗,防止内存泄漏和无效回调
+          isRedirecting = false                             // 跳转完成重置标志
+        })
     }
-    return Promise.reject(new Error(message))               // reject业务错误
+    // P1-7 修复(Q-CR Loop1):标记 noRetry,防止 axios error 拦截器把业务 401 当 5xx 重试
+    const err401 = new Error(message)                       // 创建业务 401 错误对象
+    err401.noRetry = true                                   // 标记不可重试(避免 isRetryable 误判)
+    return Promise.reject(err401)                           // reject业务错误,中断后续 then 链
   } else {
     // 业务异常（如用户名重复、余额不足等）→ 弹错误提示
     ElMessage.error(message || '请求失败')                  // 弹出错误提示
-    return Promise.reject(new Error(message))               // reject业务错误
+    // P1-7 修复(Q-CR Loop1):标记 noRetry,业务异常(余额不足/重复用户名)不应自动重试
+    const errBiz = new Error(message)                       // 创建业务错误对象
+    errBiz.noRetry = true                                   // 标记不可重试
+    return Promise.reject(errBiz)                           // reject业务错误
   }
 }, async error => {
   const config = error.config
@@ -110,10 +130,12 @@ request.interceptors.response.use(res => {
   // 条件：有配置对象 && 错误可重试 && 未达最大重试次数
   if (config && isRetryable(error) && config.retryCount < RETRY_CONFIG.maxRetries) {
     config.retryCount += 1                                   // 重试次数+1
-    // 计算延迟时间：指数退避 baseDelay * 2^(retryCount-1)，不超过 maxDelay
+    // 计算延迟时间：指数退避 baseDelay * 2^(retryCount-1) + 随机抖动（10-30%），防止惊群效应
+    const jitter = Math.random() * 0.2 + 0.1                  // 10-30%随机抖动因子
+    const baseDelayTime = RETRY_CONFIG.baseDelay * Math.pow(2, config.retryCount - 1)  // 指数退避基础延迟
     const delayTime = Math.min(
-      RETRY_CONFIG.baseDelay * Math.pow(2, config.retryCount - 1),
-      RETRY_CONFIG.maxDelay
+      Math.floor(baseDelayTime * (1 + jitter)),               // 基础延迟 × (1 + 抖动)，向下取整
+      RETRY_CONFIG.maxDelay                                   // 不超过最大延迟
     )
     await delay(delayTime)                                   // 等待延迟时间
     return request(config)                                   // 重新发起请求（递归调用）

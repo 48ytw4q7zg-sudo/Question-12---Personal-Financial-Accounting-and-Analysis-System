@@ -96,10 +96,9 @@ let barChart = null                                         // 柱状图实例
 let pieChart = null                                         // 饼图实例
 let trendChart = null                                       // 折线图实例
 
-// 当前选中的年份/月份（默认当前年月）
-const selectedYear = ref(String(new Date().getFullYear()))  // 当前年份字符串
-const analyticsNow = new Date()                             // 当前日期
-const selectedMonth = ref(`${analyticsNow.getFullYear()}-${String(analyticsNow.getMonth() + 1).padStart(2, '0')}`) // 当前月份
+// 当前选中的年份/月份（初始值在 onMounted 中设置，避免模块级日期捕获导致跨天后数据不一致）
+const selectedYear = ref('')                                // 当前年份字符串（onMounted 初始化）
+const selectedMonth = ref('')                               // 当前月份（onMounted 初始化）
 
 /**
  * P2-1 drill-down 处理：点击柱状图某月 → 跳转 TransactionListPage 带时间筛选
@@ -138,13 +137,12 @@ function handleBarClick(params) {
 }
 
 /**
- * 加载月度收支对比柱状图
- * → 调用 api/statistics.js 的 getTrend({ year })
+ * 渲染月度收支对比柱状图（基于已加载的趋势数据，不再独立请求数据）
+ * @param {Array} data - getTrend() 返回的趋势数据 [{month, totalIncome, totalExpense}]
  * → P2-1: 绑定 click 事件支持 drill-down
  */
-async function loadBarChart() {
+async function renderBarChart(data) {
   try {
-    const data = await getTrend({ year: Number(selectedYear.value) }) // 调用趋势API
     const echartsModule = await loadEcharts()                // 按需加载ECharts
     // 零维度保护：v-if 隐藏或 display:none 时容器尺寸为 0，init 会报错，跳过初始化
     if (!barChart && barChartRef.value && barChartRef.value.offsetWidth > 0 && barChartRef.value.offsetHeight > 0) {
@@ -174,8 +172,8 @@ async function loadBarChart() {
     barChart.off('click')                                    // 移除旧事件
     barChart.on('click', handleBarClick)                     // 绑定drill-down事件
   } catch (e) {
-    log.warn('加载柱状图失败:', e) // 开发环境日志
-    ElMessage.warning('月度收支对比图加载失败')               // 降级提示
+    log.warn('渲染柱状图失败:', e) /* 开发环境日志 */
+    ElMessage.warning('柱状图渲染失败，请刷新页面重试')          // Q-CR修复：用户级错误提示
   }
 }
 
@@ -240,13 +238,23 @@ async function loadCategoryChart() {
 }
 
 /**
- * 加载收支趋势折线图
+ * 加载趋势数据并渲染柱状图+折线图（复用同一份 getTrend 数据，消除重复 API 调用）
+ * 修复：原实现 loadBarChart + loadTrendChart 各调用一次 getTrend({year})，相同参数重复请求
  * → 调用 api/statistics.js 的 getTrend({ year })
- * → P2-1: 绑定 click 事件支持 drill-down（点击月份 → 跳转交易列表）
  */
-async function loadTrendChart() {
+async function loadTrendCharts() {
   try {
-    const data = await getTrend({ year: Number(selectedYear.value) }) // 调用趋势API
+    const data = await getTrend({ year: Number(selectedYear.value) }) // 一次性获取趋势数据，供柱状图和折线图共用
+    await Promise.allSettled([renderBarChart(data), renderTrendChart(data)]) // 并行渲染两个图表（共享同一数据）
+  } catch (e) {
+    log.warn('加载趋势图失败:', e)
+    ElMessage.warning('趋势图加载失败')
+  }
+}
+
+/** 基于已有数据渲染趋势折线图（不再独立请求数据） */
+async function renderTrendChart(data) {
+  try {
     const echartsModule = await loadEcharts()                 // 按需加载ECharts
     // 零维度保护：v-if 隐藏或 display:none 时容器尺寸为 0，init 会报错，跳过初始化
     if (!trendChart && trendChartRef.value && trendChartRef.value.offsetWidth > 0 && trendChartRef.value.offsetHeight > 0) {
@@ -276,14 +284,14 @@ async function loadTrendChart() {
     trendChart.off('click')                                   // 移除旧事件
     trendChart.on('click', handleBarClick)                    // 绑定drill-down事件
   } catch (e) {
-    log.warn('加载趋势图失败:', e) // 开发环境日志
-    ElMessage.warning('趋势图加载失败')                       // 降级提示
+    log.warn('渲染趋势图失败:', e) /* 开发环境日志 */
+    ElMessage.warning('趋势图渲染失败，请刷新页面重试')          // Q-CR修复：用户级错误提示
   }
 }
 
-/** 切换年份时同时刷新柱状图和折线图（await 确保错误能正确传播） */
+/** 切换年份时刷新柱状图和折线图（共享一份 getTrend 数据，消除重复请求） */
 async function loadAllCharts() {
-  await Promise.allSettled([loadBarChart(), loadTrendChart()]) // 并行加载柱状图和折线图
+  await loadTrendCharts() // 修复：合并 loadBarChart+loadTrendChart，消除对同一接口的重复请求
 }
 
 /** 窗口 resize 时重绘所有图表 */
@@ -293,9 +301,13 @@ function handleResize() {
   trendChart?.resize()                                       // 折线图自适应
 }
 
-// 页面挂载时并行加载 3 个图表
+// 页面挂载时初始化日期 + 并行加载图表
 onMounted(async () => {
-  await Promise.allSettled([loadBarChart(), loadCategoryChart(), loadTrendChart()]) // 并行加载全部图表
+  // 修复：在 onMounted 中初始化日期（而非模块级 static 赋值），防止页面 keep-alive 跨天后日期不变
+  const now = new Date()
+  selectedYear.value = String(now.getFullYear())
+  selectedMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  await Promise.allSettled([loadTrendCharts(), loadCategoryChart()]) // 并行加载趋势图+分类饼图（趋势数据一次请求两图共用）
   loading.value = false                                      // 关闭loading
   window.addEventListener('resize', handleResize)            // 监听resize
 })

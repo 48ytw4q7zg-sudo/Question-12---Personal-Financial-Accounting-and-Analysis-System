@@ -57,6 +57,7 @@ public class BudgetScheduler {
    */
   @Scheduled(cron = "0 0 2 * * ?")
   public void checkBudgetAlerts() {
+    long startTime = System.currentTimeMillis();  // 记录执行开始时间（修复：之前缺少执行耗时监控）
     log.info("BudgetScheduler: 开始每日预算预警检查");
 
     LocalDateTime now = LocalDateTime.now();
@@ -91,6 +92,7 @@ public class BudgetScheduler {
       }
     }
 
-    log.info("BudgetScheduler: 预算预警检查完成，检查 {} 条预算，生成 {} 条预警", budgets.size(), alertCount);
+    long elapsed = System.currentTimeMillis() - startTime;  // 计算执行耗时（毫秒）
+    log.info("BudgetScheduler: 预算预警检查完成，检查 {} 条预算，生成 {} 条预警，耗时 {} ms", budgets.size(), alertCount, elapsed);  // 修复：添加执行耗时监控（生产环境排查性能问题必备）
   }
 }

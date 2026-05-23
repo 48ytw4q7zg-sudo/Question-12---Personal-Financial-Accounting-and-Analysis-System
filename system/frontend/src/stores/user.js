@@ -41,9 +41,9 @@ export const useUserStore = defineStore('user', () => {
     const token = localStorage.getItem('token')
     const payload = decodeJwtPayload(token)  // 调用公共工具函数解码JWT payload
     if (payload) {  // 解码成功
-      userId.value = payload.userId || payload.sub || null  // 提取用户ID
-      username.value = payload.username || ''  // 提取用户名
-      role.value = payload.role || 0  // 提取角色
+      userId.value = payload.userId ?? payload.sub ?? null  // 提取用户ID（?? 避免 0 被误判为 falsy）
+      username.value = payload.username ?? ''  // 提取用户名（?? 避免空字符串丢失）
+      role.value = payload.role ?? 0  // 提取角色（?? 避免 role=0 被误判为 falsy）
     } else {  // 解码失败：token 损坏或格式异常，清除 localStorage 避免后续请求携带无效 token
       log.warn('JWT payload 解码失败，清除无效 token')  // 开发环境日志
       localStorage.removeItem('token')  // 清除无效token
@@ -80,10 +80,22 @@ export const useUserStore = defineStore('user', () => {
   }
 
   /**
-   * 判断是否已登录（基于响应式 _tokenPresent 状态）
+   * 判断是否已登录（基于 token 存在 + 未过期双重校验）
+   * 增强：不仅检查 localStorage 是否有 token，还检查 JWT 是否过期
+   * 防止过期 token 导致 UI 显示"已登录"但 API 请求全部 401 的不一致状态
    * @returns {Boolean}
    */
-  const isLoggedIn = computed(() => _tokenPresent.value)
+  const isLoggedIn = computed(() => {
+    if (!_tokenPresent.value) return false  // 无token直接判定未登录
+    const token = localStorage.getItem('token')  // 读取token
+    if (!token) return false  // token不存在
+    const payload = decodeJwtPayload(token)  // 解码JWT payload（使用 utils/jwt.js 公共工具函数）
+    if (!payload) return false  // 解码失败，token无效
+    // 检查 token 是否过期：exp 是秒级时间戳，乘以 1000 转毫秒后与当前时间比较
+    // 安全加固：Number() 显式转换防止后端返回字符串类型 exp 导致隐式比较异常（与 utils/jwt.js isTokenExpired 一致）
+    if (payload.exp && Number(payload.exp) * 1000 < Date.now()) return false  // token已过期
+    return true  // token有效且未过期
+  })
 
   return { userId, username, role, isLoggedIn, setUser, clearUser }
 })

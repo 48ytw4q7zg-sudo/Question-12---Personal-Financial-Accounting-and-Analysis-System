@@ -45,7 +45,7 @@ public interface TransactionMapper extends BaseMapper<Transaction> {
    *
    * @param userId     当前用户 ID（JWT 解码，强制过滤确保数据隔离）
    * @param accountId  账户 ID 筛选条件（null = 不过滤）
-   * @param categoryId 分类 ID 篛选条件（null = 不过滤）
+   * @param categoryId 分类 ID 筛选条件（null = 不过滤）
    * @param startTime  起始时间（yyyy-MM-dd HH:mm:ss，null = 不过滤）
    * @param endTime    结束时间（yyyy-MM-dd HH:mm:ss，null = 不过滤）
    * @param keyword    关键词模糊匹配备注（null = 不过滤，已由 Service 层转义 LIKE 通配符）
@@ -73,7 +73,7 @@ public interface TransactionMapper extends BaseMapper<Transaction> {
    *
    * @param userId     当前用户 ID
    * @param accountId  账户 ID 筛选条件（null = 不过滤）
-   * @param categoryId 分类 ID 篛选条件（null = 不过滤）
+   * @param categoryId 分类 ID 筛选条件（null = 不过滤）
    * @param startTime  起始时间（null = 不过滤）
    * @param endTime    结束时间（null = 不过滤）
    * @param keyword    关键词（null = 不过滤）

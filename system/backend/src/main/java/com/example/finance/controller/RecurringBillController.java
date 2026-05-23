@@ -23,11 +23,11 @@ import java.util.List;
  * 依赖：→ RecurringBillService（业务逻辑层）→ RecurringBillMapper + AccountMapper + TransactionMapper
  *
  * 接口清单：
- *   GET    /api/recurring-bill                — 查询周期性账单列表
- *   POST   /api/recurring-bill                — 创建周期性账单
- *   PUT    /api/recurring-bill/{id}           — 更新周期性账单
+ *   GET    /api/v1/recurring-bill                — 查询周期性账单列表
+ *   POST   /api/v1/recurring-bill                — 创建周期性账单
+ *   PUT    /api/v1/recurring-bill/{id}           — 更新周期性账单
  *   DELETE /api/v1/recurring-bill/{id}           — 停用周期性账单（软删除，status 置 0）
- *   POST   /api/recurring-bill/{id}/generate  — 手动触发生成交易记录
+ *   POST   /api/v1/recurring-bill/{id}/generate  — 手动触发生成交易记录
  *
  * 被前端调用：→ api/recurring-bill.js 的 list/create/update/deactivate/generate
  * 被 RecurringBillPage.vue 调用

@@ -20,12 +20,14 @@ import java.time.LocalDateTime;
 @Data
 public class TransactionRequest {
 
-  /** 关联账户 ID（必须存在且状态=1） */
+  /** 关联账户 ID（必须存在且状态=1 · @Min(1) 拦截 0 和负数传入数据库） */
   @NotNull(message = "账户不能为空")
+  @Min(value = 1, message = "账户ID必须为正整数")
   private Long accountId;
 
-  /** 关联分类 ID（必须存在） */
+  /** 关联分类 ID（必须存在 · @Min(1) 拦截 0 和负数传入数据库） */
   @NotNull(message = "分类不能为空")
+  @Min(value = 1, message = "分类ID必须为正整数")
   private Long categoryId;
 
   // R-05-issue-2: 已修复 - type注释改为与Entity一致"1=收入 2=支出"

@@ -94,7 +94,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="预算金额" prop="amount">
-          <el-input-number v-model="formData.amount" :precision="2" :min="0.01" :step="100" style="width: 100%" />
+          <el-input-number v-model="formData.amount" :precision="2" :min="MIN_TRANSACTION_AMOUNT" :step="AMOUNT_STEP_ROUGH" style="width: 100%" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -106,13 +106,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'    // 导入Vue组合式API
+import { ref, reactive, onMounted } from 'vue'               // 导入Vue组合式API
 import { ElMessage, ElMessageBox } from 'element-plus'      // 导入消息和确认框
 // → 调用 api/budget.js 的 getBudgetProgress()、getBudgetAlert()、saveBudget()、deleteBudget()
 import { getBudgetProgress, getBudgetAlert, saveBudget, deleteBudget } from '../api/budget' // 导入预算API
 import { formatAmount } from '../utils/format'               // 导入金额格式化
 import { getCategoryList } from '../api/category'             // 导入分类列表API
-import { ALERT_LEVEL_OVERSPENT, ALERT_LEVEL_MONTHLY_WARN, ALERT_LEVEL_DAILY_WARN, CATEGORY_TYPE_EXPENSE } from '../constants/finance' // 导入常量
+import { ALERT_LEVEL_OVERSPENT, ALERT_LEVEL_MONTHLY_WARN, ALERT_LEVEL_DAILY_WARN, CATEGORY_TYPE_EXPENSE, MIN_TRANSACTION_AMOUNT, AMOUNT_STEP_ROUGH } from '../constants/finance' // 导入常量
 import { logger } from '../utils/logger'                    // 导入统一日志工具
 
 const log = logger('BudgetPage')                            // 创建日志实例
@@ -123,9 +123,12 @@ const dialogVisible = ref(false)                            // 弹窗显隐
 const isEdit = ref(false)                                   // 是否编辑模式
 const formRef = ref(null)                                   // 表单引用
 
-// 当前选中月份（默认当前月，格式 "YYYY-MM" · 使用本地时间而非非 UTC）
-const now = new Date()                                      // 获取当前时间
-const selectedMonth = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`) // 默认当前月
+// 当前选中月份（默认当前月，格式 "YYYY-MM" · 使用 getCurrentMonth() 确保每次挂载时获取实时日期）
+function getCurrentMonth() {                                   // 获取当前月份字符串（挂载时调用，避免模块级捕获过期时间）
+  const now = new Date()                                       // 挂载时获取实时时间
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}` // 格式: YYYY-MM
+}
+const selectedMonth = ref(getCurrentMonth())                   // 默认当前月（挂载时计算）
 const budgetProgress = ref([])       // 预算进度列表
 const cssVarsCache = ref(null)      // CSS 变量缓存（避免每行 getComputedStyle）
 const expenseCategories = ref([])    // 支出分类列表（下拉选项）
@@ -141,7 +144,7 @@ const formRules = {
   categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }], // 分类必选
   amount: [                                                 // 金额校验
     { required: true, message: '请输入预算金额', trigger: 'blur' },  // 必填
-    { type: 'number', min: 0.01, message: '预算金额必须大于0', trigger: 'blur' } // 最小值
+    { type: 'number', min: MIN_TRANSACTION_AMOUNT, message: '预算金额必须大于0', trigger: 'blur' } // 使用常量 constants/finance.js
   ]
 }
 
@@ -207,6 +210,10 @@ async function loadData() {
       ...item,                                              // 保留原字段
       alertLevel: alertMap[item.categoryId] || null         // 注入预警级别
     }))
+  } catch (e) {
+    log.warn('加载预算进度失败:', e) /* 开发环境日志 */
+    ElMessage.error('预算数据加载失败，请刷新重试')            // 用户级错误提示
+    budgetProgress.value = []                                 // 清空数据
   } finally {
     loading.value = false                                   // 关闭loading
   }
@@ -261,6 +268,11 @@ async function handleSubmit() {
     ElMessage.success(isEdit.value ? '更新成功' : '设置成功') // 成功提示
     dialogVisible.value = false                             // 关闭弹窗
     await loadData()                                        // 刷新进度数据（await 确保异常可追踪）
+  } catch (e) {
+    log.warn('保存预算失败:', e) /* 开发环境日志 */
+    if (e.code === 'ERR_NETWORK' || e.code === 'ECONNABORTED') {  // 网络或超时错误
+      ElMessage.error('网络异常，预算保存失败')              // 网络级错误提示
+    }
   } finally {
     submitting.value = false                                // 关闭提交loading
   }
@@ -280,23 +292,27 @@ async function handleDeleteBudget(row) {
     ElMessage.success('预算已删除')                          // 成功提示
     await loadData()                                        // 刷新进度数据（await 确保异常可追踪）
   } catch (e) {
-    if (e === 'cancel') {
-      // 用户取消，无需处理
-    } else {
-      // 其他错误由 axios 拦截器统一处理，此处记录日志便于排查
-      log.error('删除预算失败:', e)                     // 记录错误日志
+    // P1-9 修复(Q-CR Loop2):反转判断逻辑,只在非用户取消场景才记录错误日志
+    // 用户取消(cancel/close)是正常交互流程,不应作为错误处理 — 写日志会污染监控信号
+    if (e !== 'cancel' && e !== 'close') {                       // 非用户取消(真实业务/网络错误)
+      // 业务错误已被 axios 拦截器(api/request.js)统一弹窗,此处仅记日志便于排查
+      log.error('删除预算失败:', e)                                // 记录真实错误日志
     }
   } finally {
     deletingId.value = null                                 // 重置删除标记
   }
 }
 
-// 页面挂载时加载分类选项和预算进度（async+Promise.all 并行加载，await保证异常可追踪）
+// 页面挂载时加载分类选项和预算进度（async+Promise.all 并行加载）
 onMounted(async () => {
-  await Promise.all([                                        // 并行加载分类选项+预算进度
-    loadCategories(),                                        // 加载分类选项
-    loadData()                                               // 加载预算进度
-  ])
+  try {
+    await Promise.all([                                        // 并行加载分类选项+预算进度
+      loadCategories(),                                        // 加载分类选项
+      loadData()                                               // 加载预算进度
+    ])
+  } catch (e) {
+    log.error('页面初始化加载失败:', e)                          // 记录错误日志（各子函数已有独立错误处理）
+  }
 })
 </script>
 

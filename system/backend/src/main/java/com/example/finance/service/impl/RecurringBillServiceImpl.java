@@ -23,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -125,13 +126,20 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     Category category = entityValidator.validateCategory(request.getCategoryId());  // 校验分类存在并返回对象
     // 校验下次到期日必须是未来日期（PRD P1-4 异常流程①: 下次到期日为空/过去日期 → 400）
     LocalDate dueDate = parseAndValidateDueDate(request.getNextDueDate());  // 提取公共方法避免重复（create/update共用）
+    // 业务校验：金额不能为空且必须大于零
+    if (request.getAmount() == null) {  // 金额为null
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "金额不能为空");  // 拒绝null金额
+    }
+    if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {  // 金额<=0
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "金额必须大于0");  // 拒绝零或负金额
+    }
 
     RecurringBill bill = new RecurringBill();  // 创建账单实体
     bill.setUserId(userId);  // 设置用户ID
     bill.setAccountId(request.getAccountId());  // 设置账户ID
     bill.setCategoryId(request.getCategoryId());  // 设置分类ID
     bill.setName(request.getName());  // 设置账单名称
-    bill.setAmount(request.getAmount());  // 设置金额
+    bill.setAmount(request.getAmount());  // 设置金额(已通过null和正数校验)
     bill.setType(request.getType());  // 设置类型(1=收入/2=支出)
     bill.setPeriod(request.getPeriod());  // 设置周期(monthly/weekly/daily/yearly)
     bill.setNextDueDate(dueDate);  // 设置下次到期日
@@ -230,7 +238,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     // PRD P1-4 异常流程②: 一键生成时关联账户已禁用 → 拒绝生成
     // 安全校验: generate() 也需校验 account userId 归属（防数据篡改后账单引用他人账户）
     Account account = accountMapper.selectById(bill.getAccountId());  // 查询关联账户
-    if (account == null || !account.getUserId().equals(userId) || !Objects.equals(account.getStatus(), Status.ACTIVE.getValue())) {  // 账户不存在/不归属/已禁用 · Objects.equals 避免 Integer 拆箱 NPE
+    if (account == null || !Objects.equals(account.getUserId(), userId) || !Objects.equals(account.getStatus(), Status.ACTIVE.getValue())) {  // 账户不存在/不归属/已禁用 · Objects.equals 避免 Long/Integer 拆箱 NPE
       throw new BusinessException(ErrorCode.BILL_ACCOUNT_DISABLED_GEN.getCode(), ErrorCode.BILL_ACCOUNT_DISABLED_GEN.getMsg());  // 抛出业务异常
     }
     // 安全校验: category 必须存在（分类被删除后账单引用的 categoryId 无效）
@@ -247,7 +255,19 @@ public class RecurringBillServiceImpl implements RecurringBillService {
     transaction.setType(bill.getType());  // 设置交易类型
     transaction.setAmount(bill.getAmount());  // 设置金额
     transaction.setNote(RECURRING_NOTE_PREFIX + bill.getName());  // 设置备注(标记来源)
-    transaction.setTime(bill.getNextDueDate().atStartOfDay());  // 设置交易时间为到期日零点（财务记录准确性）
+    // 安全校验：nextDueDate 可能是 NULL（数据库脏数据或手动插入），需 null 保护
+    if (bill.getNextDueDate() == null) {  // nextDueDate为null
+      throw new BusinessException(ErrorCode.BILL_DUE_DATE_INVALID.getCode(), "该周期性账单的下次到期日为空，无法生成交易记录");  // 抛出明确的业务异常
+    }
+    // P1-13 修复(Q-CR Loop2):交易时间策略 — 取「到期日 0:00」与「当前时间」中较小者
+    // 旧实现: 永远用 nextDueDate.atStartOfDay() 作为交易时间,
+    // 问题: 如用户首次执行 generate 时,到期日已落后多月,生成的交易会跑到过去月份污染历史统计;
+    //   反之到期日是未来日(例如 generate 提前触发),交易时间会跑到未来,影响 Dashboard 月度卡片
+    // 修复: 用 min(nextDueDate, now),即最早不早于到期日,最晚不晚于现在,落在合理时间窗口
+    LocalDateTime nowLdt = LocalDateTime.now();                                       // 当前时间
+    LocalDateTime dueLdt = bill.getNextDueDate().atStartOfDay();                      // 到期日零点
+    LocalDateTime txTime = dueLdt.isAfter(nowLdt) ? nowLdt : dueLdt;                  // 取较早者:到期日已过用到期日,未到则用当前时间
+    transaction.setTime(txTime);  // 设置交易时间(避免落在未来或过早历史)
     transaction.setCreateTime(LocalDateTime.now());  // 设置创建时间
     transaction.setUpdateTime(LocalDateTime.now());  // 设置更新时间
 

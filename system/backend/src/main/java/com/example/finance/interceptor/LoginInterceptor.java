@@ -8,6 +8,7 @@ import com.example.finance.util.JwtUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -21,6 +22,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
  *
  * 安全关键方法：preHandle() 是认证入口，token 无效或过期时返回 401 JSON 并中断请求链
  */
+@Slf4j
 @Component
 public class LoginInterceptor implements HandlerInterceptor {
 
@@ -70,7 +72,11 @@ public class LoginInterceptor implements HandlerInterceptor {
 
     // 将 userId + role 存入请求属性，供 Controller 使用
     request.setAttribute("userId", payload.getUserId());  // 将userId存入请求属性
-    request.setAttribute("role", payload.getRole() != null ? payload.getRole() : UserRole.NORMAL.getValue());  // 将role存入请求属性(role为空则默认普通用户)
+    // 安全修复：role 为 null 时记录警告日志（可能指示 token 被篡改或签名算法不匹配）
+    if (payload.getRole() == null) {  // 角色字段缺失（token 结构异常）
+      log.warn("JWT token 缺少 role 声明，默认降级为普通用户, userId={}", payload.getUserId());  // 记录警告日志便于安全审计
+    }
+    request.setAttribute("role", payload.getRole() != null ? payload.getRole() : UserRole.NORMAL.getValue());  // 将role存入请求属性(role为空则默认普通用户·安全降级)
     return true;  // 放行请求
   }
 
@@ -90,8 +96,15 @@ public class LoginInterceptor implements HandlerInterceptor {
   /**
    * 返回 401 JSON 响应（HTTP 200 + body code 401，对齐 GlobalExceptionHandler body-code-first 约定）
    * 前端 axios 拦截器检查 res.data.code 而非 HTTP status，因此统一使用 HTTP 200 + body code 机制
+   *
+   * P2-3 修复(Q-CR Loop1)：增加 isCommitted() 兜底,如前置 Filter 已 commit 响应则跳过避免 IllegalStateException
    */
   private void writeError(HttpServletResponse response) throws Exception {  // 写入401错误JSON响应
+    // P2-3 修复:检测 response 是否已被前置 Filter 写入,已写入则跳过(避免 IllegalStateException)
+    if (response.isCommitted()) {  // 响应头已写出,无法再写
+      log.warn("LoginInterceptor: 响应已 committed,跳过 401 错误写入(可能是前置 Filter 已写入响应)");  // 记录警告日志
+      return;  // 直接返回,避免抛 IllegalStateException
+    }
     response.setStatus(HTTP_OK);  // HTTP状态码设为200(body-code-first约定)
     response.setContentType("application/json;charset=UTF-8");  // 设置响应类型为JSON
     var writer = response.getWriter();  // 获取Writer并复用，避免多次调用getWriter()

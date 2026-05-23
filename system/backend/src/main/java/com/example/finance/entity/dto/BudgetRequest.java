@@ -1,6 +1,7 @@
 package com.example.finance.entity.dto;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -13,12 +14,15 @@ import java.math.BigDecimal;
  *
  * 同一用户+同一分类+同一月份唯一约束（INSERT ON DUPLICATE KEY UPDATE）
  * 仅支出分类（category.type=1）可设置预算
+ *
+ * 调用方: controller/BudgetController.java → service/impl/BudgetServiceImpl.java
  */
 @Data
 public class BudgetRequest {
 
-  /** 关联分类 ID（必须存在且类型为支出 type=1） */
+  /** 关联分类 ID（必须存在且类型为支出 type=1，来源于 entity/Category.java 的主键） */
   @NotNull(message = "分类不能为空")
+  @Min(value = 1, message = "分类ID必须为正整数")
   private Long categoryId;
 
   /** 预算月份（yyyy-MM 格式，如 2026-05） */

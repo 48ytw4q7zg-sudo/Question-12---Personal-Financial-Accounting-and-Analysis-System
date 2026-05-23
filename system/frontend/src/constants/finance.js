@@ -24,6 +24,36 @@ export const ALERT_LEVEL_NORMAL = 'NORMAL'             // 正常状态
 /** CSV导入文件大小上限 5MB（对齐后端 TransactionServiceImpl.CSV_MAX_FILE_SIZE） */
 export const MAX_CSV_FILE_SIZE = 5 * 1024 * 1024       // 5MB文件大小上限
 
+/** 最小交易/转账金额（对齐后端 @DecimalMin("0.01") · TransactionRequest.java 第 36 行 · TransferRequest.java 第 28 行） */
+export const MIN_TRANSACTION_AMOUNT = 0.01             // 最小金额0.01元
+/** 金额输入步长（el-input-number :step 属性 · budget/account/transfer 页面用100大步，transaction用1精细步进） */
+export const AMOUNT_STEP_ROUGH = 100                   // 大步金额步长(元)
+export const AMOUNT_STEP_PRECISE = 1                    // 精细金额步长(元)
+/** 最大备注长度（对齐后端 @Size(max=200) · TransactionRequest.java 第 42 行 · TransferRequest.java 第 32 行） */
+export const MAX_NOTE_LENGTH = 200                     // 最大备注字符数
+/** 账户余额上限（对齐后端 DECIMAL(12,2) 允许的最大值 · AccountRequest.java 第 24 行） */
+export const MAX_ACCOUNT_BALANCE = 999999999.99        // 账户余额上限
+/** 默认分页大小（对齐后端 API_DESIGN.md §1 分页参数 · BudgetController.java 等Controller的默认值） */
+export const DEFAULT_PAGE_SIZE = 10                    // 默认每页条数
+/** 分页大小选项（Element Plus el-pagination 的 page-sizes 数组 · 通用配置） */
+export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]     // 分页大小选项
+/** 默认周期类型（对齐后端 RecurringPeriod 枚举 · RecurringPeriod.java 第 30 行 · MONTHLY 为默认值） */
+export const DEFAULT_RECURRING_PERIOD = 'monthly'      // 默认周期类型(每月)
+/** 用户名字段长度限制（对齐后端 @Size(min=3, max=20) · UserLoginRequest.java 第 12 行） */
+export const USERNAME_MIN_LENGTH = 3                   // 用户名最小长度
+export const USERNAME_MAX_LENGTH = 20                  // 用户名最大长度
+/** 密码字段长度限制（对齐后端 @Size(min=6, max=20) · ChangePasswordRequest.java 第 14 行） */
+export const PASSWORD_MIN_LENGTH = 6                   // 密码最小长度
+export const PASSWORD_MAX_LENGTH = 20                  // 密码最大长度
+/** 账户名称最大长度（对齐后端 @Size(max=20) · AccountRequest.java 第 20 行） */
+export const ACCOUNT_NAME_MAX_LENGTH = 20              // 账户名最大长度
+/** 账单名称最大长度（对齐后端 @Size(min=1, max=30) · RecurringBillRequest.java 第 22 行） */
+export const BILL_NAME_MAX_LENGTH = 30                 // 账单名最大长度
+/** 用户名正则表达式（对齐后端 @Pattern · UserLoginRequest.java 第 14 行） */
+export const USERNAME_PATTERN = /^[a-zA-Z0-9_]+$/      // 用户名格式: 字母数字下划线
+/** 用户名正则错误提示 */
+export const USERNAME_PATTERN_MSG = '用户名只能包含字母、数字和下划线'  // 用户名格式错误提示
+
 /** 账户类型映射（对齐数据库 account.type: 1=现金, 2=银行卡, 3=支付宝, 4=微信） */
 export const ACCOUNT_TYPE_MAP = { 1: '现金', 2: '银行卡', 3: '支付宝', 4: '微信' }  // 账户类型映射
 

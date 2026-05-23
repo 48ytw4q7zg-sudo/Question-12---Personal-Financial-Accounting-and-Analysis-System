@@ -63,10 +63,17 @@ watch(() => props.modelValue, (val) => {
 // 监听内部 visible 变化 → 通知外部更新 v-model
 watch(visible, (val) => { emit('update:modelValue', val) })
 
-/** 点击确认 → 开启 loading + 触发 confirm 事件，由父组件执行实际逻辑 */
+/** 点击确认 → 开启 loading + 触发 confirm 事件，由父组件执行实际逻辑
+ *  安全加固：使用 try-catch 包裹 emit，防止父组件同步抛出异常导致 loading 状态卡死
+ *  父组件应始终在异步操作完成后调用 confirmRef.resetLoading() 重置状态
+ */
 function handleConfirm() {
-  confirming.value = true
-  emit('confirm')
+  confirming.value = true                           // 开启loading防重复提交
+  try {
+    emit('confirm')                                 // 触发父组件 @confirm 事件
+  } catch (e) {
+    confirming.value = false                        // 父组件同步抛出异常时自动重置loading
+  }
 }
 
 /** 点击取消 → 关闭弹窗 + 触发 cancel 事件 */

@@ -67,7 +67,11 @@ const operating = ref(false)    // 操作防重复提交 loading
  */
 async function loadUsers() {
   try {
-    users.value = await listUsers()                         // 调用API获取用户列表
+    users.value = await listUsers() || []                    // 调用API获取用户列表（修复：添加 || [] 避免 null 传入 el-table 导致警告）
+  } catch (e) {
+    log.error('加载用户列表失败:', e)                          // 记录错误日志
+    ElMessage.error('用户列表加载失败，请刷新重试')             // 用户可见错误提示
+    users.value = []                                          // 重置为空列表确保页面不崩溃
   } finally {
     loading.value = false                                   // 无论成功失败都关闭loading
   }
@@ -90,7 +94,7 @@ async function handleToggleRole(row) {
     ElMessage.success(`${row.username} 角色已切换`)          // 成功提示
     await loadUsers()                                       // 刷新用户列表
   } catch (e) {
-    if (e !== 'cancel') {                                    // 非取消操作才记录错误
+    if (e !== 'cancel' && e !== 'close') {                   // 非取消/非关闭操作才记录错误（ElMessageBox 关闭事件为 'close'）
       log.error('切换角色失败:', e)                           // 记录错误日志
       ElMessage.error('角色切换失败，请重试')                 // 用户可见错误提示
     }
@@ -116,7 +120,7 @@ async function handleDelete(row) {
     ElMessage.success('用户已删除')                          // 成功提示
     await loadUsers()                                       // 刷新用户列表
   } catch (e) {
-    if (e !== 'cancel') {                                    // 非取消操作才记录错误
+    if (e !== 'cancel' && e !== 'close') {                   // 非取消/非关闭操作才记录错误（ElMessageBox 关闭事件为 'close'）
       log.error('删除用户失败:', e)                           // 记录错误日志
       ElMessage.error('用户删除失败，请重试')                 // 用户可见错误提示
     }

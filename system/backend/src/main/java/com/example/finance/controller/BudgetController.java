@@ -26,11 +26,11 @@ import java.util.List;
  * 依赖：→ BudgetService（业务逻辑层）→ BudgetMapper + TransactionMapper（数据访问层）
  *
  * 接口清单：
- *   GET    /api/budget           — 查询预算列表（按年月筛选）
- *   POST   /api/budget           — 保存预算（新增或更新，INSERT ON DUPLICATE KEY UPDATE）
+ *   GET    /api/v1/budget           — 查询预算列表（按年月筛选）
+ *   POST   /api/v1/budget           — 保存预算（新增或更新，INSERT ON DUPLICATE KEY UPDATE）
  *   DELETE /api/v1/budget/{id}      — 删除预算
- *   GET    /api/budget/progress  — 查询预算进度（含已支出金额、百分比、超支标记）
- *   GET    /api/budget/alert     — 查询预算预警（仅超支项）
+ *   GET    /api/v1/budget/progress  — 查询预算进度（含已支出金额、百分比、超支标记）
+ *   GET    /api/v1/budget/alert     — 查询预算预警（仅超支项）
  *
  * 被前端调用：→ api/budget.js 的 getBudgetList/saveBudget/getBudgetProgress/getBudgetAlert
  * 被 BudgetPage.vue 调用
@@ -61,7 +61,11 @@ public class BudgetController {
   public Result<List<BudgetDTO>> list(@Valid BudgetQueryRequest query,
       HttpServletRequest request) {
     Long userId = LoginInterceptor.getUserId(request);
-    List<BudgetDTO> list = budgetService.list(userId, query.getYear(), query.getMonth());
+    // Q-CR修复：Integer→String转换，与 BudgetServiceImpl.list() 参数签名对齐
+    String yearStr = query.getYear() != null ? String.valueOf(query.getYear()) : null;
+    String monthStr = query.getMonth() != null ? String.valueOf(query.getMonth()) : null;
+    // → BudgetServiceImpl.list()：按 userId + year + month 查询预算列表（service/impl/BudgetServiceImpl.java）
+    List<BudgetDTO> list = budgetService.list(userId, yearStr, monthStr);
     return Result.success(list);
   }
 
@@ -78,6 +82,7 @@ public class BudgetController {
   public Result<BudgetDTO> save(@Valid @RequestBody BudgetRequest request,
       HttpServletRequest httpRequest) {
     Long userId = LoginInterceptor.getUserId(httpRequest);
+    // → BudgetService.save()：INSERT ON DUPLICATE KEY UPDATE（同一用户+年月+分类唯一）
     BudgetDTO budget = budgetService.save(userId, request);
     return Result.success(budget, "预算保存成功");
   }
@@ -94,6 +99,7 @@ public class BudgetController {
   @DeleteMapping("/{id}")
   public Result<Void> delete(@PathVariable @Min(1) Long id, HttpServletRequest httpRequest) {
     Long userId = LoginInterceptor.getUserId(httpRequest);
+    // → BudgetService.delete()：校验归属权后物理删除
     budgetService.delete(userId, id);
     return Result.success(null, "预算已删除");
   }
@@ -111,7 +117,11 @@ public class BudgetController {
   public Result<List<BudgetProgressDTO>> getProgress(@Valid BudgetQueryRequest query,
       HttpServletRequest request) {
     Long userId = LoginInterceptor.getUserId(request);
-    List<BudgetProgressDTO> list = budgetService.getProgress(userId, query.getYear(), query.getMonth());
+    // Q-CR修复：Integer→String转换
+    String yearStr = query.getYear() != null ? String.valueOf(query.getYear()) : null;
+    String monthStr = query.getMonth() != null ? String.valueOf(query.getMonth()) : null;
+    // → BudgetServiceImpl.getProgress()：聚合已支出金额 + 计算百分比 + 超支标记（service/impl/BudgetServiceImpl.java）
+    List<BudgetProgressDTO> list = budgetService.getProgress(userId, yearStr, monthStr);
     return Result.success(list);
   }
 
@@ -128,7 +138,11 @@ public class BudgetController {
   public Result<List<BudgetAlertDTO>> getAlert(@Valid BudgetQueryRequest query,
       HttpServletRequest request) {
     Long userId = LoginInterceptor.getUserId(request);
-    List<BudgetAlertDTO> list = budgetAlertService.getAlerts(userId, query.getYear(), query.getMonth());
+    // Q-CR修复：Integer→String转换
+    String yearStr = query.getYear() != null ? String.valueOf(query.getYear()) : null;
+    String monthStr = query.getMonth() != null ? String.valueOf(query.getMonth()) : null;
+    // → BudgetAlertServiceImpl.getAlerts()：仅返回超支项（service/impl/BudgetAlertServiceImpl.java）
+    List<BudgetAlertDTO> list = budgetAlertService.getAlerts(userId, yearStr, monthStr);
     return Result.success(list);
   }
 }

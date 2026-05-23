@@ -24,10 +24,10 @@
         <el-tab-pane label="登录" name="login">
           <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" label-width="0" @submit.prevent="handleLogin">
             <el-form-item prop="username" label="用户名" class="hidden-label">
-              <el-input v-model="loginForm.username" placeholder="请输入用户名" prefix-icon="User" />
+              <el-input v-model="loginForm.username" placeholder="请输入用户名" :prefix-icon="User" />
             </el-form-item>
             <el-form-item prop="password" label="密码" class="hidden-label">
-              <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" prefix-icon="Lock" show-password />
+              <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" :prefix-icon="Lock" show-password />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="loginLoading" class="submit-btn" @click="handleLogin">登录</el-button>
@@ -39,13 +39,14 @@
         <el-tab-pane label="注册" name="register">
           <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules" label-width="0" @submit.prevent="handleRegister">
             <el-form-item prop="username" label="用户名" class="hidden-label">
-              <el-input v-model="registerForm.username" placeholder="请输入用户名" prefix-icon="User" />
+              <el-input v-model="registerForm.username" placeholder="请输入用户名" :prefix-icon="User" />
             </el-form-item>
             <el-form-item prop="password" label="密码" class="hidden-label">
-              <el-input v-model="registerForm.password" type="password" placeholder="请输入密码" prefix-icon="Lock" show-password />
+              <!-- Q-CR修复: @change触发confirmPassword重新校验，防止密码变更后确认密码校验状态残留 -->
+              <el-input v-model="registerForm.password" type="password" placeholder="请输入密码" :prefix-icon="Lock" show-password @change="() => registerFormRef.validateField('confirmPassword')" />
             </el-form-item>
             <el-form-item prop="confirmPassword" label="确认密码" class="hidden-label">
-              <el-input v-model="registerForm.confirmPassword" type="password" placeholder="请确认密码" prefix-icon="Lock" show-password />
+              <el-input v-model="registerForm.confirmPassword" type="password" placeholder="请确认密码" :prefix-icon="Lock" show-password />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="registerLoading" class="submit-btn" @click="handleRegister">注册</el-button>
@@ -61,11 +62,15 @@
 import { ref, reactive } from 'vue'                         // 导入Vue组合式API
 import { useRouter, useRoute } from 'vue-router'            // 导入路由组合式函数
 import { ElMessage } from 'element-plus'                    // 导入消息提示
+import { User, Lock } from '@element-plus/icons-vue'        // 导入Element Plus图标（prefix-icon需组件引用而非字符串）
 // → 调用 api/user.js 的 login() 和 register()
-import { login, register } from '../api/user'                // 导入用户API
+import { login, register } from '../api/user'                // 导入用户API（api/user.js）
+import { USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH, USERNAME_PATTERN, USERNAME_PATTERN_MSG } from '../constants/finance' // 导入验证常量
 // → 调用 stores/user.js 的 setUser()
-import { useUserStore } from '../stores/user'                // 导入用户状态store
+import { useUserStore } from '../stores/user'                // 导入用户状态store（stores/user.js）
+import { logger } from '../utils/logger'                    // Q-CR修复：导入日志工具（utils/logger.js），防止 ReferenceError
 
+const log = logger('LoginPage')                             // Q-CR修复：创建日志实例（之前缺失导致 log.warn() 抛出 ReferenceError）
 const router = useRouter()                                  // 路由实例
 const route = useRoute()                                    // 当前路由信息
 const userStore = useUserStore()                            // 用户状态store
@@ -92,27 +97,27 @@ const registerForm = reactive({
 
 // 登录表单校验规则（el-form rules · 对齐 PRD P0-1: 用户名3-20字符字母数字下划线）
 const loginRules = {
-  username: [                                               // 用户名校验规则
+  username: [                                               // 用户名校验规则（使用常量 constants/finance.js）
     { required: true, message: '请输入用户名', trigger: 'blur' }, // 必填
-    { min: 3, max: 20, message: '用户名长度为 3-20 个字符', trigger: 'blur' }, // 长度限制
-    { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线', trigger: 'blur' } // 格式限制
+    { min: USERNAME_MIN_LENGTH, max: USERNAME_MAX_LENGTH, message: `用户名长度为 ${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} 个字符`, trigger: 'blur' }, // 长度限制
+    { pattern: USERNAME_PATTERN, message: USERNAME_PATTERN_MSG, trigger: 'blur' } // 格式限制
   ],
-  password: [                                               // 密码校验规则
+  password: [                                               // 密码校验规则（使用常量 constants/finance.js）
     { required: true, message: '请输入密码', trigger: 'blur' },   // 必填
-    { min: 6, max: 20, message: '密码长度为 6-20 个字符', trigger: 'blur' }   // 长度限制
+    { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH, message: `密码长度为 ${PASSWORD_MIN_LENGTH}-${PASSWORD_MAX_LENGTH} 个字符`, trigger: 'blur' }   // 长度限制
   ]
 }
 
 // 注册表单校验规则（多一个确认密码的自定义校验器 + 用户名正则）
-const registerRules = {
+const registerRules = {                                 // 注册表单校验（使用常量 constants/finance.js）
   username: [                                               // 用户名校验规则
     { required: true, message: '请输入用户名', trigger: 'blur' }, // 必填
-    { min: 3, max: 20, message: '用户名长度为 3-20 个字符', trigger: 'blur' }, // 长度限制
-    { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线', trigger: 'blur' } // 格式限制
+    { min: USERNAME_MIN_LENGTH, max: USERNAME_MAX_LENGTH, message: `用户名长度为 ${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} 个字符`, trigger: 'blur' }, // 长度限制
+    { pattern: USERNAME_PATTERN, message: USERNAME_PATTERN_MSG, trigger: 'blur' } // 格式限制
   ],
   password: [                                               // 密码校验规则
     { required: true, message: '请输入密码', trigger: 'blur' },   // 必填
-    { min: 6, max: 20, message: '密码长度为 6-20 个字符', trigger: 'blur' }   // 长度限制
+    { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH, message: `密码长度为 ${PASSWORD_MIN_LENGTH}-${PASSWORD_MAX_LENGTH} 个字符`, trigger: 'blur' }   // 长度限制
   ],
   confirmPassword: [                                        // 确认密码校验规则
     { required: true, message: '请确认密码', trigger: 'blur' },   // 必填
@@ -150,6 +155,12 @@ async function handleLogin() {
     const redirect = route.query.redirect || '/'             // 获取重定向路径
     const safeRedirect = (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.includes('://') && !redirect.startsWith('//')) ? redirect : '/' // 安全校验重定向
     router.push(safeRedirect)                                // 跳转到目标页面
+  } catch (e) {
+    log.warn('登录失败:', e) /* 开发环境日志 */
+    // axios 拦截器（api/request.js）已统一处理业务错误消息（密码错误/用户不存在），此处处理网络异常
+    if (e.code === 'ERR_NETWORK' || e.code === 'ECONNABORTED') {  // 网络错误或超时
+      ElMessage.error('网络异常，登录失败')                    // 网络级错误提示
+    }
   } finally {
     loginLoading.value = false                               // 关闭登录loading
   }
@@ -176,6 +187,11 @@ async function handleRegister() {
     registerForm.username = ''                               // 清空用户名
     registerForm.password = ''                               // 清空密码
     registerForm.confirmPassword = ''                        // 清空确认密码
+  } catch (e) {
+    log.warn('注册失败:', e) /* 开发环境日志 */
+    if (e.code === 'ERR_NETWORK' || e.code === 'ECONNABORTED') {  // 网络错误或超时
+      ElMessage.error('网络异常，注册失败')                    // 网络级错误提示
+    }
   } finally {
     registerLoading.value = false                            // 关闭注册loading
   }

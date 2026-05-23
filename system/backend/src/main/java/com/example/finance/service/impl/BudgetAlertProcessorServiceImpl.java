@@ -109,8 +109,9 @@ public class BudgetAlertProcessorServiceImpl implements BudgetAlertProcessorServ
       // 计算百分比
       BigDecimal percentage = BigDecimal.ZERO;  // 百分比默认0
       if (budget.getAmount().compareTo(BigDecimal.ZERO) > 0) {  // 预算金额>0才计算
-        percentage = spent.divide(budget.getAmount(), 4, RoundingMode.HALF_UP)  // 已用/预算(保留4位)
-            .multiply(PERCENTAGE_FACTOR);  // ×100转为百分比（使用常量消除魔法数字）
+        percentage = spent.divide(budget.getAmount(), 4, RoundingMode.HALF_UP)  // 已用/预算(保留4位中间精度)
+            .multiply(PERCENTAGE_FACTOR)  // ×100 转为百分比
+            .setScale(2, RoundingMode.HALF_UP);  // 修复：对齐 BudgetServiceImpl.getProgress() 精度规范（保留2位小数百分比）
       }
 
       // 持久化预警记录到数据库
@@ -157,20 +158,22 @@ public class BudgetAlertProcessorServiceImpl implements BudgetAlertProcessorServ
    * @return 预警级别字符串
    */
   private String calculateAlertLevel(Budget budget, BigDecimal spent, int dayOfMonth, int daysInMonth) {  // 计算预警级别
+    // null安全防护：预算金额可能因手动SQL插入而为NULL（调用 entity/Budget.java 的 getAmount 方法）
+    BigDecimal budgetAmount = budget.getAmount() != null ? budget.getAmount() : BigDecimal.ZERO;  // 预算金额null→0兜底
     // 已超支：已消耗 > 预算
-    if (spent.compareTo(budget.getAmount()) > 0) {  // 支出超过预算金额
+    if (spent.compareTo(budgetAmount) > 0) {  // 支出超过预算金额
       return ALERT_OVERSPENT;  // 返回超支级别
     }
 
     // 月预警：已消耗 ≥ 预算 × 80%
-    BigDecimal monthlyThreshold = budget.getAmount().multiply(MONTHLY_THRESHOLD_RATE);  // 计算月预警阈值(预算×0.8)
+    BigDecimal monthlyThreshold = budgetAmount.multiply(MONTHLY_THRESHOLD_RATE);  // 计算月预警阈值(预算×0.8)
     if (spent.compareTo(monthlyThreshold) >= 0) {  // 支出达到月预警阈值
       return ALERT_MONTHLY_WARN;  // 返回月预警级别
     }
 
     // 日预警：日均消耗 ≥ 日均预算 × 150%
-    if (daysInMonth > 0 && dayOfMonth > 0 && budget.getAmount().compareTo(BigDecimal.ZERO) > 0) {  // 前置条件满足
-      BigDecimal dailyBudget = budget.getAmount().divide(BigDecimal.valueOf(daysInMonth), 2, RoundingMode.HALF_UP);  // 计算日均预算
+    if (daysInMonth > 0 && dayOfMonth > 0 && budgetAmount.compareTo(BigDecimal.ZERO) > 0) {  // 前置条件满足
+      BigDecimal dailyBudget = budgetAmount.divide(BigDecimal.valueOf(daysInMonth), 2, RoundingMode.HALF_UP);  // 计算日均预算
       BigDecimal dailyThreshold = dailyBudget.multiply(DAILY_THRESHOLD_RATE);  // 计算日预警阈值(日均×1.5)
       BigDecimal dailySpent = spent.divide(BigDecimal.valueOf(dayOfMonth), 2, RoundingMode.HALF_UP);  // 计算日均消耗
       if (dailySpent.compareTo(dailyThreshold) >= 0) {  // 日均消耗达到日预警阈值

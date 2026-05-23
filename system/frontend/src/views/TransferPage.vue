@@ -18,7 +18,8 @@
     <el-card shadow="hover" class="transfer-card" v-loading="loading" aria-label="转账表单">
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="90px" style="max-width: 500px; margin: 0 auto;">
         <el-form-item label="转出账户" prop="fromAccountId">
-          <el-select v-model="formData.fromAccountId" placeholder="请选择转出账户" style="width: 100%">
+          <!-- Q-CR修复: @change触发toAccountId重校验，防止转出账户变更后转入账户校验状态残留 -->
+          <el-select v-model="formData.fromAccountId" placeholder="请选择转出账户" style="width: 100%" @change="() => formRef.validateField('toAccountId')">
             <el-option
               v-for="acc in accountList"
               :key="acc.id"
@@ -40,7 +41,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="金额" prop="amount">
-          <el-input-number v-model="formData.amount" :precision="2" :min="0.01" :step="100" style="width: 100%" />
+          <el-input-number v-model="formData.amount" :precision="2" :min="MIN_TRANSACTION_AMOUNT" :step="AMOUNT_STEP_ROUGH" style="width: 100%" />
         </el-form-item>
         <el-form-item label="备注" prop="note">
           <el-input v-model="formData.note" type="textarea" placeholder="备注（可选）" :rows="3" />
@@ -56,9 +57,10 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'              // 导入Vue组合式API
 import { ElMessage } from 'element-plus'                    // 导入消息提示
-import { transfer } from '../api/transaction'               // 导入转账API
-import { getAccountList } from '../api/account'              // 导入账户列表API
-import { logger } from '../utils/logger'                    // 导入日志工具
+import { transfer } from '../api/transaction'               // 导入转账API（api/transaction.js）
+import { getAccountList } from '../api/account'              // 导入账户列表API（api/account.js）
+import { MIN_TRANSACTION_AMOUNT, MAX_NOTE_LENGTH, AMOUNT_STEP_ROUGH } from '../constants/finance' // 导入常量
+import { logger } from '../utils/logger'                    // 导入日志工具（utils/logger.js）
 
 const log = logger('TransferPage')                          // 创建日志实例
 const loading = ref(false)          // 初始加载状态
@@ -90,9 +92,9 @@ const formRules = {
   ],
   amount: [                                                 // 金额校验规则
     { required: true, message: '请输入转账金额', trigger: 'blur' }, // 必填校验
-    { type: 'number', min: 0.01, message: '转账金额必须大于0', trigger: 'blur' } // 最小值校验
+    { type: 'number', min: MIN_TRANSACTION_AMOUNT, message: '转账金额必须大于0', trigger: 'blur' } // 使用常量 constants/finance.js
   ],
-  note: [{ max: 200, message: '备注长度不能超过200', trigger: 'blur' }] // 备注长度限制
+  note: [{ max: MAX_NOTE_LENGTH, message: `备注长度不能超过${MAX_NOTE_LENGTH}`, trigger: 'blur' }] // 使用常量 constants/finance.js
 }
 
 /** 加载账户列表 */
@@ -123,8 +125,11 @@ async function handleSubmit() {
     // 转账后刷新账户列表（余额可能已变化）
     await loadAccounts()                                    // 刷新账户列表
   } catch (e) {
-    // axios 拦截器已统一处理业务错误消息（如余额不足、账户禁用等），此处仅记录异常到控制台
+    // axios 拦截器已统一处理业务错误消息（如余额不足、账户禁用等），此处处理网络/超时异常
     log.error('转账异常:', e)                            // 记录异常日志
+    if (e.code === 'ERR_NETWORK' || e.code === 'ECONNABORTED') {  // 网络错误或超时
+      ElMessage.error('网络异常，转账失败')              // 网络级错误提示
+    }
   } finally {
     submitting.value = false                                 // 关闭提交loading
   }

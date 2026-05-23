@@ -111,15 +111,14 @@ import { getMonthlySummary, getCategorySummary, getTrend } from '../api/statisti
 // → 调用 api/budget.js 的 getBudgetAlert()（P2-2 预算预警）
 import { getBudgetAlert } from '../api/budget'               // 导入预算预警API
 // → P2-4 多币种：调用 api/exchange-rate.js 的 getExchangeRates()
-import { getExchangeRates } from '../api/exchange-rate'      // 导入汇率API
+// getExchangeRates 导入已移除：exchangeRates 数据从未被模板消费，为死代码
 import { getAccountList } from '../api/account'              // 导入账户列表API
 import { CHART_COLORS, ALERT_LEVEL_OVERSPENT, ALERT_LEVEL_MONTHLY_WARN, ALERT_LEVEL_DAILY_WARN, ALERT_LEVEL_NORMAL, TRANSACTION_TYPE_EXPENSE } from '../constants/finance' // 导入常量
 import { logger } from '../utils/logger'                    // 导入统一日志工具
 
 const log = logger('DashboardPage')                         // 创建日志实例
 
-/** P2-4: 汇率数据缓存（1外币→CNY），例 { USD: 7.3, EUR: 7.94, ... } */
-const exchangeRates = ref({})                               // 汇率缓存
+// exchangeRates 已移除：发现该变量从未被模板读取（dead code），仅 loadExchangeRates() 写入但无任何渲染路径消费
 /** P2-4: 标记是否存在非CNY账户（用于显示多币种提示） */
 const hasMultiCurrency = ref(false)                         // 多币种标志
 
@@ -312,24 +311,8 @@ async function loadTrendChart() {
 }
 
 /**
- * P2-4: 加载汇率数据（通过 api/exchange-rate.js 封装函数调用 GET /api/exchange-rate）
- * 返回 { ratesInverse: { USD: "7.3000", ... } }
- * 用于 DashboardPage 多币种账户的 CNY 等值换算展示
- */
-async function loadExchangeRates() {
-  try {
-    const data = await getExchangeRates()                     // 调用汇率API
-    if (data && data.ratesInverse) {
-      exchangeRates.value = data.ratesInverse                 // 缓存汇率数据
-    }
-  } catch (e) {
-    log.warn('加载汇率数据失败:', e) // 开发环境日志
-    ElMessage.warning('汇率数据加载失败')                     // 降级提示
-  }
-}
-
-/**
  * P2-4: 加载账户列表判断是否存在非CNY账户（基于账户数据而非汇率数据）
+ * 修复：移除了 loadExchangeRates 函数（exchangeRates 数据从未在模板中渲染，为死代码）
  */
 async function loadAccountCurrencyInfo() {
   try {
@@ -340,6 +323,7 @@ async function loadAccountCurrencyInfo() {
   } catch (e) {
     // 账户加载失败不影响页面核心功能
     log.warn('加载账户币种信息失败:', e) // 开发环境日志
+    ElMessage.warning('多币种汇率信息加载失败，部分余额可能无法换算') // Q-CR修复：用户级降级提示
   }
 }
 
@@ -351,7 +335,7 @@ function handleResize() {
 
 // 页面挂载时并行加载所有数据（含 P2-4 汇率），加载完成后关闭 loading
 onMounted(async () => {
-  await Promise.allSettled([loadMonthlySummary(), loadBudgetAlerts(), loadCategoryChart(), loadTrendChart(), loadExchangeRates(), loadAccountCurrencyInfo()]) // 并行加载所有数据
+  await Promise.allSettled([loadMonthlySummary(), loadBudgetAlerts(), loadCategoryChart(), loadTrendChart(), loadAccountCurrencyInfo()]) // 并行加载所有数据（已移除 loadExchangeRates 死代码）
   loading.value = false                                      // 关闭loading
   window.addEventListener('resize', handleResize)            // 监听窗口resize
 })

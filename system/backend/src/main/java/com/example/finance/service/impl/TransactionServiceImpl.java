@@ -8,6 +8,7 @@ import com.example.finance.common.BusinessException;
 import com.example.finance.common.ErrorCode;
 import com.example.finance.common.EntityValidator;
 import com.example.finance.common.enums.Status;
+import com.example.finance.common.enums.CategoryType;
 import com.example.finance.common.enums.TransactionType;
 import com.example.finance.entity.Account;
 import com.example.finance.entity.Category;
@@ -35,6 +36,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;           // CSV导入时日期格式解析异常（用户提交的 time 字段不合法时捕获）
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -113,7 +115,7 @@ public class TransactionServiceImpl implements TransactionService {
    * @param startTime 起始时间(yyyy-MM-dd HH:mm:ss, 空=不过滤)
    * @param endTime 结束时间(yyyy-MM-dd HH:mm:ss, 空=不过滤)
    * @param keyword 关键词(模糊匹配备注, 空=不过滤)
-   * @param sortBy 排序字段(白名单: id/time/create_time, 默认time)
+   * @param sortBy 排序字段(白名单: time/amount_asc/amount_desc, 默认time · 白名单定义在 ALLOWED_SORT_BY 常量集)
    * @param pageNum 页码(从1开始)
    * @param pageSize 每页条数(默认10)
    * @return 分页结果(含total和records)
@@ -152,8 +154,9 @@ public class TransactionServiceImpl implements TransactionService {
     Long total = transactionMapper.selectTransactionCount(  // 查询总记录数(不含分页)
         userId, accountId, categoryId, startTime, endTime, escapedKeyword  // 查询参数
     );
-    page.setRecords(records);  // 设置分页记录列表
-    page.setTotal(total != null ? total : 0);  // 设置总记录数(null保护)
+    // null安全兜底：XML mapper返回null时使用空列表，防止下游NPE
+    page.setRecords(records != null ? records : List.of());  // 设置分页记录列表（null→空列表）
+    page.setTotal(total != null ? total : 0L);  // 设置总记录数（null→0L，防止NPE）
     return page;  // 返回分页结果
   }
 
@@ -171,17 +174,25 @@ public class TransactionServiceImpl implements TransactionService {
   @Override
   @Transactional
   public TransactionDTO create(Long userId, TransactionRequest request) {
-    // 校验账户归属并复用对象
+    // 校验账户归属并复用对象（调用 entity/EntityValidator.java 的 validateAccount 方法）
     Account account = entityValidator.validateAccount(userId, request.getAccountId());
-    // 校验分类存在并复用对象
+    // 校验分类存在并复用对象（调用 entity/EntityValidator.java 的 validateCategory 方法）
     Category category = entityValidator.validateCategory(request.getCategoryId());
+
+    // 业务校验：金额不能为空且必须大于零（TransactionType枚举定义在 common/enums/TransactionType.java）
+    if (request.getAmount() == null) {  // 金额为null
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "金额不能为空");  // 拒绝null金额
+    }
+    if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {  // 金额<=0
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "金额必须大于0");  // 拒绝零或负金额
+    }
 
     Transaction transaction = new Transaction();  // 创建交易记录实体
     transaction.setUserId(userId);  // 设置用户ID
-    transaction.setAccountId(request.getAccountId());  // 设置账户ID
-    transaction.setCategoryId(request.getCategoryId());  // 设置分类ID
-    transaction.setType(request.getType());  // 设置交易类型(1=收入/2=支出)
-    transaction.setAmount(request.getAmount());  // 设置金额
+    transaction.setAccountId(request.getAccountId());  // 设置账户ID(来源于entity/dto/TransactionRequest.java)
+    transaction.setCategoryId(request.getCategoryId());  // 设置分类ID(来源于entity/dto/TransactionRequest.java)
+    transaction.setType(request.getType());  // 设置交易类型(1=收入/2=支出，来源于common/enums/TransactionType.java)
+    transaction.setAmount(request.getAmount());  // 设置金额(已通过null和正数校验)
     transaction.setNote(request.getNote());  // 设置备注
     transaction.setTime(request.getTime());  // 设置交易时间
     transaction.setCreateTime(LocalDateTime.now());  // 设置创建时间
@@ -232,6 +243,15 @@ public class TransactionServiceImpl implements TransactionService {
     // 普通交易记录允许更新全部字段，重新校验账户归属和分类存在，复用对象
     Account account = entityValidator.validateAccount(userId, request.getAccountId());  // 校验账户归属
     Category category = entityValidator.validateCategory(request.getCategoryId());  // 校验分类存在
+    // P2-2 修复(Q-CR Loop1):普通交易更新时显式校验金额合法性(纵深防御)
+    // 虽然 DTO 已 @Valid + @DecimalMin("0.01") 校验,但 Service 作为最后一道防线,
+    // 防止有人绕过 Controller 直接调用 Service 接口(如内部服务、JUnit 单测),保护 DB 不受非法值污染
+    if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {  // 普通交易金额必须>0
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "金额必须大于0");  // 抛出参数非法异常
+    }
+    if (request.getType() == null) {  // 类型不能为空
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "交易类型不能为空");  // 抛出参数非法异常
+    }
     transaction.setAccountId(request.getAccountId());  // 更新账户ID
     transaction.setCategoryId(request.getCategoryId());  // 更新分类ID
     transaction.setType(request.getType());  // 更新交易类型
@@ -289,34 +309,57 @@ public class TransactionServiceImpl implements TransactionService {
   @Override
   @Transactional
   public TransferDTO transfer(Long userId, TransferRequest request) {
-    // 校验转出和转入账户归属（两账户均加悲观锁防并发透支/禁用 TOCTOU）
-    Account fromAccount = accountMapper.selectByIdForUpdate(request.getFromAccountId());  // 悲观锁查询转出账户
+    // P1-1 修复(Q-CR Loop1):死锁预防 - 按账户 ID 升序加锁,消除 A→B 与 B→A 双向并发转账的循环等待
+    // 旧实现先锁 fromAccount 再锁 toAccount,如线程1转账 A→B、线程2转账 B→A,会形成 A→B→A 死锁。
+    // 修复策略:无论 from/to 哪个 ID 更小都先锁小 ID 账户,再锁大 ID 账户,所有转账线程都按相同顺序加锁,
+    // 即可破坏死锁的"循环等待"必要条件(操作系统死锁四大必要条件之一)。
+    // 校验金额(在加锁前完成,失败时不浪费锁资源)
+    if (request.getAmount() == null) {  // 金额为null
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "转账金额不能为空");  // 拒绝null金额
+    }
+    if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {  // 金额<=0
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "转账金额必须大于0");  // 拒绝零或负金额
+    }
+    // 校验不能转给自己(在加锁前完成,失败时不浪费锁资源)
+    if (request.getFromAccountId().equals(request.getToAccountId())) {  // 转出和转入相同
+      throw new BusinessException(ErrorCode.SAME_TRANSFER_ACCOUNT.getCode(), ErrorCode.SAME_TRANSFER_ACCOUNT.getMsg());  // 抛出业务异常
+    }
+
+    // 死锁预防:按 ID 升序确定加锁顺序(P1-1 修复 · Q-CR Loop1)
+    Long firstId = Math.min(request.getFromAccountId(), request.getToAccountId());   // 较小的账户ID(先锁)
+    Long secondId = Math.max(request.getFromAccountId(), request.getToAccountId());  // 较大的账户ID(后锁)
+    Account firstAccount = accountMapper.selectByIdForUpdate(firstId);               // 先锁小 ID 账户(防死锁)
+    Account secondAccount = accountMapper.selectByIdForUpdate(secondId);             // 再锁大 ID 账户(防死锁)
+    // 根据 from/to 还原 fromAccount/toAccount 引用(锁顺序与业务方向解耦)
+    Account fromAccount = request.getFromAccountId().equals(firstId) ? firstAccount : secondAccount;  // 还原转出账户对象
+    Account toAccount = request.getToAccountId().equals(firstId) ? firstAccount : secondAccount;      // 还原转入账户对象
+
     // 校验：账户存在 + 归属当前用户 + 状态为活跃（Integer用Objects.equals比较值，避免引用比较bug）
     if (fromAccount == null || !Objects.equals(fromAccount.getUserId(), userId) || !Objects.equals(fromAccount.getStatus(), Status.ACTIVE.getValue())) {
       throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getCode(), ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getMsg());  // 抛出业务异常
     }
-    Account toAccount = accountMapper.selectByIdForUpdate(request.getToAccountId());  // 悲观锁查询转入账户
     // 校验：账户存在 + 归属当前用户 + 状态为活跃（Integer用Objects.equals比较值，避免引用比较bug）
     if (toAccount == null || !Objects.equals(toAccount.getUserId(), userId) || !Objects.equals(toAccount.getStatus(), Status.ACTIVE.getValue())) {
       throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getCode(), ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getMsg());  // 抛出业务异常
     }
 
-    // 校验不能转给自己
-    if (request.getFromAccountId().equals(request.getToAccountId())) {  // 转出和转入相同
-      throw new BusinessException(ErrorCode.SAME_TRANSFER_ACCOUNT.getCode(), ErrorCode.SAME_TRANSFER_ACCOUNT.getMsg());  // 抛出业务异常
-    }
-
-    // 校验转出账户余额充足
-    BigDecimal totalIncome = transactionMapper.selectAccountIncome(userId, fromAccount.getId());  // 查询转出账户总收入
-    BigDecimal totalExpense = transactionMapper.selectAccountExpense(userId, fromAccount.getId());  // 查询转出账户总支出
-    BigDecimal currentBalance = fromAccount.getInitialBalance().add(totalIncome).subtract(totalExpense);  // 计算当前余额
+    // 校验转出账户余额充足（调用 TransactionMapper.java 的 selectAccountIncome 和 selectAccountExpense 方法）
+    BigDecimal totalIncome = transactionMapper.selectAccountIncome(userId, fromAccount.getId());  // 查询转出账户总收入（无数据返回null）
+    BigDecimal totalExpense = transactionMapper.selectAccountExpense(userId, fromAccount.getId());  // 查询转出账户总支出（无数据返回null）
+    // null安全兜底：mapper无数据返回null，BigDecimal.add/subtract对null抛NPE，需兜底为BigDecimal.ZERO
+    BigDecimal safeIncome = totalIncome != null ? totalIncome : BigDecimal.ZERO;  // 总收入null兜底为0
+    BigDecimal safeExpense = totalExpense != null ? totalExpense : BigDecimal.ZERO;  // 总支出null兜底为0
+    BigDecimal currentBalance = fromAccount.getInitialBalance().add(safeIncome).subtract(safeExpense);  // 计算当前余额=初始+收入-支出
     if (currentBalance.compareTo(request.getAmount()) < 0) {  // 余额不足
       throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE.getCode(), ErrorCode.INSUFFICIENT_BALANCE.getMsg());  // 抛出业务异常
     }
 
-    // 查询"其他"分类ID（运行时查询，不依赖种子数据顺序）
-    Category transferCategory = categoryMapper.selectOne(  // 查询"其他"分类
-        new LambdaQueryWrapper<Category>().eq(Category::getName, TRANSFER_CATEGORY_NAME)  // 按名称查询
+    // 查询"其他"分类ID（支出类 · 种子数据中存在两个名为"其他"的分类——支出(id=8)和收入(id=13)——
+    // 必须加 type=1(CategoryType.EXPENSE)过滤，否则 selectOne 返回多行会抛出 TooManyResultsException 导致转账崩溃）
+    Category transferCategory = categoryMapper.selectOne(  // 查询"其他"支出分类
+        new LambdaQueryWrapper<Category>()
+            .eq(Category::getName, TRANSFER_CATEGORY_NAME)  // 按名称查询"其他"
+            .eq(Category::getType, CategoryType.EXPENSE.getValue())  // 限定为支出类(type=1)，解决同名二义性导致 TooManyResultsException
     );
     if (transferCategory == null) {  // "其他"分类不存在
       throw new BusinessException(ErrorCode.CATEGORY_NOT_FOUND.getCode(), ErrorCode.CATEGORY_NOT_FOUND.getMsg() + "：未找到「其他」分类，请检查种子数据");  // 抛出业务异常
@@ -479,21 +522,33 @@ public class TransactionServiceImpl implements TransactionService {
 
           transactionMapper.insert(transaction);  // 插入交易记录到数据库
           result.setSuccessCount(result.getSuccessCount() + 1);  // 成功计数+1
-        } catch (NumberFormatException e) {  // 数字格式解析错误
+        } catch (DateTimeParseException e) {  // 日期时间格式解析错误（用户提交的 time 字段格式不合法）
+          ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();  // 创建失败行记录
+          failRow.setRow(rowNumber);  // 设置行号
+          failRow.setReason("日期格式错误（需 YYYY-MM-DD HH:mm:ss）: " + e.getMessage());  // 设置失败原因（含格式提示）
+          result.getFailRows().add(failRow);  // 加入失败列表
+        } catch (NumberFormatException e) {  // 数字格式解析错误（用户提交的 amount 字段格式不合法）
           ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();  // 创建失败行记录
           failRow.setRow(rowNumber);  // 设置行号
           failRow.setReason("数据格式错误: " + e.getMessage());  // 设置失败原因
           result.getFailRows().add(failRow);  // 加入失败列表
-        } catch (Exception e) {  // 其他解析错误
+        } catch (IllegalArgumentException e) {  // 参数非法（如无效的 type 值）
           ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();  // 创建失败行记录
           failRow.setRow(rowNumber);  // 设置行号
-          failRow.setReason("解析失败: " + e.getMessage());  // 设置失败原因
+          failRow.setReason("参数错误: " + e.getMessage());  // 设置失败原因
           result.getFailRows().add(failRow);  // 加入失败列表
+          log.warn("CSV 导入第 {} 行参数错误: {}", rowNumber, e.getMessage());  // 记录警告日志（异常不吞没，审计可追溯）
         }
       }
-    } catch (Exception e) {  // CSV文件读取失败
-      log.error("CSV 文件读取失败: {}", e.getMessage(), e);  // 记录错误日志
+    } catch (java.io.IOException e) {  // 文件I/O异常（如文件损坏、磁盘满）——由CSVReader.readNext()触发
+      log.error("CSV 文件读取I/O错误: {}", e.getMessage(), e);  // 记录I/O错误日志
       throw new BusinessException(ErrorCode.CSV_READ_ERROR.getCode(), ErrorCode.CSV_READ_ERROR.getMsg());  // 抛出CSV读取异常
+    } catch (org.springframework.dao.DataAccessException e) {  // 数据库访问异常（如外键约束/连接断开/死锁）——由transactionMapper.insert()触发
+      log.error("CSV 导入数据库错误: {}", e.getMessage(), e);  // 记录数据库错误日志
+      throw new BusinessException(ErrorCode.CSV_READ_ERROR.getCode(), "CSV导入数据库错误: " + e.getMessage());  // 区分CSV解析与DB错误
+    } catch (Exception e) {  // 其他未预期的运行时异常兜底（如空指针、并发修改、IllegalStateException）
+      log.error("CSV 导入未预期错误: {}", e.getMessage(), e);  // 记录未预期错误日志
+      throw new BusinessException(ErrorCode.CSV_READ_ERROR.getCode(), "CSV导入失败: " + e.getMessage());  // 抛出包含详细信息的异常
     }
 
     result.setFailCount(result.getFailRows().size());  // 统计失败总数

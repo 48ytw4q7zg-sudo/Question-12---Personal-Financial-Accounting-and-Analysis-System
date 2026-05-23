@@ -129,12 +129,12 @@ const incomeCategoriesWithAmount = computed(() =>
  * 返回的数组包含收入和支出两种类型，前端用 computed 分别筛选
  */
 async function loadCategories() {
-  loading.value = true                                      // 开启loading
   try {
     const data = await getCategoryList()                     // 调用分类列表API
     categories.value = data || []                            // 设置分类数据
-  } finally {
-    loading.value = false                                    // 关闭loading
+  } catch (e) {
+    log.error('加载分类列表失败:', e)
+    throw e                                                  // 向上传播给 onMounted 统一处理 loading 状态
   }
 }
 
@@ -147,7 +147,6 @@ async function loadCategories() {
 async function loadSummary() {
   if (!selectedMonth.value) return                           // 未选月份不加载
   const [year, month] = selectedMonth.value.split('-')      // 解析年月
-  loading.value = true                                      // 开启loading
   try {
     // 不传 type 参数，同时获取支出和收入的汇总数据
     const data = await getCategorySummary({ year: parseInt(year), month: parseInt(month) }) // 调用汇总API
@@ -156,20 +155,25 @@ async function loadSummary() {
     log.warn('加载汇总数据失败:', e) // 开发环境日志
     ElMessage.warning('加载汇总数据失败')                     // 降级提示
     summaryData.value = []                                   // 清空汇总数据
-  } finally {
-    loading.value = false                                    // 关闭loading
   }
 }
 
-// 页面挂载时加载分类列表 + 本月汇总（async+Promise.all 并行加载，await保证异常可追踪）
+// 页面挂载时加载分类列表 + 本月汇总（async+Promise.all 并行加载，统一管理 loading 状态）
 onMounted(async () => {
   // 初始化默认当月
   const now = new Date()                                     // 获取当前日期
   selectedMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}` // 格式化为YYYY-MM
-  await Promise.all([                                        // 并行加载分类列表+汇总数据
-    loadCategories(),                                        // 加载分类列表
-    loadSummary()                                            // 加载汇总数据
-  ])
+  loading.value = true                                       // 开启动态 loading（修复：统一管理，避免子函数独立控制导致竞态）
+  try {
+    await Promise.all([                                        // 并行加载分类列表+汇总数据
+      loadCategories(),                                        // 加载分类列表
+      loadSummary()                                            // 加载汇总数据
+    ])
+  } catch (e) {
+    log.error('页面初始化加载失败:', e)                          // 记录错误日志
+  } finally {
+    loading.value = false                                      // 所有数据加载完成后关闭 loading
+  }
 })
 </script>
 

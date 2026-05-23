@@ -81,11 +81,10 @@
       <scope>runtime</scope>
     </dependency>
 
-    <!-- Spring Security Crypto (仅 BCrypt) -->
+    <!-- Spring Security Crypto (仅 BCrypt · 版本由 Spring Boot BOM 3.5.14 统一管理，不手动覆盖避免传递依赖冲突) -->
     <dependency>
       <groupId>org.springframework.security</groupId>
       <artifactId>spring-security-crypto</artifactId>
-      <version>6.3.4</version>
     </dependency>
 
     <!-- Lombok -->

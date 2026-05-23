@@ -16,6 +16,8 @@ import java.math.BigDecimal;
  *
  * 校验规则：名称 1-30 字符（@Size(max=30)），账户/分类/金额/类型/周期/到期日必填
  * 业务约束：关联账户必须存在且状态=1，到期日是 @Scheduled 判断依据不可为空
+ *
+ * 调用方: controller/RecurringBillController.java → service/impl/RecurringBillServiceImpl.java
  */
 @Data
 public class RecurringBillRequest {
@@ -25,12 +27,14 @@ public class RecurringBillRequest {
   @Size(min = 1, max = 30, message = "名称长度须在1-30之间")
   private String name;
 
-  /** 关联账户 ID（必须存在且 status=1） */
+  /** 关联账户 ID（必须存在且 status=1，来源于 entity/Account.java 的主键） */
   @NotNull(message = "账户不能为空")
+  @Min(value = 1, message = "账户ID必须为正整数")
   private Long accountId;
 
-  /** 关联分类 ID（必须存在） */
+  /** 关联分类 ID（必须存在，来源于 entity/Category.java 的主键） */
   @NotNull(message = "分类不能为空")
+  @Min(value = 1, message = "分类ID必须为正整数")
   private Long categoryId;
 
   /** 金额（DECIMAL(12,2)，必须 > 0.01） */

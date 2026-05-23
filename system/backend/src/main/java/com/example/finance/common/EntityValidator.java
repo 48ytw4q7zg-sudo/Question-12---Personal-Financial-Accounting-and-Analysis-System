@@ -66,8 +66,10 @@ public class EntityValidator {
   /**
    * 格式化年月为 yyyy-MM 字符串（消除 BudgetServiceImpl / BudgetAlertServiceImpl 的重复逻辑）
    *
+   * P1-12 修复(Q-CR Loop2):新增月份范围校验(1-12),防止 month=13/0/-1 等非法值进入字符串
+   *
    * @param year  年份字符串（如 "2026"）
-   * @param month 月份字符串（如 "5" 或 "05"）
+   * @param month 月份字符串（如 "5" 或 "05"，必须在 1-12 范围内）
    * @return 格式化的 yyyy-MM 字符串
    */
   public static String formatYearMonth(String year, String month) {
@@ -76,9 +78,18 @@ public class EntityValidator {
       throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "年月参数不可为 null: year=" + year + ", month=" + month);  // 抛出参数非法异常
     }
     try {
+      int yearInt = Integer.parseInt(year);  // 校验年份可解析为整数
       int monthInt = Integer.parseInt(month);  // 解析月份整数
+      // P1-12 修复(Q-CR Loop2):月份语义范围校验,防止 0/13/99 等非法值
+      if (monthInt < 1 || monthInt > 12) {  // 月份超出 1-12 合法范围
+        throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "月份必须在 01-12 之间: " + month);  // 抛出参数非法异常
+      }
+      // P1-12 修复(Q-CR Loop2):年份合理性校验(2000-2100),与 StatisticsService.YEAR_MIN/MAX 一致
+      if (yearInt < 2000 || yearInt > 2100) {  // 年份超出合理范围
+        throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "年份必须在 2000-2100 之间: " + year);  // 抛出参数非法异常
+      }
       return String.format("%s-%02d", year, monthInt);  // 格式化为 yyyy-MM
-    } catch (NumberFormatException e) {  // 月份格式非法
+    } catch (NumberFormatException e) {  // 年份或月份格式非法
       throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "年月格式不合法: year=" + year + ", month=" + month);  // 抛出参数非法异常
     }
   }

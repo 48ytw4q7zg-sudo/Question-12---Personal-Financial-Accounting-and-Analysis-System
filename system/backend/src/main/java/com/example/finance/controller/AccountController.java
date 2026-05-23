@@ -23,11 +23,11 @@ import java.util.List;
  * 依赖：→ AccountService（业务逻辑层）→ AccountMapper + TransactionMapper（数据访问层）
  *
  * 接口清单：
- *   GET    /api/account          — 查询当前用户的账户列表
- *   POST   /api/account          — 创建新账户
- *   PUT    /api/account/{id}     — 更新账户信息
+ *   GET    /api/v1/account          — 查询当前用户的账户列表
+ *   POST   /api/v1/account          — 创建新账户
+ *   PUT    /api/v1/account/{id}     — 更新账户信息
  *   DELETE /api/v1/account/{id}     — 删除账户（软删除，status 置 0）
- *   GET    /api/account/balance  — 获取各账户余额统计
+ *   GET    /api/v1/account/balance  — 获取各账户余额统计
  *
  * 被前端调用：→ api/account.js 的 getAccountList/create/update/delete/getBalance
  * 被 AccountPage.vue、DashboardPage.vue、TransferPage.vue 等调用

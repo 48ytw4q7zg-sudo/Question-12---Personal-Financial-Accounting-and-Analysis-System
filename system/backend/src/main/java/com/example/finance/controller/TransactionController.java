@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -27,12 +28,12 @@ import org.springframework.web.multipart.MultipartFile;
  * 依赖：→ TransactionService（业务逻辑层）→ TransactionMapper + AccountMapper（数据访问层）
  *
  * 接口清单：
- *   GET    /api/transaction              — 查询交易记录（分页 + 多条件筛选）
- *   POST   /api/transaction              — 创建收支记录（记一笔）
- *   PUT    /api/transaction/{id}         — 更新收支记录
+ *   GET    /api/v1/transaction              — 查询交易记录（分页 + 多条件筛选）
+ *   POST   /api/v1/transaction              — 创建收支记录（记一笔）
+ *   PUT    /api/v1/transaction/{id}         — 更新收支记录
  *   DELETE /api/v1/transaction/{id}         — 删除收支记录（转账记录禁止删除）
- *   POST   /api/transaction/transfer     — 转账（生成两条关联记录）
- *   POST   /api/transaction/import       — CSV 批量导入（≤5MB，≤1000 条）
+ *   POST   /api/v1/transaction/transfer     — 转账（生成两条关联记录）
+ *   POST   /api/v1/transaction/import       — CSV 批量导入（≤5MB，≤1000 条）
  *
  * 被前端调用：→ api/transaction.js 的 getTransactionList/create/update/transfer/importCsv
  * 被 TransactionListPage.vue、TransferPage.vue、ImportPage.vue 调用
@@ -71,7 +72,7 @@ public class TransactionController {
       @RequestParam(required = false) @Min(1) Long categoryId,  // 分类ID校验（>=1）
       @RequestParam(required = false) String startTime,
       @RequestParam(required = false) String endTime,
-      @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) @Size(max = 100) String keyword,  // 防 DoS：限制关键字长度不超过 100 字符（避免超大 LIKE 查询）
       @RequestParam(required = false, defaultValue = "time") String sortBy,
       @RequestParam(defaultValue = "1") @Min(1) int pageNum,  // 页码校验（>=1）
       @RequestParam(defaultValue = "10") @Min(1) @Max(100) int pageSize,  // 每页条数校验（1-100）

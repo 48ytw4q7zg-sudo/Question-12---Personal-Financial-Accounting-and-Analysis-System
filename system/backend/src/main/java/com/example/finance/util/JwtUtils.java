@@ -21,12 +21,15 @@ import java.util.Date;
 public class JwtUtils {
 
   // 密钥和过期时间初始为 null/0，必须由 JwtConfig.init() 初始化后方可使用
-  private static String SECRET = null;
+  // volatile 关键字确保多线程可见性（JwtConfig 在主线程初始化，请求线程在 Tomcat 线程池读取）
+  // 引用：JwtConfig.java 第 52 行 @PostConstruct 调用 init() 写入值
+  private static volatile String SECRET = null;
   // 默认过期时间：7天（可通过 JWT_EXPIRE 环境变量覆盖，单位毫秒）
-  private static long EXPIRE = 0L;
+  private static volatile long EXPIRE = 0L;
 
   /** HMAC-SHA256 签名密钥（由 init() 方法从配置文件初始化，未初始化时为 null） */
-  private static SecretKey KEY = null;
+  // volatile 保证 SecretKey 对象在所有线程立即可见（JMM 线程安全修复）
+  private static volatile SecretKey KEY = null;
 
   /**
    * JWT payload 封装（一次解析返回 userId + username + role，避免双重解析）
@@ -113,17 +116,30 @@ public class JwtUtils {
     }
   }
 
-  /** @deprecated 使用 {@link #parseTokenPayload(String)} 直接调用，LoginInterceptor 已迁移至 parseTokenPayload。保留供外部兼容。 */
-  @Deprecated
+  /**
+   * 解析 JWT Token 获取 userId（实体类）。
+   * <p>调用方: 测试代码（CrossModuleIntegrationTest.java 第 75 行 · OrthogonalAndUserScenarioTest.java 第 207/473 行）</p>
+   * <p>生产代码已迁移至 parseTokenPayload()（LoginInterceptor.java 第65行），此方法仅保留供测试兼容。</p>
+   *
+   * @param token JWT token 字符串
+   * @return userId 或 null（解析失败）
+   */
   public static Long parseToken(String token) {
     JwtPayload payload = parseTokenPayload(token);
     return payload != null ? payload.getUserId() : null;
   }
 
-  /** @deprecated 使用 {@link #parseTokenPayload(String)} 直接调用，LoginInterceptor 已迁移至 parseTokenPayload。保留供外部兼容。 */
-  @Deprecated
+  /**
+   * 解析 JWT Token 获取 role（Integer）。
+   * <p>调用方: 测试代码（CrossModuleIntegrationTest.java 第 77/88 行 · OrthogonalAndUserScenarioTest.java 第 474 行）</p>
+   * <p>生产代码已迁移至 parseTokenPayload()（LoginInterceptor.java 第65行），此方法仅保留供测试兼容。</p>
+   *
+   * @param token JWT token 字符串
+   * @return role 或 null（解析失败）
+   */
   public static Integer parseRole(String token) {
     JwtPayload payload = parseTokenPayload(token);
     return payload != null ? payload.getRole() : null;
   }
+
 }

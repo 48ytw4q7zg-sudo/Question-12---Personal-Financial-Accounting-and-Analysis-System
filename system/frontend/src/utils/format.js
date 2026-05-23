@@ -14,9 +14,13 @@ export function formatTime(time) {
   return time.replace('T', ' ').substring(0, 19)  // ISO格式 → 本地显示格式
 }
 
-/** 格式化 Date 对象为 'YYYY-MM-DD HH:mm:ss' 字符串（使用本地时间，不涉及 UTC 转换） */
+/** 格式化 Date 对象为 'YYYY-MM-DD HH:mm:ss' 字符串（使用本地时间，不涉及 UTC 转换）
+ *  安全加固：添加 null/undefined 守卫，防止传入空值时抛出 TypeError
+ *  调用方：TransactionListPage.vue（表单数据回填）、AdminPage.vue（用户列表时间显示）
+ */
 export function formatDateTime(date) {
-  const pad = (n) => String(n).padStart(2, '0')  // 两位数补零辅助函数
+  if (!date) return ''                              // 空值守卫（null/undefined/0/''）
+  const pad = (n) => String(n).padStart(2, '0')     // 两位数补零辅助函数
   // 拼接年-月-日 时:分:秒 格式（月从0开始需+1）
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }

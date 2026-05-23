@@ -34,14 +34,15 @@ public class UserServiceImpl implements UserService {
   /** → UserMapper：用户数据访问 */
   private final UserMapper userMapper;
 
-  /** BCrypt 工作因子（OWASP 推荐 ≥10，本项目使用 12 更安全） */
+  /** BCrypt 工作因子（OWASP 推荐 ≥10，本项目使用 12 更安全 · SEC-1 修复：提升为 static 避免每次创建实例浪费内存） */
   private static final int BCRYPT_STRENGTH = 12;
 
   /**
-   * BCrypt 密码编码器（工作因子 12，比默认 10 更安全）
+   * BCrypt 密码编码器（工作因子 12，比默认 10 更安全 · static final 共享单例，BCryptPasswordEncoder 线程安全）
    * <p>与已存哈希 $2a$10$ 兼容，新注册用户自动升级为 $2a$12$ 强度。</p>
+   * <p>调用方：register() 方法用于加密新密码 · login() 和 changePassword() 方法用于验证密码 · 均在此 UserServiceImpl.java 中</p>
    */
-  private final BCryptPasswordEncoder bCryptEncoder = new BCryptPasswordEncoder(BCRYPT_STRENGTH);
+  private static final BCryptPasswordEncoder BCRYPT_ENCODER = new BCryptPasswordEncoder(BCRYPT_STRENGTH);
 
   /**
    * 用户注册
@@ -66,7 +67,7 @@ public class UserServiceImpl implements UserService {
     // 创建用户
     User user = new User();
     user.setUsername(request.getUsername());
-    user.setPassword(bCryptEncoder.encode(request.getPassword()));
+    user.setPassword(BCRYPT_ENCODER.encode(request.getPassword()));  // 使用 BCryptPasswordEncoder（来自 spring-security-crypto 6.3.4）加密密码
     user.setRole(UserRole.NORMAL.getValue());
     user.setCreateTime(LocalDateTime.now());
     user.setUpdateTime(LocalDateTime.now());
@@ -102,7 +103,7 @@ public class UserServiceImpl implements UserService {
     User user = userMapper.selectOne(
         new LambdaQueryWrapper<User>().eq(User::getUsername, request.getUsername())
     );
-    if (user == null || !bCryptEncoder.matches(request.getPassword(), user.getPassword())) {
+    if (user == null || !BCRYPT_ENCODER.matches(request.getPassword(), user.getPassword())) {
       throw new BusinessException(ErrorCode.PASSWORD_ERROR.getCode(), ErrorCode.PASSWORD_ERROR.getMsg());
     }
 
@@ -133,17 +134,17 @@ public class UserServiceImpl implements UserService {
     }
 
     // 校验旧密码
-    if (!bCryptEncoder.matches(oldPassword, user.getPassword())) {
+    if (!BCRYPT_ENCODER.matches(oldPassword, user.getPassword())) {
       throw new BusinessException(ErrorCode.OLD_PASSWORD_ERROR.getCode(), ErrorCode.OLD_PASSWORD_ERROR.getMsg());
     }
 
     // 校验新密码不能与旧密码相同
-    if (bCryptEncoder.matches(newPassword, user.getPassword())) {
+    if (BCRYPT_ENCODER.matches(newPassword, user.getPassword())) {
       throw new BusinessException(ErrorCode.SAME_PASSWORD.getCode(), ErrorCode.SAME_PASSWORD.getMsg());
     }
 
     // 更新密码
-    user.setPassword(bCryptEncoder.encode(newPassword));
+    user.setPassword(BCRYPT_ENCODER.encode(newPassword));
     user.setUpdateTime(LocalDateTime.now());
     userMapper.updateById(user);
   }

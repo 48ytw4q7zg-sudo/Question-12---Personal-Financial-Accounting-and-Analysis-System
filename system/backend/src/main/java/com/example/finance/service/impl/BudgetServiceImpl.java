@@ -138,6 +138,18 @@ public class BudgetServiceImpl implements BudgetService {
       throw new BusinessException(ErrorCode.BUDGET_EXPENSE_ONLY.getCode(), ErrorCode.BUDGET_EXPENSE_ONLY.getMsg());  // 抛出业务异常
     }
 
+    // P1-6 修复(Q-CR Loop1):月份格式严格校验,使用 java.time.YearMonth 解析
+    // 旧实现仅用正则 ^\d{4}-\d{2}$,会放过非法月份(2026-13/2026-99/2026-00),导致 budget.month 字段污染
+    // 改用 YearMonth.parse() 严格校验,既保证格式正确(yyyy-MM),又验证月份合法性(1-12)
+    if (request.getMonth() == null || !request.getMonth().matches("^\\d{4}-\\d{2}$")) {  // 第一道防线:正则校验格式
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "月份格式必须为 yyyy-MM");  // 抛出参数非法异常
+    }
+    try {
+      java.time.YearMonth.parse(request.getMonth());  // 第二道防线:语义校验(2026-13 / 2026-00 这类非法月份在此被拦截)
+    } catch (java.time.format.DateTimeParseException e) {  // YearMonth.parse 对非法月份抛出 DateTimeParseException
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "月份非法,月份必须在 01-12 之间: " + request.getMonth());  // 抛出参数非法异常
+    }
+
     // R-05-issue-6: 已修复 - 捕获DuplicateKeyException并发兜底
     // 两层并发处理策略：第一层先查询→不存在则insert；并发时唯一索引拦截→捕获DuplicateKeyException→
     // 重新查询已存在记录并update。极端场景（记录被并发删除）直接抛异常让用户重试。
@@ -251,8 +263,9 @@ public class BudgetServiceImpl implements BudgetService {
     // R-05-issue-2: 已修复 - selectCategorySummary提到循环外消除N+1查询 · 范围查询利用 idx_transaction_user_time 索引
     // 复用 EntityValidator.buildMonthRange() 消除重复代码
     String[] monthRange = EntityValidator.buildMonthRange(yearInt, monthInt);  // 构建月份范围时间字符串（复用EntityValidator公共方法）
-    List<CategorySummaryDTO> summaryList = transactionMapper.selectCategorySummary(userId, monthRange[0], monthRange[1], TransactionType.EXPENSE.getValue());  // 批量查询各分类支出汇总
-    Map<Long, BigDecimal> spentMap = summaryList.stream()  // 分类支出汇总转Map
+    List<CategorySummaryDTO> summaryList = transactionMapper.selectCategorySummary(userId, monthRange[0], monthRange[1], TransactionType.EXPENSE.getValue());  // 批量查询各分类支出汇总（调用 TransactionMapper.java 的 selectCategorySummary 方法）
+    // null安全防护：XML mapper在无数据时可能返回null（与 BudgetAlertProcessorServiceImpl.processOneUser 第97行 null检查一致）
+    Map<Long, BigDecimal> spentMap = (summaryList != null ? summaryList : List.<CategorySummaryDTO>of()).stream()  // 分类支出汇总转Map（null→空列表）
         .collect(Collectors.toMap(
             CategorySummaryDTO::getCategoryId,  // 分类ID作key
             CategorySummaryDTO::getTotalAmount,  // 总支出作value
@@ -318,8 +331,9 @@ public class BudgetServiceImpl implements BudgetService {
    * @return 超支的分类预算列表(空集合表示无预警)
    */
   @Override
-  public List<BudgetProgressDTO> getAlert(Long userId, String year, String month) {  // 获取超支预警（无需@Transactional：getProgress()已内部事务管理，本方法仅做内存过滤）
-    List<BudgetProgressDTO> all = getProgress(userId, year, month);  // 获取全部预算进度（内部已含@Transactional(readOnly=true)）
+  @Transactional(readOnly = true)  // MT-1 修复：添加事务注解确保 Spring AOP 代理生效，getProgress() 内部 DB 操作在统一事务上下文中执行
+  public List<BudgetProgressDTO> getAlert(Long userId, String year, String month) {  // 获取超支预警（复用getProgress()结果过滤超支项）
+    List<BudgetProgressDTO> all = getProgress(userId, year, month);  // → this.getProgress()（同Service内调用 · 外层@Transactional(readOnly=true)覆盖所有DB操作）
     return all.stream()  // 过滤超支项
         .filter(BudgetProgressDTO::isOverspent)  // 仅保留超支项
         .toList();  // 转为不可变列表

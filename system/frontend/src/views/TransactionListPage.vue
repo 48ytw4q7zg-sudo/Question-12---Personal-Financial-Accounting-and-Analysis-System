@@ -94,9 +94,9 @@
         <el-table-column label="转账标识" width="100">
           <template #default="{ row }">
             <el-tag v-if="row.transferId && row.type === TRANSACTION_TYPE_EXPENSE" type="warning" size="small">(转出)</el-tag>
-            <el-tag v-if="row.transferId && row.type === TRANSACTION_TYPE_INCOME" type="success" size="small">(转入)</el-tag>
+            <el-tag v-else-if="row.transferId && row.type === TRANSACTION_TYPE_INCOME" type="success" size="small">(转入)</el-tag>
             <!-- 兜底条件：type 只能是 1(收入) 或 2(支出)，此分支理论上不会触发，保留以防御未来枚举扩展 -->
-            <el-tag v-if="row.transferId && row.type !== TRANSACTION_TYPE_EXPENSE && row.type !== TRANSACTION_TYPE_INCOME" type="warning" size="small">转账</el-tag>
+            <el-tag v-else-if="row.transferId && row.type !== TRANSACTION_TYPE_EXPENSE && row.type !== TRANSACTION_TYPE_INCOME" type="warning" size="small">转账</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="140" fixed="right">
@@ -118,7 +118,7 @@
         <el-pagination
           v-model:current-page="pagination.pageNum"
           v-model:page-size="pagination.pageSize"
-          :page-sizes="[10, 20, 50, 100]"
+          :page-sizes="PAGE_SIZE_OPTIONS"
           :total="pagination.total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
@@ -149,7 +149,7 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item label="金额" prop="amount">
-          <el-input-number v-model="formData.amount" :precision="2" :min="0.01" :step="1" style="width: 100%" :disabled="isEdit && isTransfer" />
+          <el-input-number v-model="formData.amount" :precision="2" :min="MIN_TRANSACTION_AMOUNT" :step="AMOUNT_STEP_PRECISE" style="width: 100%" :disabled="isEdit && isTransfer" />
         </el-form-item>
         <el-form-item label="备注" prop="note">
           <el-input v-model="formData.note" type="textarea" placeholder="备注（可选）" />
@@ -177,7 +177,7 @@ import { getAccountList } from '../api/account'              // 导入账户API
 // → 调用 api/category.js 的 getCategoryList()（下拉选项）
 import { getCategoryList } from '../api/category'             // 导入分类API
 import { formatTime, formatDateTime, formatAmount } from '../utils/format' // 导入格式化工具
-import { TRANSACTION_TYPE_MAP, TRANSACTION_TYPE_INCOME, TRANSACTION_TYPE_EXPENSE, CATEGORY_TYPE_EXPENSE, CATEGORY_TYPE_INCOME } from '../constants/finance' // 导入常量
+import { TRANSACTION_TYPE_MAP, TRANSACTION_TYPE_INCOME, TRANSACTION_TYPE_EXPENSE, CATEGORY_TYPE_EXPENSE, CATEGORY_TYPE_INCOME, MIN_TRANSACTION_AMOUNT, MAX_NOTE_LENGTH, DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, AMOUNT_STEP_PRECISE } from '../constants/finance' // 导入常量
 import { logger } from '../utils/logger' // 导入日志工具
 
 const log = logger('TransactionListPage') // 创建日志实例
@@ -212,7 +212,7 @@ const filters = reactive({
 // 分页参数
 const pagination = reactive({
   pageNum: 1,                                               // 当前页码
-  pageSize: 10,                                             // 每页条数
+  pageSize: DEFAULT_PAGE_SIZE,                               // 每页条数（使用常量 constants/finance.js）
   total: 0                                                  // 总条数
 })
 
@@ -233,10 +233,10 @@ const formRules = {
   type: [{ required: true, message: '请选择类型', trigger: 'change' }], // 类型必选
   amount: [                                                 // 金额校验
     { required: true, message: '请输入金额', trigger: 'blur' }, // 必填
-    { type: 'number', min: 0.01, message: '金额必须大于0', trigger: 'blur' } // 最小值
+    { type: 'number', min: MIN_TRANSACTION_AMOUNT, message: '金额必须大于0', trigger: 'blur' } // 最小值（使用常量：constants/finance.js MIN_TRANSACTION_AMOUNT）
   ],
   time: [{ required: true, message: '请选择时间', trigger: 'change' }], // 时间必选
-  note: [{ max: 200, message: '备注长度不能超过200', trigger: 'blur' }] // 备注长度
+  note: [{ max: MAX_NOTE_LENGTH, message: `备注长度不能超过${MAX_NOTE_LENGTH}`, trigger: 'blur' }] // 备注长度（使用常量：constants/finance.js MAX_NOTE_LENGTH）
 }
 
 /**
@@ -261,12 +261,14 @@ watch(() => formData.type, () => {
 function handleSizeChange(size) {
   pagination.pageSize = size                                // 更新每页条数
   pagination.pageNum = 1                                    // 重置到第1页
+  syncFiltersToUrl()                                        // 修复：同步分页状态到 URL（浏览器前进/后退按钮可恢复）→ 调用 router.replace
   loadTransactions()                                        // 重新加载列表
 }
 
 /** 分页页码变化处理 */
 function handlePageChange(page) {
   pagination.pageNum = page                                 // 更新页码
+  syncFiltersToUrl()                                        // 修复：同步分页状态到 URL（浏览器前进/后退按钮可恢复）→ 调用 router.replace
   loadTransactions()                                        // 重新加载列表
 }
 
@@ -295,6 +297,11 @@ async function loadTransactions() {
     // 兼容后端分页返回结构（records/list/直接数组）
     transactionList.value = data?.records || data?.list || data || [] // 兼容多种返回结构
     pagination.total = data?.total || 0                     // 更新总条数
+  } catch (e) {
+    log.warn('加载交易列表失败:', e) /* 开发环境日志 */
+    ElMessage.error('交易数据加载失败，请检查筛选条件后重试')  // 用户级错误提示
+    transactionList.value = []                              // 清空数据
+    pagination.total = 0                                    // 重置总数
   } finally {
     loading.value = false                                   // 关闭loading
   }
@@ -401,8 +408,8 @@ async function handleDelete(row) {
     ElMessage.success('记录已删除')                          // 成功提示
     await loadTransactions()                                 // 刷新列表（添加await确保列表更新完成）
   } catch (e) {
-    if (e !== 'cancel') {
-      // axios 拦截器已统一处理业务错误，此处记录日志便于排查非业务异常
+    if (e !== 'cancel' && e !== 'close') {  // 仅真实错误（非用户取消/关闭弹窗）才记录日志（对齐AccountPage/BudgetPage模式）
+      // axios 拦截器（api/request.js）已统一处理业务错误，此处记录日志便于排查非业务异常
       log.error('删除记录失败:', e)                    // 记录错误日志
     }
   } finally {
@@ -431,18 +438,28 @@ async function handleSubmit() {
     }
     dialogVisible.value = false                             // 关闭弹窗
     await loadTransactions()                                // 刷新列表（添加await确保列表更新完成）
+  } catch (e) {
+    log.warn('记账操作失败:', e) /* 开发环境日志 */
+    // axios 拦截器（api/request.js）已统一处理业务错误弹窗，此处处理网络/超时异常
+    if (e.code === 'ERR_NETWORK' || e.code === 'ECONNABORTED') {  // 网络或超时错误
+      ElMessage.error('网络异常，操作失败')                 // 网络级错误提示
+    }
   } finally {
     submitting.value = false                                // 关闭提交loading
   }
 }
 
 // 页面挂载时：从 URL 读取筛选条件 → 加载下拉选项 → 加载交易列表
-onMounted(async () => {                                     // 改为async以支持await
+onMounted(async () => {
   readFiltersFromUrl();                                     // 从URL读取筛选条件（同步函数无需await）
-  await Promise.all([                                       // 并行加载下拉选项+交易列表（Promise.all更高效）
-    loadOptions(),                                          // 加载下拉选项
-    loadTransactions()                                      // 加载交易列表
-  ])
+  try {
+    await Promise.all([                                       // 并行加载下拉选项+交易列表（Promise.all更高效）
+      loadOptions(),                                          // 加载下拉选项
+      loadTransactions()                                      // 加载交易列表
+    ])
+  } catch (e) {
+    log.error('页面初始化加载失败:', e)                          // 记录错误日志（各子函数已有独立错误处理）
+  }
 })
 </script>
 

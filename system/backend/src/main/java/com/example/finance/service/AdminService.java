@@ -1,7 +1,6 @@
 package com.example.finance.service;
 
-import com.example.finance.entity.User;
-import com.example.finance.entity.dto.UserDTO;
+import com.example.finance.entity.dto.UserDTO;           // 管理员返回的DTO（不含密码字段）
 
 import java.util.List;
 

@@ -28,7 +28,7 @@ export default defineConfig({
         //   仅 AnalyticsPage/DashboardPage 通过 echarts-lazy.js 动态 import 使用
         // vendor-element: Element Plus UI 库, 全局使用
         // vendor-icons: Element Plus 图标库, 按需加载
-        // vendor-vue: Vue Router + Pinia, 路由和状态管理
+        // vendor-router: Vue Router + Pinia（路由和状态管理，非 Vue 核心库）
         // vendor-axios: Axios HTTP 库
         manualChunks(id) {
           if (id.includes('node_modules')) {
@@ -39,7 +39,7 @@ export default defineConfig({
             if (id.includes('echarts/renderers')) return 'echarts-renderers'
             if (id.includes('@element-plus/icons-vue')) return 'vendor-icons'
             if (id.includes('element-plus')) return 'vendor-element'
-            if (id.includes('vue-router') || id.includes('/pinia/')) return 'vendor-vue'
+            if (id.includes('vue-router') || id.includes('/pinia/')) return 'vendor-router'
             if (id.includes('axios')) return 'vendor-axios'
           }
         }

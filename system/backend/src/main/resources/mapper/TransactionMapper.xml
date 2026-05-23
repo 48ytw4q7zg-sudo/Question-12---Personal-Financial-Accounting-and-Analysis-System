@@ -62,11 +62,12 @@
     <include refid="transactionFilterConditions"/>
   </select>
 
-  <!-- 月度收支汇总（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_transaction_user_time 索引） -->
+  <!-- 月度收支汇总（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_transaction_user_time 索引）-->
+  <!-- Q-CR修复: year/month 使用数字占位符(0/NULL)，避免 MyBatis 将空字符串类型强制转换 Integer 字段时的歧义 -->
   <select id="selectMonthlySummary" resultType="com.example.finance.entity.dto.MonthlySummaryDTO">
     SELECT
-      #{year} AS year,
-      #{month} AS month,
+      0 AS year,
+      NULL AS month,
       COALESCE(SUM(CASE WHEN t.type = 1 THEN t.amount ELSE 0 END), 0) AS totalIncome,
       COALESCE(SUM(CASE WHEN t.type = 2 THEN t.amount ELSE 0 END), 0) AS totalExpense,
       COALESCE(SUM(CASE WHEN t.type = 1 THEN t.amount ELSE 0 END), 0)
@@ -78,10 +79,11 @@
       AND t.transfer_id IS NULL
   </select>
 
-  <!-- 年度收支汇总（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_transaction_user_time 索引） -->
+  <!-- 年度收支汇总（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_transaction_user_time 索引）-->
+  <!-- Q-CR修复: year 使用数字占位符(0)，避免 MyBatis 将空字符串类型强制转换 Integer 字段时的歧义 -->
   <select id="selectYearlySummary" resultType="com.example.finance.entity.dto.MonthlySummaryDTO">
     SELECT
-      #{year} AS year,
+      0 AS year,
       NULL AS month,
       COALESCE(SUM(CASE WHEN t.type = 1 THEN t.amount ELSE 0 END), 0) AS totalIncome,
       COALESCE(SUM(CASE WHEN t.type = 2 THEN t.amount ELSE 0 END), 0) AS totalExpense,
@@ -130,7 +132,8 @@
     ORDER BY month ASC
   </select>
 
-  <!-- 计算账户总收入（type=1 收入） -->
+  <!-- 计算单个账户总收入（type=1 收入 · COALESCE 空值兜底为0 · 不含转账记录）
+       调用方：TransactionServiceImpl.transfer() 余额校验 + AccountServiceImpl.getBalance() 旧版单账户查询 -->
   <select id="selectAccountIncome" resultType="java.math.BigDecimal">
     SELECT COALESCE(SUM(t.amount), 0)
     FROM `transaction` t
@@ -139,7 +142,8 @@
       AND t.type = 1
   </select>
 
-  <!-- 计算账户总支出（type=2 支出） -->
+  <!-- 计算单个账户总支出（type=2 支出 · COALESCE 空值兜底为0 · 不含转账记录）
+       调用方：TransactionServiceImpl.transfer() 余额校验 + AccountServiceImpl.getBalance() 旧版单账户查询 -->
   <select id="selectAccountExpense" resultType="java.math.BigDecimal">
     SELECT COALESCE(SUM(t.amount), 0)
     FROM `transaction` t

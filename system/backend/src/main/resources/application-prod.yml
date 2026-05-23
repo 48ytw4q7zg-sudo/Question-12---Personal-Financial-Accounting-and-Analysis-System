@@ -1,7 +1,8 @@
 # 生产环境配置（覆盖 application.yml 中的开发默认值）
 # 使用方式: java -jar app.jar --spring.profiles.active=prod
+# 安全要求：所有敏感配置必须通过环境变量注入，禁止使用默认值
 
-# --- MyBatis 配置（生产环境关闭 SQL stdout 日志） ---
+# --- MyBatis 配置（生产环境关闭 SQL stdout 日志，防止敏感数据泄露） ---
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
@@ -11,3 +12,11 @@ spring:
   datasource:
     username: ${DB_USERNAME}       # 生产环境：必须通过环境变量设置，无默认值
     password: ${DB_PASSWORD}       # 生产环境：必须通过环境变量设置，无默认值
+
+# --- JWT 密钥（生产环境强制要求环境变量注入 · 与 JwtConfig.java @PostConstruct 启动时校验形成双保险） ---
+jwt:
+  secret: ${JWT_SECRET}            # 生产环境：必须通过环境变量设置，无默认值（禁止使用 application.yml 的开发占位符）
+
+# --- CORS 跨域（生产环境必须显式配置前端域名，禁止使用 localhost 默认值） ---
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}  # 生产环境：必须通过环境变量设置，如 https://your-domain.com

@@ -1,20 +1,13 @@
 package com.example.finance.interceptor;
 
-// ===== Spring 框架导入 =====
-import org.springframework.stereotype.Component;  // Spring Bean 注册注解
+import org.springframework.stereotype.Component;            // Spring Bean 注册注解
 import org.springframework.web.servlet.HandlerInterceptor;  // Spring MVC 拦截器接口
-
-// ===== Servlet API 导入 =====
-import jakarta.servlet.http.HttpServletRequest;  // HTTP 请求对象
-import jakarta.servlet.http.HttpServletResponse;  // HTTP 响应对象
-
-// ===== 项目内部导入 =====
-import com.example.finance.common.BusinessException;  // 业务异常类
-import com.example.finance.common.ErrorCode;  // 错误码枚举
-import com.example.finance.common.enums.UserRole;  // 用户角色枚举
-
-// ===== Java 标准库导入 =====
-import java.util.Objects;  // Objects 工具类（用于安全比较 Integer）
+import jakarta.servlet.http.HttpServletRequest;             // HTTP 请求对象
+import jakarta.servlet.http.HttpServletResponse;            // HTTP 响应对象
+import com.example.finance.common.BusinessException;         // 业务异常类
+import com.example.finance.common.ErrorCode;                 // 错误码枚举
+import com.example.finance.common.enums.UserRole;            // 用户角色枚举
+import java.util.Objects;                                   // Objects 工具类（安全比较 Integer）
 
 /**
  * 管理员权限拦截器 — 拦截 /api/admin/** 请求，校验 JWT 解析出的 role 是否为管理员（role=1）

@@ -87,9 +87,25 @@ public class LoginRateLimiter {
    * TTL 自动过期：移除超过 TTL_MS 无活动的条目
    * <p>在 tryAcquire() 内部调用，保证过期条目不会无限累积。</p>
    * <p>遍历成本低（教学项目 ≤20 并发用户），生产环境应改用 Caffeine 缓存自动过期。</p>
+   *
+   * <p>P1-X 优化(Q-CR Loop2):增加节流策略,避免每次 tryAcquire 都遍历整个 Map(高并发时频繁 evict 浪费 CPU)
+   * 改为采样式触发:仅当 size() 达到阈值或距上次清理超 1 分钟才执行实际清理</p>
    */
+  /** 上次清理时间戳(毫秒),volatile 保证多线程可见性 */
+  private static volatile long lastEvictTime = 0L;
+  /** 清理触发节流间隔(60秒),减少高并发场景的遍历开销 */
+  private static final long EVICT_THROTTLE_MS = 60 * 1000L;
+  /** 清理触发的 size 阈值(超过此 size 立即清理,无视节流) */
+  private static final int EVICT_SIZE_THRESHOLD = 100;
+
   private static void evictExpired() {
     long now = System.currentTimeMillis();
-    limiters.entrySet().removeIf(e -> now - e.getValue().lastAccessTime > TTL_MS);
+    // P1-X 修复(Q-CR Loop2):节流避免每次调用都遍历整个 Map
+    // 触发条件:① size 超阈值(防止内存过快增长) ② 距上次清理超过 EVICT_THROTTLE_MS
+    if (limiters.size() < EVICT_SIZE_THRESHOLD && (now - lastEvictTime) < EVICT_THROTTLE_MS) {  // 未达触发条件
+      return;  // 跳过本次清理(节流)
+    }
+    lastEvictTime = now;  // 更新上次清理时间戳
+    limiters.entrySet().removeIf(e -> now - e.getValue().lastAccessTime > TTL_MS);  // 移除过期条目
   }
 }

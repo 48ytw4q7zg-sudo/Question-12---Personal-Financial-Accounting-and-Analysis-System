@@ -14,7 +14,8 @@ public class Result<T> {
   public static final int CODE_SUCCESS = 200;
   public static final int CODE_DEFAULT_ERROR = 500;
 
-  /** HTTP 状态码或业务状态码（200=成功，401=未登录，4xx/5xx=错误） */
+  /** 业务状态码（200=成功，401=未登录，4xx=客户端错误，5xx=服务器错误 · 非 HTTP 状态码） */
+  // 引用：前端 api/request.js 第 75-85 行拦截器检查此 code 字段
   private Integer code;
 
   /** 响应消息或错误描述 */
@@ -57,7 +58,7 @@ public class Result<T> {
   }
 
   /**
-   * 错误响应，默认500错误码（data=null）
+   * 错误响应，默认500错误码（data=null · 便捷方法，当前代码库中通过 GlobalExceptionHandler 统一使用双参数版本 error(code,msg)，此方法预留给未来快速错误响应场景）
    */
   public static <T> Result<T> error(String message) {
     return new Result<>(CODE_DEFAULT_ERROR, message, null);

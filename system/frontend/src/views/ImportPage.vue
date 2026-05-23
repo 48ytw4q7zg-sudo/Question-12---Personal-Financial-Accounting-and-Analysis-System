@@ -155,6 +155,10 @@ async function loadAccounts() {
   try {
     const data = await getAccountList()                      // 调用API获取账户列表
     accountList.value = data || []                           // 设置账户数据
+  } catch (e) {
+    log.warn('加载账户列表失败:', e) /* 开发环境日志 */
+    ElMessage.error('账户列表加载失败，请刷新重试')            // 用户级错误提示
+    accountList.value = []                                   // 清空数据
   } finally {
     loading.value = false                                    // 关闭loading
   }
@@ -181,8 +185,12 @@ async function handleImport() {
     importResult.value = data                                // 保存导入结果
     ElMessage.success('导入完成')                             // 成功提示
   } catch (e) {
-    // axios 拦截器已统一处理业务错误消息（如文件超限、格式错误等），此处仅记录异常到控制台
-    log.error('CSV导入异常:', e)                                                       // 记录异常日志
+    // axios 拦截器已统一处理业务错误消息（如文件超限、格式错误等）
+    log.error('CSV导入异常:', e)                            // 记录异常日志
+    // Q-CR修复：补充用户级错误提示，处理拦截器未覆盖的网络异常
+    if (e.code === 'ERR_NETWORK' || e.code === 'ECONNABORTED') {
+      ElMessage.error('网络异常，CSV导入失败')              // 网络级错误提示
+    }
   } finally {
     importing.value = false                                  // 关闭导入loading
   }

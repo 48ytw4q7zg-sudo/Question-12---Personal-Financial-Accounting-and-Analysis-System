@@ -5,7 +5,7 @@
       "cron": "0 */3 * * *",
       "prompt": "严格阅读选题标定文件夹所有要求文件、CLAUDE.md、project-status.md，检测系统是否满足PRD的P0/P1/P2功能及选题标定所有要求，针对不足编写代码优化补充。按评分细节.doc和PRD打分，给所有无注释代码生成中文注释并修正错误注释。运行Q-CR生成问题/建议并针对性修复，再次Q-CR验证，给出下一次循环建议。如有建议则自动跳转到三重新循环直至无建议为止。",
       "createdAt": 1779293181972,
-      "lastFiredAt": 1779500150223,
+      "lastFiredAt": 1779522488068,
       "recurring": true,
       "createdBySessionId": "4525f833-611a-4267-ae72-6c4407fdd688",
       "createdByPid": 22396
@@ -15,7 +15,7 @@
       "cron": "0 */2 * * *",
       "prompt": "清空上下文，运行/Q-CR,给出系统优化建议，针对建议优化系统代码，再次运行/Q-CR给出建议并且优化系统代码不断循环执行（再次运行/Q-CR给出建议并且优化系统，直至不再有优化建议为止），退出循环时清空上下文输入记录，保证定时任务开始时没有上文输入。",
       "createdAt": 1779376928165,
-      "lastFiredAt": 1779505767118,
+      "lastFiredAt": 1779524422618,
       "recurring": true,
       "createdBySessionId": "40bed10a-3ad0-42f8-8165-193bf537df57",
       "createdByPid": 10552,

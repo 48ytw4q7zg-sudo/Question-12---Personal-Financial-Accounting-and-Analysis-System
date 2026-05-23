@@ -1,10 +1,11 @@
 package com.example.finance.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.Data;
+import com.baomidou.mybatisplus.annotation.IdType;       // MP主键策略
+import com.baomidou.mybatisplus.annotation.TableField;    // MP字段映射
+import com.baomidou.mybatisplus.annotation.TableId;       // MP主键标识
+import com.baomidou.mybatisplus.annotation.TableLogic;     // MP逻辑删除（需字段级声明，MybatisPlusConfig.java 未全局配置）
+import com.baomidou.mybatisplus.annotation.TableName;      // MP表名映射
+import lombok.Data;                                       // Lombok自动生成getter/setter/toString/equals/hashCode
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -62,7 +63,11 @@ public class RecurringBill {
 
   /**
    * 状态：1=启用 0=停用（停用后不可恢复）
+   * @TableLogic 注解：MyBatis-Plus 自动在 SELECT 时追加 status=1 条件
+   * 注意：DELETE/停用操作未使用 deleteById()（由 RecurringBillServiceImpl.java 手动 updateById 设置 status）
+   *       因 deactivate() 需先检查关联账户状态，不依赖 MP 的自动逻辑删除
    */
+  @TableLogic(value = "1", delval = "0")                // MP逻辑删除: value=启用, delval=停用
   @TableField("status")
   private Integer status;
 

@@ -179,8 +179,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   @Override
   protected ResponseEntity<Object> handleNoResourceFoundException(  // 覆盖父类处理资源不存在(Spring 6.x)
       NoResourceFoundException e, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-    log.warn("资源不存在: {}", e.getResourcePath());  // 记录资源不存在日志
-    return new ResponseEntity<>(Result.error(HTTP_NOT_FOUND, "资源不存在: " + e.getResourcePath()), HttpStatus.OK);  // HTTP 200 + body 404
+    log.warn("资源不存在: {}", e.getResourcePath());  // 记录资源不存在日志（含完整路径用于内部排查）
+    // 安全修复：不在响应中暴露资源路径，防止攻击者通过错误信息探测 URL 结构
+    return new ResponseEntity<>(Result.error(HTTP_NOT_FOUND, "请求的资源不存在"), HttpStatus.OK);  // HTTP 200 + body 404（通用消息，不泄漏路径）
   }
 
   /**

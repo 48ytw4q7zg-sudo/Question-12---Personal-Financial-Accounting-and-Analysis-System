@@ -1,10 +1,11 @@
 package com.example.finance.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.Data;
+import com.baomidou.mybatisplus.annotation.IdType;       // MP主键策略
+import com.baomidou.mybatisplus.annotation.TableField;    // MP字段映射
+import com.baomidou.mybatisplus.annotation.TableId;       // MP主键标识
+import com.baomidou.mybatisplus.annotation.TableLogic;     // MP逻辑删除（MybatisPlusConfig.java 未全局配置，需字段级声明）
+import com.baomidou.mybatisplus.annotation.TableName;      // MP表名映射
+import lombok.Data;                                       // Lombok自动生成getter/setter/toString/equals/hashCode
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -47,7 +48,12 @@ public class Account {
 
   /**
    * 状态：1=正常 0=已删除（软删除，不可恢复）
+   * @TableLogic 注解：MyBatis-Plus 自动在 SELECT 时追加 status=1 条件
+   * 注意：DELETE 操作未使用 deleteById()（由 AccountServiceImpl.java 手动 updateById 设置 status）
+   *       因需先检查关联数据（Transaction/RecurringBill），不依赖 MP 的自动逻辑删除
+   * 配置来自：MybatisPlusConfig.java（PaginationInnerInterceptor）+ 本字段注解
    */
+  @TableLogic(value = "1", delval = "0")                // MP逻辑删除: value=正常, delval=已删除
   @TableField("status")
   private Integer status;
 

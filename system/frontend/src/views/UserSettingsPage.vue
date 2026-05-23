@@ -29,10 +29,12 @@
       <template #header>修改密码</template>
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px" style="max-width: 400px;">
         <el-form-item label="原密码" prop="oldPassword">
-          <el-input v-model="formData.oldPassword" type="password" placeholder="请输入原密码" show-password />
+          <!-- Q-CR修复: @change触发newPassword重校验，防止旧密码变更后新密码校验状态残留 -->
+          <el-input v-model="formData.oldPassword" type="password" placeholder="请输入原密码" show-password @change="() => formRef.validateField('newPassword')" />
         </el-form-item>
         <el-form-item label="新密码" prop="newPassword">
-          <el-input v-model="formData.newPassword" type="password" placeholder="请输入新密码" show-password />
+          <!-- Q-CR修复: @change触发confirmPassword重校验，防止新密码变更后确认密码校验状态残留 -->
+          <el-input v-model="formData.newPassword" type="password" placeholder="请输入新密码" show-password @change="() => formRef.validateField('confirmPassword')" />
         </el-form-item>
         <el-form-item label="确认密码" prop="confirmPassword">
           <el-input v-model="formData.confirmPassword" type="password" placeholder="请确认新密码" show-password />
@@ -48,10 +50,11 @@
 <script setup>
 import { ref, reactive } from 'vue'                         // 导入Vue组合式API
 import { useRouter } from 'vue-router'                      // 导入路由
-import { ElMessage, ElMessageBox } from 'element-plus'      // 导入消息提示和确认框
-import { logger } from '../utils/logger'                    // 导入日志工具
+import { ElMessage } from 'element-plus'                     // 导入消息提示
+import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '../constants/finance' // 导入密码常量
+import { logger } from '../utils/logger'                    // 导入日志工具（utils/logger.js）
 // → 调用 api/user.js 的 changePassword()（修改密码接口）
-import { changePassword } from '../api/user'                 // 导入修改密码API
+import { changePassword } from '../api/user'                 // 导入修改密码API（api/user.js）
 // → 调用 stores/user.js 的 username（显示当前用户名）
 import { useUserStore } from '../stores/user'                // 导入用户store
 
@@ -77,7 +80,7 @@ const formRules = {
   ],
   newPassword: [                                            // 新密码校验
     { required: true, message: '请输入新密码', trigger: 'blur' },  // 必填校验
-    { min: 6, max: 20, message: '密码长度为 6-20 个字符', trigger: 'blur' }, // 长度校验
+    { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH, message: `密码长度为 ${PASSWORD_MIN_LENGTH}-${PASSWORD_MAX_LENGTH} 个字符`, trigger: 'blur' }, // 使用常量 constants/finance.js
     {
       validator: (rule, value, callback) => {               // 自定义校验器
         if (value === formData.oldPassword) {               // 与原密码相同
@@ -116,7 +119,7 @@ async function handleSubmit() {
 
   submitting.value = true                                   // 开启提交loading
   try {
-    await changePassword({                                  // 调用修改密码API
+    await changePassword({                                  // 调用修改密码API（api/user.js changePassword）
       oldPassword: formData.oldPassword,                    // 原密码参数
       newPassword: formData.newPassword                     // 新密码参数
     })
@@ -125,15 +128,19 @@ async function handleSubmit() {
     formData.oldPassword = ''                                // 清空原密码
     formData.newPassword = ''                                // 清空新密码
     formData.confirmPassword = ''                            // 清空确认密码
-    userStore.clearUser()                                    // 清除用户状态
-    router.push('/login')                                    // 跳转到登录页
   } catch (e) {
     // axios 拦截器已统一处理业务错误消息（如旧密码错误、新旧密码相同等）
-    // 此处仅记录非业务异常（网络错误等）
     log.warn('修改密码失败:', e) // 开发环境记录日志
+    if (e.code === 'ERR_NETWORK' || e.code === 'ECONNABORTED') {  // 网络错误或超时
+      ElMessage.error('网络异常，密码修改失败')              // 网络级错误提示
+    }
+    return;  // Q-CR修复：密码修改失败时直接返回，不执行跳转
   } finally {
     submitting.value = false                                 // 关闭提交loading
   }
+  // Q-CR修复：将导航操作移到try-catch外部，避免router.push异常被误报告为"修改密码失败"
+  userStore.clearUser()                                      // 清除用户状态（stores/user.js clearUser）
+  router.push('/login').catch(() => {})                      // Q-CR修复：catch导航异常，防止未处理 rejection（router/index.js）
 }
 </script>
 

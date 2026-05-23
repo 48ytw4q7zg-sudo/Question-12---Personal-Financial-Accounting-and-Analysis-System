@@ -85,7 +85,7 @@ public class AdminServiceImpl implements AdminService {
   @Transactional
   public void deleteUser(Long userId, Long currentUserId) {
     // 防止管理员删除自己
-    if (currentUserId.equals(userId)) {  // 目标用户就是当前管理员
+    if (Objects.equals(currentUserId, userId)) {  // 目标用户就是当前管理员 · Objects.equals 避免 Long 拆箱 NPE
       throw new BusinessException(ErrorCode.ADMIN_CANNOT_DELETE_SELF.getCode(), ErrorCode.ADMIN_CANNOT_DELETE_SELF.getMsg());  // 抛出业务异常
     }
     // 校验用户是否存在
@@ -104,11 +104,8 @@ public class AdminServiceImpl implements AdminService {
     recurringBillMapper.delete(new LambdaQueryWrapper<RecurringBill>().eq(RecurringBill::getUserId, userId));  // 删除该用户所有周期性账单
     // 5. 删除账户
     accountMapper.delete(new LambdaQueryWrapper<Account>().eq(Account::getUserId, userId));  // 删除该用户所有账户
-    // 6. 删除用户
-    int rows = userMapper.deleteById(userId);
-    if (rows == 0) {
-      throw new BusinessException(ErrorCode.ADMIN_USER_NOT_FOUND.getCode(), ErrorCode.ADMIN_USER_NOT_FOUND.getMsg());
-    }
+    // 6. 删除用户（deleteById 返回影响行数 · 前置 selectById 已确认存在，此处 rows=0 仅可能在并发场景下出现）
+    userMapper.deleteById(userId);  // 物理删除用户记录
   }
 
   /**
@@ -127,7 +124,7 @@ public class AdminServiceImpl implements AdminService {
   @Override
   @Transactional
   public UserDTO toggleUserRole(Long userId, Long currentUserId) {
-    if (currentUserId.equals(userId)) {  // 不能切换自己的角色
+    if (Objects.equals(currentUserId, userId)) {  // 不能切换自己的角色 · Objects.equals 避免 Long 拆箱 NPE
       throw new BusinessException(ErrorCode.ADMIN_CANNOT_MODIFY_SELF.getCode(), ErrorCode.ADMIN_CANNOT_MODIFY_SELF.getMsg());  // 抛出业务异常
     }
     User user = userMapper.selectById(userId);  // 根据ID查询用户

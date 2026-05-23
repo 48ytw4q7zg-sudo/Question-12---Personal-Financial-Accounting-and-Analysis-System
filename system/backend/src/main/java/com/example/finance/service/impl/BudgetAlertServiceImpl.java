@@ -10,6 +10,7 @@ import com.example.finance.mapper.CategoryMapper;
 import com.example.finance.service.BudgetAlertService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;  // 只读事务注解
 
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,7 @@ public class BudgetAlertServiceImpl implements BudgetAlertService {
    * @return 预警记录列表
    */
   @Override
+  @Transactional(readOnly = true)                        // 只读事务（与项目其他只读方法一致，如 AccountServiceImpl.list() 第77行、CategoryServiceImpl.list() 第34行）
   public List<BudgetAlertDTO> getAlerts(Long userId, String year, String month) {
     String monthStr = EntityValidator.defaultAndFormatYearMonth(year, month);
 

@@ -159,9 +159,8 @@ class TransactionServiceImplTest {
   @Test
   @DisplayName("转账失败 - 不能转给自己")
   void transfer_sameAccount() {
-    when(accountMapper.selectByIdForUpdate(1L)).thenReturn(testAccount);
-    when(accountMapper.selectByIdForUpdate(1L)).thenReturn(testAccount);
-
+    // P1-1 修复(Q-CR Loop1)后:同账户校验上移到加锁之前,因此本测试不应再 stub selectByIdForUpdate
+    // 旧测试 stub 后会触发 Mockito 严格模式 UnnecessaryStubbingException 失败
     TransferRequest request = new TransferRequest();
     request.setFromAccountId(1L);
     request.setToAccountId(1L);

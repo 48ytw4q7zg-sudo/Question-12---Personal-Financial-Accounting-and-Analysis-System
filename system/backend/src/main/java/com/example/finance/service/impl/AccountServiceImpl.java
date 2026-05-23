@@ -110,7 +110,7 @@ public class AccountServiceImpl implements AccountService {
     account.setUserId(userId);  // 设置归属用户
     account.setName(request.getName());  // 设置账户名称
     account.setType(request.getType());  // 设置账户类型
-    account.setInitialBalance(request.getInitialBalance());  // 设置初始余额
+    account.setInitialBalance(request.getInitialBalance() != null ? request.getInitialBalance() : BigDecimal.ZERO);  // 设置初始余额（null 安全：空值兜底为 0，防止后续 getBalance() 第 248 行 NPE）
     account.setCurrency(resolveCurrency(request.getCurrency()));  // 设置币种(空值兜底为CNY，调用 resolveCurrency 私有方法)
     account.setStatus(Status.ACTIVE.getValue());  // 设置状态为活跃
     account.setCreateTime(LocalDateTime.now());  // 设置创建时间
@@ -127,7 +127,7 @@ public class AccountServiceImpl implements AccountService {
    * @param accountId 要更新的账户 ID
    * @param request   账户更新请求（含名称、类型、初始余额、币种）
    * @return 更新后的账户 DTO
-   * @throws BusinessException 2003 账户不存在
+   * @throws BusinessException 2004 账户不存在（ErrorCode.ACCOUNT_NOT_FOUND · getAccountById() 第280行抛出）
    */
   @Override
   @Transactional
@@ -136,7 +136,8 @@ public class AccountServiceImpl implements AccountService {
 
     account.setName(request.getName());  // 更新账户名称
     account.setType(request.getType());  // 更新账户类型
-    account.setInitialBalance(request.getInitialBalance());  // 更新初始余额
+    // null安全防护：与 create() 保持一致，null时保留原值（避免将DB中的初始余额覆盖为NULL）
+    account.setInitialBalance(request.getInitialBalance() != null ? request.getInitialBalance() : account.getInitialBalance());  // 更新初始余额（null→保留原值）
     account.setCurrency(request.getCurrency() != null ? request.getCurrency() : resolveCurrency(account.getCurrency()));  // 更新币种(空则保留原值，并确保原值也非null)
     account.setUpdateTime(LocalDateTime.now());  // 更新修改时间
 
@@ -245,7 +246,9 @@ public class AccountServiceImpl implements AccountService {
       BigDecimal totalExpense = expenseMap.getOrDefault(account.getId(), BigDecimal.ZERO);  // 获取总支出(默认0)
       dto.setTotalIncome(totalIncome);  // 设置总收入
       dto.setTotalExpense(totalExpense);  // 设置总支出
-      BigDecimal currentBalance = account.getInitialBalance().add(totalIncome).subtract(totalExpense);  // 当前余额=初始+收入-支出
+      // 防御性编程：防止数据库中 initialBalance 为 NULL（如旧数据迁移/直接 SQL 插入绕过 Service 层默认值）导致 NPE
+      BigDecimal initialBalance = account.getInitialBalance() != null ? account.getInitialBalance() : BigDecimal.ZERO;  // 空值兜底：null视为0
+      BigDecimal currentBalance = initialBalance.add(totalIncome).subtract(totalExpense);  // 当前余额 = 初始余额 + 总收入 - 总支出
       dto.setCurrentBalance(currentBalance);  // 设置当前余额
 
       // P2-4: 多币种余额换算为 CNY 等值
