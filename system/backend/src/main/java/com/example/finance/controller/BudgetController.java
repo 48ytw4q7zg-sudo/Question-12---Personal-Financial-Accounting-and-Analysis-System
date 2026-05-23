@@ -22,13 +22,13 @@ import java.util.List;
  * 预算控制器（PRD P1-3 预算管理：月预算按分类设置 + 超支标记）
  *
  * 职责：接收预算管理的 HTTP 请求，参数校验后转发 BudgetService 处理
- * 路由前缀：/api/budget
+ * 路由前缀：/api/v1/budget
  * 依赖：→ BudgetService（业务逻辑层）→ BudgetMapper + TransactionMapper（数据访问层）
  *
  * 接口清单：
  *   GET    /api/budget           — 查询预算列表（按年月筛选）
  *   POST   /api/budget           — 保存预算（新增或更新，INSERT ON DUPLICATE KEY UPDATE）
- *   DELETE /api/budget/{id}      — 删除预算
+ *   DELETE /api/v1/budget/{id}      — 删除预算
  *   GET    /api/budget/progress  — 查询预算进度（含已支出金额、百分比、超支标记）
  *   GET    /api/budget/alert     — 查询预算预警（仅超支项）
  *
@@ -38,7 +38,7 @@ import java.util.List;
  * 定时预警：→ BudgetScheduler 每日 2:00 自动检查日/月阈值（详见 scheduler/BudgetScheduler.java）
  */
 @RestController
-@RequestMapping("/api/budget")
+@RequestMapping("/api/v1/budget")
 @RequiredArgsConstructor
 @Validated
 public class BudgetController {

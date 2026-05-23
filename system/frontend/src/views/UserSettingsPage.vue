@@ -49,10 +49,13 @@
 import { ref, reactive } from 'vue'                         // 导入Vue组合式API
 import { useRouter } from 'vue-router'                      // 导入路由
 import { ElMessage, ElMessageBox } from 'element-plus'      // 导入消息提示和确认框
+import { logger } from '../utils/logger'                    // 导入日志工具
 // → 调用 api/user.js 的 changePassword()（修改密码接口）
 import { changePassword } from '../api/user'                 // 导入修改密码API
 // → 调用 stores/user.js 的 username（显示当前用户名）
 import { useUserStore } from '../stores/user'                // 导入用户store
+
+const log = logger('UserSettingsPage')                      // 创建日志实例
 
 const router = useRouter()                                  // 路由实例
 
@@ -127,7 +130,7 @@ async function handleSubmit() {
   } catch (e) {
     // axios 拦截器已统一处理业务错误消息（如旧密码错误、新旧密码相同等）
     // 此处仅记录非业务异常（网络错误等）
-    if (import.meta.env.DEV) console.warn('修改密码失败:', e) // 开发环境记录日志
+    log.warn('修改密码失败:', e) // 开发环境记录日志
   } finally {
     submitting.value = false                                 // 关闭提交loading
   }

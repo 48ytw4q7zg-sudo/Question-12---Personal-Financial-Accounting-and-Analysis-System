@@ -51,7 +51,6 @@ public class JwtConfig {
    */
   @PostConstruct
   public void init() {
-    // activeProfile 为空时视为 dev（防止 spring.profiles.active=空串误判为非生产环境）
     if (activeProfile == null || activeProfile.isBlank()) {
       log.warn("⚠️ spring.profiles.active 未设置或为空，默认视为 dev 环境。生产部署请显式设置 spring.profiles.active=prod");
       activeProfile = "dev";
@@ -61,8 +60,6 @@ public class JwtConfig {
           "jwt.secret 长度必须 ≥ " + MIN_SECRET_LENGTH + " 字符（HS256 要求 256 bit），当前=" + (secret == null ? 0 : secret.length()));
     }
     if (DEFAULT_SECRET.equals(secret)) {
-      // 开发环境允许使用默认密钥（方便本地调试），仅输出 WARN 日志
-      // 生产环境（prod profile）严格拒绝默认密钥，阻止启动
       if ("prod".equalsIgnoreCase(activeProfile)) {
         throw new IllegalStateException("⚠️ 检测到 JWT 默认占位密钥，生产环境必须通过 JWT_SECRET 环境变量替换为强随机值，应用拒绝启动");
       }

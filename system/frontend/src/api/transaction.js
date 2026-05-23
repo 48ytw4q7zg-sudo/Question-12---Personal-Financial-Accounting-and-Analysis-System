@@ -1,7 +1,7 @@
 /**
  * 交易记录模块 API
  * 职责：封装交易/收支记录相关的 HTTP 请求
- * 对应后端接口：/api/transaction/*
+ * 对应后端接口：/api/v1/transaction/*
  * 对应 PRD 功能：
  *   - P0 收支记录（记一笔 + 改 + 列表分页）
  *   - P1 多条件筛选
@@ -17,7 +17,7 @@ import request from './request'
 
 /**
  * 获取交易记录列表（支持分页 + 多条件筛选）
- * → 调用 GET /api/transaction
+ * → 调用 GET /api/v1/transaction
  * @param {Object} params - { pageNum, pageSize, startTime?, endTime?, accountId?, categoryId?, keyword? }
  * @returns {Object} - { records, total } 或分页结构
  */
@@ -27,7 +27,7 @@ export function getTransactionList(params) {
 
 /**
  * 新增交易记录（记一笔）
- * → 调用 POST /api/transaction
+ * → 调用 POST /api/v1/transaction
  * @param {Object} data - { accountId, categoryId, type, amount, note, time }
  */
 export function createTransaction(data) {
@@ -36,7 +36,7 @@ export function createTransaction(data) {
 
 /**
  * 编辑交易记录
- * → 调用 PUT /api/transaction/:id
+ * → 调用 PUT /api/v1/transaction/:id
  * @param {Number} id - 交易记录 ID
  * @param {Object} data - { accountId, categoryId, type, amount, note, time }
  */
@@ -46,7 +46,7 @@ export function updateTransaction(id, data) {
 
 /**
  * 删除交易记录
- * → 调用 DELETE /api/transaction/:id
+ * → 调用 DELETE /api/v1/transaction/:id
  * @param {Number} id - 交易记录 ID
  */
 export function deleteTransaction(id) {
@@ -55,7 +55,7 @@ export function deleteTransaction(id) {
 
 /**
  * 转账（在两个账户间转移资金，后端自动创建一对关联的收支记录）
- * → 调用 POST /api/transaction/transfer
+ * → 调用 POST /api/v1/transaction/transfer
  * @param {Object} data - { fromAccountId, toAccountId, amount, note? }
  */
 export function transfer(data) {
@@ -64,7 +64,7 @@ export function transfer(data) {
 
 /**
  * CSV 数据导入（上传文件）
- * → 调用 POST /api/transaction/import
+ * → 调用 POST /api/v1/transaction/import
  * @param {FormData} formData - 包含 file（CSV 文件）和 accountId（目标账户 ID）
  */
 export function importCsv(formData) {

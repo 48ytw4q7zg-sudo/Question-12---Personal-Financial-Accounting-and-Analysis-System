@@ -13,13 +13,13 @@ import org.springframework.web.bind.annotation.RestController;
  * 汇率控制器（PRD P2 附加特色功能 · 硬编码参考汇率 · 可替换为外部 API）
  *
  * 职责：仅接收 HTTP 请求 + 委托 ExchangeRateService 处理业务逻辑
- * 路由前缀：/api/exchange-rate
+ * 路由前缀：/api/v1/exchange-rate
  *
  * 接口清单：
- *   GET /api/exchange-rate — 获取参考汇率（6 种货币正向+反向汇率）
+ *   GET /api/v1/exchange-rate — 获取参考汇率（6 种货币正向+反向汇率）
  */
 @RestController
-@RequestMapping("/api/exchange-rate")
+@RequestMapping("/api/v1/exchange-rate")
 @RequiredArgsConstructor
 @Validated
 public class ExchangeRateController {

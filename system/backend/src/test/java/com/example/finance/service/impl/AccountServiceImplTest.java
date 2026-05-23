@@ -26,7 +26,27 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * AccountServiceImpl 单元测试
+ * 账户服务实现类单元测试
+ *
+ * <p>测试覆盖场景：</p>
+ * <ul>
+ *   <li>创建账户 - 正常创建、默认币种处理</li>
+ *   <li>更新账户 - 正常更新、账户不存在</li>
+ *   <li>删除账户 - 有交易记录时拒绝删除、账户不存在</li>
+ *   <li>查询账户列表 - 正常查询、空数据</li>
+ * </ul>
+ *
+ * <p>业务规则验证：</p>
+ * <ul>
+ *   <li>删除账户前需检查是否有关联的交易记录或周期性账单</li>
+ *   <li>账户状态：1=正常，0=已禁用（软删除）</li>
+ *   <li>默认币种为 CNY（人民币）</li>
+ * </ul>
+ *
+ * @see AccountServiceImpl
+ * @see Account
+ * @see AccountRequest
+ * @see AccountDTO
  */
 @ExtendWith(MockitoExtension.class)
 class AccountServiceImplTest {

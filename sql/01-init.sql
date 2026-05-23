@@ -1,9 +1,12 @@
 -- ============================================================
 -- 个人财务记账与分析系统 · 数据库初始化脚本
--- 版本: v2.0 · 生成日期: 2026-05-16
+-- 版本: v2.1 · 生成日期: 2026-05-23
 -- 数据库名: finance_db（与 application.yml 的 spring.datasource.url 一致）
 -- 依据: docs/DATABASE_DESIGN.md §3 + §4
 -- 注: 本文件由 /db-designer 自动生成,与 docs/DATABASE_DESIGN.md §3+§4 保持同步
+-- ============================================================
+-- 修复记录:
+-- v2.1 (2026-05-23): 将所有 DROP TABLE 移到脚本开头,避免重新运行时破坏已插入的测试数据
 -- ============================================================
 
 -- 创建数据库（如不存在）
@@ -14,9 +17,20 @@ CREATE DATABASE IF NOT EXISTS `finance_db`
 USE `finance_db`;
 
 -- ============================================================
+-- 删除所有表（按外键依赖倒序删除,避免外键约束冲突）
+-- 注意: 所有 DROP 必须在 CREATE 和 INSERT 之前执行,防止重新运行时破坏已插入的数据
+-- ============================================================
+DROP TABLE IF EXISTS `recurring_bill`;  -- 周期性账单表（依赖 account + category）
+DROP TABLE IF EXISTS `budget`;          -- 预算表（依赖 category）
+DROP TABLE IF EXISTS `transaction`;     -- 交易记录表（依赖 account + category）
+DROP TABLE IF EXISTS `category`;        -- 分类表（无依赖）
+DROP TABLE IF EXISTS `account`;         -- 账户表（依赖 user）
+DROP TABLE IF EXISTS `user`;            -- 用户表（无依赖）
+DROP TABLE IF EXISTS `budget_alert`;    -- 预算预警表（依赖 user + category, 2026-05-23 新增）
+
+-- ============================================================
 -- 表 1: user（用户表 · P0）
 -- ============================================================
-DROP TABLE IF EXISTS `user`;
 CREATE TABLE `user` (
   `id`          BIGINT        NOT NULL AUTO_INCREMENT  COMMENT '用户主键',
   `username`    VARCHAR(20)   NOT NULL                 COMMENT '用户名（3-20位字母/数字/下划线）',

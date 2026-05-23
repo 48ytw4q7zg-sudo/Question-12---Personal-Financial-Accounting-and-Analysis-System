@@ -33,7 +33,31 @@ import static org.mockito.Mockito.*;
 
 /**
  * 边界值 & 等价类 & 健壮性综合测试
- * 覆盖: 白盒基本路径/逻辑覆盖 + 黑盒等价类/边界值
+ *
+ * <p>测试方法论:</p>
+ * <ul>
+ *   <li>白盒测试: 基本路径覆盖 + 逻辑覆盖（条件分支、循环边界）</li>
+ *   <li>黑盒测试: 等价类划分 + 边界值分析 + 健壮性测试</li>
+ * </ul>
+ *
+ * <p>覆盖模块:</p>
+ * <ul>
+ *   <li>P0-1 登录/JWT - 用户名长度边界(3-20)、密码强度、JWT有效期</li>
+ *   <li>P0-2 账户CRUD - 账户名长度、初始余额精度、账户类型枚举</li>
+ *   <li>P0-4 收支记录 - 金额边界、备注长度、时间格式</li>
+ *   <li>P1-3 预算管理 - 预算金额、月份格式、分类类型校验</li>
+ *   <li>P1-4 周期账单 - 周期类型、到期日校验、生成逻辑</li>
+ * </ul>
+ *
+ * <p>边界值示例:</p>
+ * <ul>
+ *   <li>用户名: 2字符(失败)、3字符(成功)、20字符(成功)、21字符(失败)</li>
+ *   <li>金额: 0.00(失败)、0.01(成功)、9999999999.99(成功)、超出(失败)</li>
+ *   <li>备注: 空串(成功)、200字符(成功)、201字符(失败)</li>
+ * </ul>
+ *
+ * @see BoundaryAndEquivalenceTest.UserBoundaryTests
+ * @see BoundaryAndEquivalenceTest.AccountBoundaryTests
  */
 @ExtendWith(MockitoExtension.class)
 class BoundaryAndEquivalenceTest {

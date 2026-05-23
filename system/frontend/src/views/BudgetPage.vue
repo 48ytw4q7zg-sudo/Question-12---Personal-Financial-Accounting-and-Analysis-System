@@ -113,7 +113,9 @@ import { getBudgetProgress, getBudgetAlert, saveBudget, deleteBudget } from '../
 import { formatAmount } from '../utils/format'               // 导入金额格式化
 import { getCategoryList } from '../api/category'             // 导入分类列表API
 import { ALERT_LEVEL_OVERSPENT, ALERT_LEVEL_MONTHLY_WARN, ALERT_LEVEL_DAILY_WARN, CATEGORY_TYPE_EXPENSE } from '../constants/finance' // 导入常量
+import { logger } from '../utils/logger'                    // 导入统一日志工具
 
+const log = logger('BudgetPage')                            // 创建日志实例
 const loading = ref(false)                                  // 页面loading
 const submitting = ref(false)                               // 提交loading
 const deletingId = ref(null)                                // 正在删除的预算ID
@@ -219,7 +221,7 @@ async function loadCategories() {
     const data = await getCategoryList()                     // 调用分类列表API
     expenseCategories.value = (data || []).filter(item => item.type === CATEGORY_TYPE_EXPENSE) // 筛选支出分类
   } catch (e) {
-    if (import.meta.env.DEV) console.warn('加载分类列表失败:', e) // 开发环境日志
+    log.warn('加载分类列表失败:', e) // 开发环境日志
     ElMessage.warning('分类选项加载失败，请刷新重试')          // 降级提示
     // axios 拦截器已统一处理业务错误消息
   }
@@ -282,7 +284,7 @@ async function handleDeleteBudget(row) {
       // 用户取消，无需处理
     } else {
       // 其他错误由 axios 拦截器统一处理，此处记录日志便于排查
-      if (import.meta.env.DEV) console.error('删除预算失败:', e)                     // 记录错误日志
+      log.error('删除预算失败:', e)                     // 记录错误日志
     }
   } finally {
     deletingId.value = null                                 // 重置删除标记

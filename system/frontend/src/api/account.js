@@ -1,7 +1,7 @@
 /**
  * 账户模块 API
  * 职责：封装账户相关的 HTTP 请求（CRUD + 余额查询）
- * 对应后端接口：/api/account/*
+ * 对应后端接口：/api/v1/account/*
  * 对应 PRD 功能：P0 账户 CRUD（多账户管理）
  *
  * 调用方：
@@ -15,7 +15,7 @@ import request from './request'
 
 /**
  * 获取账户列表
- * → 调用 GET /api/account
+ * → 调用 GET /api/v1/account
  * @returns {Array} 账户数组
  */
 export function getAccountList() {
@@ -24,7 +24,7 @@ export function getAccountList() {
 
 /**
  * 新增账户
- * → 调用 POST /api/account
+ * → 调用 POST /api/v1/account
  * @param {Object} data - { name, type, initialBalance, currency }
  */
 export function createAccount(data) {
@@ -33,7 +33,7 @@ export function createAccount(data) {
 
 /**
  * 编辑账户
- * → 调用 PUT /api/account/:id
+ * → 调用 PUT /api/v1/account/:id
  * @param {Number} id - 账户 ID
  * @param {Object} data - { name, type, initialBalance, currency }
  */
@@ -43,7 +43,7 @@ export function updateAccount(id, data) {
 
 /**
  * 删除账户（软删除）
- * → 调用 DELETE /api/account/:id
+ * → 调用 DELETE /api/v1/account/:id
  * @param {Number} id - 账户 ID
  */
 export function deleteAccount(id) {
@@ -52,7 +52,7 @@ export function deleteAccount(id) {
 
 /**
  * 获取账户余额汇总（按账户统计当前余额）
- * → 调用 GET /api/account/balance
+ * → 调用 GET /api/v1/account/balance
  * @returns {Array} - [{ accountId, accountName, currentBalance }, ...]
  */
 export function getAccountBalance() {

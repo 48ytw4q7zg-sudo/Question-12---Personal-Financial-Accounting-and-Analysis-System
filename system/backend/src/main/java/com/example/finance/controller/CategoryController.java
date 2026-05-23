@@ -15,18 +15,18 @@ import java.util.List;
  * 分类控制器（PRD P0-3 收支分类查询 + P0-6 分类浏览）
  *
  * 职责：提供收支分类的查询接口（分类为种子数据，不做用户自定义增改删）
- * 路由前缀：/api/category
+ * 路由前缀：/api/v1/category
  * 依赖：→ CategoryService（业务逻辑层）→ CategoryMapper（数据访问层）
  *
  * 接口清单：
- *   GET /api/category — 查询所有分类（8 支出 + 5 收入 = 13 条种子数据）
+ *   GET /api/v1/category — 查询所有分类（8 支出 + 5 收入 = 13 条种子数据）
  *
  * 被前端调用：→ api/category.js 的 getCategoryList()
  * 被 CategoryPage.vue、TransactionListPage.vue（筛选）、BudgetPage.vue、
  *    RecurringBillPage.vue、AnalyticsPage.vue 等多处调用
  */
 @RestController
-@RequestMapping("/api/category")
+@RequestMapping("/api/v1/category")
 @RequiredArgsConstructor
 @Validated
 public class CategoryController {

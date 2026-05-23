@@ -25,6 +25,31 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * 预算服务实现类单元测试（PRD P1-3 预算管理）
+ *
+ * <p>测试覆盖场景：</p>
+ * <ul>
+ *   <li>预算创建/更新 - 新建预算、更新已有预算、分类验证</li>
+ *   <li>预算列表查询 - 按月查询、空数据处理</li>
+ *   <li>预算进度计算 - 已用金额计算、超支标记、进度百分比</li>
+ *   <li>预算预警 - 超支预警、接近阈值预警</li>
+ * </ul>
+ *
+ * <p>业务规则验证：</p>
+ * <ul>
+ *   <li>同一用户、同一月份、同一分类只能有一条预算记录（唯一约束）</li>
+ *   <li>预算金额必须大于0</li>
+ *   <li>只能为支出分类设置预算</li>
+ *   <li>超支标记：已用金额 > 预算金额时标记为true</li>
+ * </ul>
+ *
+ * <p>Mock依赖: BudgetMapper, CategoryMapper, TransactionMapper</p>
+ *
+ * @see BudgetServiceImpl
+ * @see BudgetDTO
+ * @see BudgetRequest
+ */
 @ExtendWith(MockitoExtension.class)
 class BudgetServiceImplTest {
 

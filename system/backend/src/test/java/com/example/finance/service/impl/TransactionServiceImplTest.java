@@ -28,6 +28,22 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * 交易服务实现类单元测试
+ *
+ * <p>测试覆盖场景：</p>
+ * <ul>
+ *   <li>创建收支记录 - 正常流程、账户校验、分类校验</li>
+ *   <li>更新收支记录 - 正常更新、记录不存在、转账记录限制</li>
+ *   <li>转账功能 - 自我转账、余额不足</li>
+ * </ul>
+ *
+ * <p>使用 Mockito 模拟依赖：TransactionMapper、AccountMapper、CategoryMapper、EntityValidator</p>
+ *
+ * @see TransactionServiceImpl
+ * @see TransactionRequest
+ * @see TransferRequest
+ */
 @ExtendWith(MockitoExtension.class)
 class TransactionServiceImplTest {
 

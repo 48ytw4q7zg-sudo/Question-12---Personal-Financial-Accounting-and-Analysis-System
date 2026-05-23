@@ -28,10 +28,23 @@ import static org.mockito.Mockito.*;
 /**
  * AdminServiceImpl 单元测试（评分标准要求 ≥2 类用户角色: 普通用户 + 管理员）
  *
- * 测试覆盖:
- *   - listAllUsers(): 正常查询 + 空集合
- *   - deleteUser(): 正常删除 + 自删防护 + 用户不存在
- *   - toggleUserRole(): 正常切换 + 自切换防护 + 用户不存在
+ * <p>测试覆盖:</p>
+ * <ul>
+ *   <li>用户列表查询 - 正常查询（含密码脱敏）、空集合</li>
+ *   <li>删除用户 - 正常删除、自删防护（错误码6001）、用户不存在（错误码6003）</li>
+ *   <li>切换角色 - 正常切换（普通↔管理员）、自切换防护（错误码6002）、用户不存在</li>
+ * </ul>
+ *
+ * <p>安全约束验证:</p>
+ * <ul>
+ *   <li>管理员不能删除自己（防止系统无管理员）</li>
+ *   <li>管理员不能修改自己的角色（防止权限丢失）</li>
+ * </ul>
+ *
+ * <p>Mock依赖: UserMapper, TransactionMapper, BudgetMapper, RecurringBillMapper, AccountMapper, BudgetAlertMapper</p>
+ *
+ * @see AdminServiceImpl
+ * @see UserDTO
  */
 @ExtendWith(MockitoExtension.class)
 class AdminServiceImplTest {

@@ -27,7 +27,7 @@ import java.util.Objects;
  * <p>分层约束: Controller 不直接操作 Mapper, 所有业务逻辑委托 AdminService 处理。</p>
  */
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
 @Validated
 public class AdminController {

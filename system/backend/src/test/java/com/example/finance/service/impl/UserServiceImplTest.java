@@ -23,7 +23,24 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * UserServiceImpl 单元测试
+ * 用户服务实现类单元测试
+ *
+ * <p>测试覆盖场景：</p>
+ * <ul>
+ *   <li>用户注册 - 新用户注册成功、用户名已存在失败</li>
+ *   <li>用户登录 - 正确密码登录、用户不存在、密码错误</li>
+ *   <li>修改密码 - 正常修改、旧密码错误、新旧密码相同、用户不存在</li>
+ * </ul>
+ *
+ * <p>特殊处理：</p>
+ * <ul>
+ *   <li>单元测试不依赖 Spring 上下文，需手动初始化 JwtUtils</li>
+ *   <li>每个测试前清理 LoginRateLimiter 防止跨测试限流干扰</li>
+ * </ul>
+ *
+ * @see UserServiceImpl
+ * @see UserLoginRequest
+ * @see LoginResponse
  */
 @ExtendWith(MockitoExtension.class)
 class UserServiceImplTest {

@@ -89,11 +89,14 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'              // 导入Vue组合式API
 import { ElMessage } from 'element-plus'                    // 导入消息提示
+import { logger } from '../utils/logger'                    // 导入日志工具
 // → 调用 api/transaction.js 的 importCsv()（CSV 导入接口）
 import { importCsv } from '../api/transaction'               // 导入CSV导入API
 // → 调用 api/account.js 的 getAccountList()（加载账户选项）
 import { getAccountList } from '../api/account'              // 导入账户列表API
 import { MAX_CSV_FILE_SIZE } from '../constants/finance'    // 导入文件大小上限常量
+
+const log = logger('ImportPage')                            // 创建日志实例
 
 const importing = ref(false)        // 导入中 loading
 const loading = ref(false)          // 初始加载状态
@@ -179,7 +182,7 @@ async function handleImport() {
     ElMessage.success('导入完成')                             // 成功提示
   } catch (e) {
     // axios 拦截器已统一处理业务错误消息（如文件超限、格式错误等），此处仅记录异常到控制台
-    if (import.meta.env.DEV) console.error('CSV导入异常:', e)                         // 记录异常日志
+    log.error('CSV导入异常:', e)                                                       // 记录异常日志
   } finally {
     importing.value = false                                  // 关闭导入loading
   }

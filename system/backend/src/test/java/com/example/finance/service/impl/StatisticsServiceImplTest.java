@@ -17,6 +17,33 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * 统计服务实现类单元测试（PRD P1-2 月度/年度汇总统计）
+ *
+ * <p>测试覆盖场景：</p>
+ * <ul>
+ *   <li>月度汇总 - 正常查询、无数据返回零值、跨年边界处理</li>
+ *   <li>年度汇总 - 正常查询、无数据返回零值</li>
+ *   <li>分类汇总 - 按分类统计支出/收入、空数据处理</li>
+ *   <li>月度趋势 - 12个月收支趋势、空数据处理</li>
+ * </ul>
+ *
+ * <p>业务规则验证：</p>
+ * <ul>
+ *   <li>无数据时返回零值而非null，避免前端空指针</li>
+ *   <li>月度统计：月初00:00:00 至 下月初00:00:00（左闭右开）</li>
+ *   <li>跨年处理：12月的下月是次年1月</li>
+ *   <li>分类汇总：支持按类型（收入/支出）过滤</li>
+ *   <li>趋势统计：返回最近12个月的数据</li>
+ * </ul>
+ *
+ * <p>Mock依赖: TransactionMapper</p>
+ *
+ * @see StatisticsServiceImpl
+ * @see MonthlySummaryDTO
+ * @see CategorySummaryDTO
+ * @see MonthlyTrendDTO
+ */
 @ExtendWith(MockitoExtension.class)
 class StatisticsServiceImplTest {
 

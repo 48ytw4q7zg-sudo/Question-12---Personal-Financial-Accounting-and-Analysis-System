@@ -99,7 +99,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="初始余额" prop="initialBalance">
-          <el-input-number v-model="formData.initialBalance" :precision="2" :step="100" style="width: 100%" />
+          <el-input-number v-model="formData.initialBalance" :precision="2" :step="100" :min="0" :max="999999999" style="width: 100%" />
         </el-form-item>
         <el-form-item label="币种" prop="currency">
           <el-select v-model="formData.currency" placeholder="请选择币种" style="width: 100%">
@@ -124,6 +124,9 @@ import { getAccountList, createAccount, updateAccount, deleteAccount, getAccount
 import { getExchangeRates } from '../api/exchange-rate'      // 导入汇率API
 import { formatTime, formatAmount } from '../utils/format'  // 导入格式化工具
 import { ACCOUNT_TYPE_MAP, CURRENCY_LIST, STATUS_MAP } from '../constants/finance' // 导入常量
+import { logger } from '../utils/logger'                    // 导入统一日志工具
+
+const log = logger('AccountPage')                          // 创建日志实例
 
 /** P2-4: 汇率数据缓存（1外币→CNY），例 { USD: 7.3, EUR: 7.94, ... } */
 const exchangeRates = ref({})                               // 汇率缓存对象
@@ -197,7 +200,7 @@ async function loadExchangeRates() {
       exchangeRates.value = data.ratesInverse               // 缓存汇率数据
     }
   } catch (e) {
-    if (import.meta.env.DEV) console.warn('加载汇率数据失败:', e) // 开发环境日志
+    log.warn('加载汇率数据失败:', e)
     ElMessage.warning('汇率数据加载失败，CNY换算暂不可用')    // 降级提示
     // exchangeRates 保持空，换算显示 N/A
   }
@@ -226,7 +229,7 @@ async function loadBalance() {
     const data = await getAccountBalance()                   // 调用余额汇总API
     balanceList.value = data || []                           // 设置余额数据
   } catch (e) {
-    if (import.meta.env.DEV) console.warn('加载账户余额失败:', e) // 开发环境日志
+    log.warn('加载账户余额失败:', e) // 开发环境日志
     ElMessage.warning('余额汇总加载失败')                     // 降级提示
     balanceList.value = []                                   // 清空余额数据
   }
@@ -300,7 +303,7 @@ async function handleDelete(row) {
       // 用户取消删除，无需处理
     } else {
       // 其他错误（网络异常等）由 axios 拦截器统一处理，此处记录日志便于排查
-      if (import.meta.env.DEV) console.error('删除账户失败:', e)                     // 记录错误日志
+      log.error('删除账户失败:', e)                     // 记录错误日志
     }
   } finally {
     deletingId.value = null                                 // 重置删除标记

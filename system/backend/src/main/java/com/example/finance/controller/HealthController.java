@@ -3,6 +3,7 @@ package com.example.finance.controller;
 import com.example.finance.common.Result;
 import com.example.finance.entity.dto.HealthResponse;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.lang.management.ManagementFactory;
@@ -14,11 +15,11 @@ import java.time.format.DateTimeFormatter;
  * 健康检查控制器
  *
  * 职责：提供服务健康状态检查端点（被运维监控 / Docker HEALTHCHECK 调用）
- * 路由：/api/health（公开接口，无需 JWT，在 WebMvcConfig 中已排除拦截）
+ * 路由：/api/v1/health（公开接口，无需 JWT，在 WebMvcConfig 中已排除拦截）
  * 无 Service/Mapper 依赖（直接读取 JVM 运行时信息）
  *
  * 接口清单：
- *   GET /api/health — 返回服务状态、应用名、运行时长
+ *   GET /api/v1/health — 返回服务状态、应用名、运行时长
  *
  * 返回字段：
  *   status    — "UP" 表示服务正常
@@ -27,6 +28,7 @@ import java.time.format.DateTimeFormatter;
  *   uptime    — 已运行时长（格式化：Xd Xh Xm / Xh Xm / Xm Xs）
  */
 @RestController
+@RequestMapping("/api/v1/health")
 public class HealthController {
 
   /** 日期格式化器：yyyy-MM-dd HH:mm:ss */
@@ -39,12 +41,12 @@ public class HealthController {
   /**
    * 健康检查端点 — 返回服务状态、运行时长、时间戳
    *
-   * 被 WebMvcConfig 排除 JWT 拦截（/api/health 在 excludePathPatterns 中）
+   * 被 WebMvcConfig 排除 JWT 拦截（/api/v1/health 在 excludePathPatterns 中）
    * 被前端 / 后运维脚本 / Docker HEALTHCHECK 调用
    *
    * @return Result<HealthResponse> 服务状态信息
    */
-  @GetMapping("/api/health")
+  @GetMapping
   public Result<HealthResponse> health() {
     HealthResponse info = new HealthResponse();
     info.setStatus(STATUS_UP);

@@ -19,14 +19,14 @@ import java.util.List;
  * 周期性账单控制器（PRD P1-4 周期性账单提醒）
  *
  * 职责：接收周期性账单管理的 HTTP 请求，参数校验后转发 RecurringBillService 处理
- * 路由前缀：/api/recurring-bill
+ * 路由前缀：/api/v1/recurring-bill
  * 依赖：→ RecurringBillService（业务逻辑层）→ RecurringBillMapper + AccountMapper + TransactionMapper
  *
  * 接口清单：
  *   GET    /api/recurring-bill                — 查询周期性账单列表
  *   POST   /api/recurring-bill                — 创建周期性账单
  *   PUT    /api/recurring-bill/{id}           — 更新周期性账单
- *   DELETE /api/recurring-bill/{id}           — 停用周期性账单（软删除，status 置 0）
+ *   DELETE /api/v1/recurring-bill/{id}           — 停用周期性账单（软删除，status 置 0）
  *   POST   /api/recurring-bill/{id}/generate  — 手动触发生成交易记录
  *
  * 被前端调用：→ api/recurring-bill.js 的 list/create/update/deactivate/generate
@@ -36,7 +36,7 @@ import java.util.List;
  * 易记录（BudgetScheduler 仅负责预算预警检查）。
  */
 @RestController
-@RequestMapping("/api/recurring-bill")
+@RequestMapping("/api/v1/recurring-bill")
 @RequiredArgsConstructor
 @Validated
 public class RecurringBillController {

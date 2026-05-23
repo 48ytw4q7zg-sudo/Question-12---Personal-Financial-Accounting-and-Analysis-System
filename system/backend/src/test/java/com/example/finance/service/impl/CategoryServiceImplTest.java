@@ -17,7 +17,23 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
- * CategoryServiceImpl 单元测试
+ * 分类服务实现类单元测试
+ *
+ * <p>测试覆盖场景：</p>
+ * <ul>
+ *   <li>查询分类列表 - 正常查询、空数据、收入类型映射、支出类型映射、收入支出混合</li>
+ * </ul>
+ *
+ * <p>业务特点：</p>
+ * <ul>
+ *   <li>分类为种子数据（13条：支出8 + 收入5），由数据库初始化脚本预置</li>
+ *   <li>所有登录用户共享，不支持用户自定义增改删</li>
+ *   <li>type 取值：1=收入，2=支出</li>
+ * </ul>
+ *
+ * @see CategoryServiceImpl
+ * @see Category
+ * @see CategoryDTO
  */
 @ExtendWith(MockitoExtension.class)
 class CategoryServiceImplTest {

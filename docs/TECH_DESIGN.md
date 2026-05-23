@@ -15,7 +15,7 @@ graph LR
 
 三层架构，前后端分离：
 - **前端**：Vue 3.5 + Element Plus 2.13.7 + Pinia 3.0.4 + Axios 1.15.2，Vite 8 dev server 运行于 :5173
-- **后端**：SpringBoot 3.5.14 + MyBatis-Plus 3.5.15，运行于 :8080，统一 `/api` 前缀
+- **后端**：SpringBoot 3.5.14 + MyBatis-Plus 3.5.15，运行于 :8080，统一 `/api/v1` 前缀
 - **数据库**：MySQL 8.4 LTS，:3306，通过 MyBatis-Plus ORM 交互
 
 ---

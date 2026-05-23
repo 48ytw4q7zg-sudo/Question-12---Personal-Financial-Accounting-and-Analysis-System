@@ -25,7 +25,28 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * P2-3 CSV导入边界值测试 — 文件大小/格式/记录数校验 + 码值对齐 ErrorCode 唯一码值
+ * CSV导入边界值测试（PRD P2-3 导入银行CSV）
+ *
+ * <p>测试覆盖场景：</p>
+ * <ul>
+ *   <li>文件大小校验 - 超过5MB限制时拒绝（错误码 3010）</li>
+ *   <li>文件格式校验 - 非.csv扩展名时拒绝（错误码 3002）</li>
+ *   <li>文件名校验 - 空文件名时拒绝（错误码 3002）</li>
+ *   <li>正常导入 - 有效CSV成功导入，返回 ImportResultDTO</li>
+ *   <li>部分成功 - 混有无效行时部分成功，记录失败行</li>
+ *   <li>记录数限制 - 超过1000条时超过部分记为失败行</li>
+ *   <li>账户校验 - 目标账户不存在时拒绝（错误码 3004）</li>
+ * </ul>
+ *
+ * <p>错误码对齐：</p>
+ * <ul>
+ *   <li>3002 - CSV格式错误</li>
+ *   <li>3004 - 账户不存在或已禁用</li>
+ *   <li>3010 - 文件超过5MB</li>
+ * </ul>
+ *
+ * @see TransactionServiceImpl#importCsv
+ * @see ImportResultDTO
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CSV导入边界值测试")

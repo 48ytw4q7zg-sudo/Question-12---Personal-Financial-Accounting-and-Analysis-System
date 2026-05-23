@@ -22,14 +22,14 @@ import java.util.List;
  * 统计控制器（PRD P1-2 Dashboard 仪表板 + P1-6 月度/年度汇总报表 + P2-1 ECharts 图表）
  *
  * 职责：接收统计分析的 HTTP 请求，转发 StatisticsService 处理
- * 路由前缀：/api/statistics
+ * 路由前缀：/api/v1/statistics
  * 依赖：→ StatisticsService（业务逻辑层）→ TransactionMapper.xml 的统计 SQL
  *
  * 接口清单：
- *   GET /api/statistics/monthly         — 月度收支汇总（总收入/总支出/结余）
- *   GET /api/statistics/yearly          — 年度收支汇总
- *   GET /api/statistics/category-summary — 分类汇总（按分类统计金额和笔数）
- *   GET /api/statistics/trend           — 月度趋势（12 个月收支折线图数据）
+ *   GET /api/v1/statistics/monthly         — 月度收支汇总（总收入/总支出/结余）
+ *   GET /api/v1/statistics/yearly          — 年度收支汇总
+ *   GET /api/v1/statistics/category-summary — 分类汇总（按分类统计金额和笔数）
+ *   GET /api/v1/statistics/trend           — 月度趋势（12 个月收支折线图数据）
  *
  * 被前端调用：→ api/statistics.js 的 getMonthlySummary/getYearlySummary/getCategorySummary/getTrend
  * 被 DashboardPage.vue（P1-2 月度卡片 + 饼图 + 趋势图）和 AnalyticsPage.vue（P2-1 ECharts 图表）调用
@@ -40,7 +40,7 @@ import java.util.List;
  * 业务逻辑校验在 StatisticsService.validateYearMonth() 中执行。
  */
 @RestController
-@RequestMapping("/api/statistics")
+@RequestMapping("/api/v1/statistics")
 @RequiredArgsConstructor
 @Validated
 public class StatisticsController {
@@ -64,7 +64,7 @@ public class StatisticsController {
    *
    * 被前端 DashboardPage.vue 顶部三个摘要卡片（月收入/月支出/月结余）调用
    */
-  @GetMapping("/monthly")  // GET /api/statistics/monthly
+  @GetMapping("/monthly")  // GET /api/v1/statistics/monthly
   public Result<MonthlySummaryDTO> getMonthlySummary(  // 月度收支汇总接口
       @RequestParam @Min(2000) @Max(2100) int year, @RequestParam @Min(1) @Max(12) int month,  // 年份和月份参数(含校验)
       HttpServletRequest request) {
@@ -87,7 +87,7 @@ public class StatisticsController {
    *
    * 被前端 AnalyticsPage.vue 年度汇总卡片调用
    */
-  @GetMapping("/yearly")  // GET /api/statistics/yearly
+  @GetMapping("/yearly")  // GET /api/v1/statistics/yearly
   public Result<MonthlySummaryDTO> getYearlySummary(@RequestParam @Min(2000) @Max(2100) int year,  // 年份参数(含校验)
       HttpServletRequest request) {
     Long userId = LoginInterceptor.getUserId(request);  // 从请求属性获取用户ID
@@ -111,7 +111,7 @@ public class StatisticsController {
    *
    * 被前端 DashboardPage.vue 支出分类饼图 + AnalyticsPage.vue 分类饼图调用
    */
-  @GetMapping("/category-summary")  // GET /api/statistics/category-summary
+  @GetMapping("/category-summary")  // GET /api/v1/statistics/category-summary
   public Result<List<CategorySummaryDTO>> getCategorySummary(  // 分类汇总接口(饼图数据源)
       @RequestParam @Min(2000) @Max(2100) int year, @RequestParam @Min(1) @Max(12) int month,  // 年份和月份参数(含校验)
       @RequestParam(required = false) @Min(1) @Max(2) Integer type,  // 收支类型筛选(可选:1=收入2=支出)
@@ -135,7 +135,7 @@ public class StatisticsController {
    *
    * 被前端 DashboardPage.vue 近 12 月趋势折线图 + AnalyticsPage.vue 趋势折线图调用
    */
-  @GetMapping("/trend")  // GET /api/statistics/trend
+  @GetMapping("/trend")  // GET /api/v1/statistics/trend
   public Result<List<MonthlyTrendDTO>> getTrend(@RequestParam @Min(2000) @Max(2100) int year,  // 年份参数(含校验)
       HttpServletRequest request) {
     Long userId = LoginInterceptor.getUserId(request);  // 从请求属性获取用户ID

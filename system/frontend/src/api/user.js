@@ -1,7 +1,7 @@
 /**
  * 用户模块 API
  * 职责：封装用户相关的 HTTP 请求（登录、注册、修改密码）
- * 对应后端接口：/api/user/*
+ * 对应后端接口：/api/v1/user/*
  *
  * 调用方：
  *   - LoginPage.vue → login() / register()
@@ -11,7 +11,7 @@ import request from './request'
 
 /**
  * 用户登录
- * → 调用 POST /api/user/login
+ * → 调用 POST /api/v1/user/login
  * @param {Object} data - { username, password }
  * @returns {Object} - { token, userId, username, role }
  */
@@ -21,7 +21,7 @@ export function login(data) {
 
 /**
  * 用户注册
- * → 调用 POST /api/user/register
+ * → 调用 POST /api/v1/user/register
  * @param {Object} data - { username, password }
  */
 export function register(data) {
@@ -30,7 +30,7 @@ export function register(data) {
 
 /**
  * 修改密码（需登录）
- * → 调用 POST /api/user/change-password
+ * → 调用 POST /api/v1/user/change-password
  * @param {Object} data - { oldPassword, newPassword }
  */
 export function changePassword(data) {

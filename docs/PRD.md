@@ -45,8 +45,8 @@
   - ③ 可空关联: 无
   - ④ 教学简化声明: 使用硬编码 JWT 密钥（放 application.yml），token 有效期固定 7 天，不做 token 刷新机制
 - **API 形态**:
-  - `POST /api/user/register` → `Result<UserDTO>`（注册）
-  - `POST /api/user/login` → `Result<LoginResponse>`（登录，返回 token）
+  - `POST /api/v1/user/register` → `Result<UserDTO>`（注册）
+  - `POST /api/v1/user/login` → `Result<LoginResponse>`（登录，返回 token）
 - **关联页面**: LoginPage
 
 ### P0-2 · 账户 CRUD
@@ -74,10 +74,10 @@
   - ③ 可空关联: 无
   - ④ 教学简化声明: 删除采用改 status（软删除），不做物理删除；禁用后不可恢复
 - **API 形态**:
-  - `GET /api/account` → `Result<List<AccountDTO>>`（账户列表，仅 status=1 的活跃账户）
-  - `POST /api/account` → `Result<AccountDTO>`（新增账户）
-  - `PUT /api/account/{id}` → `Result<AccountDTO>`（修改账户）
-  - `DELETE /api/account/{id}` → `Result<Void>`（软删除，改 status=0）
+  - `GET /api/v1/account` → `Result<List<AccountDTO>>`（账户列表，仅 status=1 的活跃账户）
+  - `POST /api/v1/account` → `Result<AccountDTO>`（新增账户）
+  - `PUT /api/v1/account/{id}` → `Result<AccountDTO>`（修改账户）
+  - `DELETE /api/v1/account/{id}` → `Result<Void>`（软删除，改 status=0）
 - **关联页面**: AccountPage
 
 ### P0-3 · 分类 GET 列表
@@ -99,7 +99,7 @@
   - ③ 可空关联: 无
   - ④ 教学简化声明: 分类为种子数据（数据库初始化脚本预置），不做用户自定义分类的增改删
 - **API 形态**:
-  - `GET /api/category` → `Result<List<CategoryDTO>>`（全量分类列表）
+  - `GET /api/v1/category` → `Result<List<CategoryDTO>>`（全量分类列表）
 - **关联页面**: CategorySelector（复用于记一笔表单和流水列表筛选）
 
 ### P0-4 · 收支记录（记一笔 + 改 + 列表分页）
@@ -125,9 +125,9 @@
   - ③ 可空关联: 无
   - ④ 教学简化声明: 不做撤销/回收站，修改直接覆盖原数据
 - **API 形态**:
-  - `POST /api/transaction` → `Result<TransactionDTO>`（记一笔）
-  - `PUT /api/transaction/{id}` → `Result<TransactionDTO>`（修改记录，对应列表页「编辑」按钮）
-  - `GET /api/transaction` → `Result<Page<TransactionDTO>>`（分页列表，参数 pageNum + pageSize）
+  - `POST /api/v1/transaction` → `Result<TransactionDTO>`（记一笔）
+  - `PUT /api/v1/transaction/{id}` → `Result<TransactionDTO>`（修改记录，对应列表页「编辑」按钮）
+  - `GET /api/v1/transaction` → `Result<Page<TransactionDTO>>`（分页列表，参数 pageNum + pageSize）
 - **关联页面**: TransactionListPage（流水列表+分页，记一笔为内嵌弹窗）
 
 ### P0-5 · 按账户汇总余额
@@ -149,7 +149,7 @@
   - ③ 可空关联: 账户下无收支记录时，余额 = 初始余额
   - ④ 教学简化声明: 余额每次实时计算（不做缓存/冗余字段存储）
 - **API 形态**:
-  - `GET /api/account/balance` → `Result<List<AccountBalanceDTO>>`（各账户余额汇总）
+  - `GET /api/v1/account/balance` → `Result<List<AccountBalanceDTO>>`（各账户余额汇总）
 - **关联页面**: AccountPage（账户列表含余额列）
 
 ---
@@ -173,8 +173,8 @@
   - ③ 可空关联: 某分类本月无消费记录时金额显示为 0
   - ④ 教学简化声明: 分类为种子数据，用户不可自定义
 - **API 形态**:
-  - `GET /api/category` → `Result<List<CategoryDTO>>`（分类列表）
-  - `GET /api/statistics/category-summary?month=YYYY-MM` → `Result<List<CategorySummaryDTO>>`（各分类本月消费金额）
+  - `GET /api/v1/category` → `Result<List<CategoryDTO>>`（分类列表）
+  - `GET /api/v1/statistics/category-summary?month=YYYY-MM` → `Result<List<CategorySummaryDTO>>`（各分类本月消费金额）
 - **关联页面**: CategoryPage
 
 ---
@@ -199,7 +199,7 @@
   - ③ 可空关联: 账户/分类筛选条件为空时 = 不过滤该维度
   - ④ 教学简化声明: 关键词仅匹配备注字段，不做金额范围筛选
 - **API 形态**:
-  - `GET /api/transaction` → `Result<Page<TransactionDTO>>`（复用分页接口，增加 query params: startTime / endTime / accountId / categoryId / keyword / pageNum / pageSize）
+  - `GET /api/v1/transaction` → `Result<Page<TransactionDTO>>`（复用分页接口，增加 query params: startTime / endTime / accountId / categoryId / keyword / pageNum / pageSize）
 - **关联页面**: TransactionListPage（筛选器区域复用列表页）
 
 ### P1-2 · 月度/年度汇总统计
@@ -221,8 +221,8 @@
   - ③ 可空关联: 某月无收支记录时，返回收入=0、支出=0、结余=0
   - ④ 教学简化声明: 汇总每次实时查询，不做定时任务预计算
 - **API 形态**:
-  - `GET /api/statistics/monthly` → `Result<MonthlySummaryDTO>`（参数 year + month）
-  - `GET /api/statistics/yearly` → `Result<YearlySummaryDTO>`（参数 year）
+  - `GET /api/v1/statistics/monthly` → `Result<MonthlySummaryDTO>`（参数 year + month）
+  - `GET /api/v1/statistics/yearly` → `Result<YearlySummaryDTO>`（参数 year）
 - **关联页面**: DashboardPage（汇总卡片）
 
 ### P1-3 · 预算管理
@@ -245,9 +245,9 @@
   - ③ 可空关联: 某支出分类未设置预算时，不参与超支判断（不标记超支）
   - ④ 教学简化声明: 预算粒度为月，不做周预算或自定义周期
 - **API 形态**:
-  - `GET /api/budget` → `Result<List<BudgetDTO>>`（参数 year + month，该月所有分类的预算列表）
-  - `POST /api/budget` → `Result<BudgetDTO>`（创建或更新预算，对应「保存」按钮）
-  - `GET /api/budget/progress` → `Result<List<BudgetProgressDTO>>`（预算进度，含已用金额和超支标记）
+  - `GET /api/v1/budget` → `Result<List<BudgetDTO>>`（参数 year + month，该月所有分类的预算列表）
+  - `POST /api/v1/budget` → `Result<BudgetDTO>`（创建或更新预算，对应「保存」按钮）
+  - `GET /api/v1/budget/progress` → `Result<List<BudgetProgressDTO>>`（预算进度，含已用金额和超支标记）
 - **关联页面**: BudgetPage（预算设置 + 进度条展示）
 
 ### P1-4 · 周期性账单提醒
@@ -275,11 +275,11 @@
   - ③ 可空关联: 活跃的周期性账单（status=1）引用的账户被禁用后，该账单应标记为异常（列表展示警告标识）；已停用的账单（status=0）不受影响
   - ④ 教学简化声明: 一键生成收支记录时不做自动扣款，由用户手动确认触发；@Scheduled 后端日检到期仅记录日志，不做自动创建
 - **API 形态**:
-  - `GET /api/recurring-bill` → `Result<List<RecurringBillDTO>>`（周期性账单列表）
-  - `POST /api/recurring-bill` → `Result<RecurringBillDTO>`（创建周期性账单）
-  - `PUT /api/recurring-bill/{id}` → `Result<RecurringBillDTO>`（修改，对应「编辑」按钮）
-  - `DELETE /api/recurring-bill/{id}` → `Result<Void>`（停用，改 status=0，对应「停用」按钮）
-  - `POST /api/recurring-bill/{id}/generate` → `Result<TransactionDTO>`（一键生成收支记录，对应「生成」按钮）
+  - `GET /api/v1/recurring-bill` → `Result<List<RecurringBillDTO>>`（周期性账单列表）
+  - `POST /api/v1/recurring-bill` → `Result<RecurringBillDTO>`（创建周期性账单）
+  - `PUT /api/v1/recurring-bill/{id}` → `Result<RecurringBillDTO>`（修改，对应「编辑」按钮）
+  - `DELETE /api/v1/recurring-bill/{id}` → `Result<Void>`（停用，改 status=0，对应「停用」按钮）
+  - `POST /api/v1/recurring-bill/{id}/generate` → `Result<TransactionDTO>`（一键生成收支记录，对应「生成」按钮）
 - **关联页面**: RecurringBillPage（周期性账单列表 + 创建/编辑表单）
 
 ### P1-5 · 转账功能
@@ -306,7 +306,7 @@
   - ③ 可空关联: transaction.transfer_id 为 NULL 表示普通收支记录（流水列表正常展示）；非 NULL 表示转账关联记录，流水列表中标记为「转出/转入」并展示关联账户名称
   - ④ 教学简化声明: 转账生成两条独立收支记录，通过 transfer_id 字段关联；不做撤销转账；转账记录禁止修改金额（仅可修改备注）
 - **API 形态**:
-  - `POST /api/transaction/transfer` → `Result<TransferDTO>`（转账，返回包含两条关联记录）
+  - `POST /api/v1/transaction/transfer` → `Result<TransferDTO>`（转账，返回包含两条关联记录）
 - **关联页面**: TransferPage（转账表单）
 
 ### P1-6 · ECharts 基础图表（1 个图表）
@@ -329,7 +329,7 @@
   - ③ 可空关联: 某月无数据时图表显示空状态
   - ④ 教学简化声明: P1 阶段仅提供 1 个图表（分类饼图或收支堆叠柱），P2 扩展多图联动
 - **API 形态**:
-  - `GET /api/statistics/category-summary` → `Result<List<CategorySummaryDTO>>`（按分类汇总，参数 year + month）
+  - `GET /api/v1/statistics/category-summary` → `Result<List<CategorySummaryDTO>>`（按分类汇总，参数 year + month）
 - **关联页面**: DashboardPage（图表区域）
 
 ---
@@ -356,7 +356,7 @@
   - ④ 教学简化声明: 无密码找回功能，忘记密码需重置数据库
 - **API 形态**:
   - 用户名从 JWT token 解码获取（无需单独接口）
-  - `POST /api/user/change-password` → `Result<Void>`（修改密码）
+  - `POST /api/v1/user/change-password` → `Result<Void>`（修改密码）
 - **关联页面**: UserSettingsPage
 
 ---
@@ -381,9 +381,9 @@
   - ③ 可空关联: 某月无数据时图表显示空状态
   - ④ 教学简化声明: drill-down 跳转到已有的 TransactionListPage 并带筛选参数，不做独立明细弹窗
 - **API 形态**:
-  - `GET /api/statistics/trend` → `Result<List<MonthlyTrendDTO>>`（12 个月收支趋势，参数 year）
-  - `GET /api/statistics/category-summary` → `Result<List<CategorySummaryDTO>>`（复用 P1-6 接口）
-  - `GET /api/budget/progress` → `Result<List<BudgetProgressDTO>>`（复用 P1-3 接口）
+  - `GET /api/v1/statistics/trend` → `Result<List<MonthlyTrendDTO>>`（12 个月收支趋势，参数 year）
+  - `GET /api/v1/statistics/category-summary` → `Result<List<CategorySummaryDTO>>`（复用 P1-6 接口）
+  - `GET /api/v1/budget/progress` → `Result<List<BudgetProgressDTO>>`（复用 P1-3 接口）
 - **关联页面**: AnalyticsPage（分析页，含多图表 + drill-down 联动）
 
 ### P2-2 · 多维度预算预警
@@ -407,7 +407,7 @@
   - ③ 可空关联: 未设置预算的分类不参与预警
   - ④ 教学简化声明: 预警阈值硬编码，不做用户自定义；@Scheduled 仅记录预警状态到数据库，不发送通知（无短信/邮件推送）
 - **API 形态**:
-  - `GET /api/budget/alert` → `Result<List<BudgetAlertDTO>>`（当前用户所有分类的预警状态）
+  - `GET /api/v1/budget/alert` → `Result<List<BudgetAlertDTO>>`（当前用户所有分类的预警状态）
 - **关联页面**: DashboardPage（预警提示区域）、BudgetPage（预算页含预警标识）
 
 ### P2-3 · 导入银行 CSV（可选加分）
@@ -430,7 +430,7 @@
   - ③ 可空关联: CSV 中分类字段无法匹配预设分类时，归入「其他」分类
   - ④ 教学简化声明: 仅支持一种固定 CSV 格式（列: 日期/金额/类型/备注），不做多银行格式适配；导入记录标记来源为 CSV
 - **API 形态**:
-  - `POST /api/transaction/import` → `Result<ImportResultDTO>`（上传 CSV 文件 + accountId 参数，返回导入结果）
+  - `POST /api/v1/transaction/import` → `Result<ImportResultDTO>`（上传 CSV 文件 + accountId 参数，返回导入结果）
 - **关联页面**: ImportPage（导入页面，含文件上传 + 预览表格）
 
 ### P2-4 · 多币种支持（可选加分）
@@ -454,8 +454,8 @@
   - ③ 可空关联: 账户币种为空时默认 CNY
   - ④ 教学简化声明: 汇率使用硬编码固定值（如 1 USD = 7.2 CNY），不做实时汇率接口；基准币种固定为 CNY
 - **API 形态**:
-  - `GET /api/exchange-rate` → `Result<List<ExchangeRateDTO>>`（获取固定汇率表）
-  - 账户接口增加 `currency` 字段（`GET /api/account` 返回值扩展）
+  - `GET /api/v1/exchange-rate` → `Result<List<ExchangeRateDTO>>`（获取固定汇率表）
+  - 账户接口增加 `currency` 字段（`GET /api/v1/account` 返回值扩展）
 - **关联页面**: AccountPage（账户币种设置）、DashboardPage（汇总换算展示）
 
 ### P2-5 · 单元测试（可选加分 · +4 分）

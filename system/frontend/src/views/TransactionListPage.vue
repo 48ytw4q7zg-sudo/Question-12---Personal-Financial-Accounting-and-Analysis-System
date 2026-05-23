@@ -93,10 +93,10 @@
         <!-- 转账标识：有 transferId 的记录标记为「转账」 -->
         <el-table-column label="转账标识" width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.transferId &amp;&amp; row.type === TRANSACTION_TYPE_EXPENSE" type="warning" size="small">(转出)</el-tag>
-            <el-tag v-if="row.transferId &amp;&amp; row.type === TRANSACTION_TYPE_INCOME" type="success" size="small">(转入)</el-tag>
+            <el-tag v-if="row.transferId && row.type === TRANSACTION_TYPE_EXPENSE" type="warning" size="small">(转出)</el-tag>
+            <el-tag v-if="row.transferId && row.type === TRANSACTION_TYPE_INCOME" type="success" size="small">(转入)</el-tag>
             <!-- 兜底条件：type 只能是 1(收入) 或 2(支出)，此分支理论上不会触发，保留以防御未来枚举扩展 -->
-            <el-tag v-if="row.transferId &amp;&amp; row.type !== TRANSACTION_TYPE_EXPENSE &amp;&amp; row.type !== TRANSACTION_TYPE_INCOME" type="warning" size="small">转账</el-tag>
+            <el-tag v-if="row.transferId && row.type !== TRANSACTION_TYPE_EXPENSE && row.type !== TRANSACTION_TYPE_INCOME" type="warning" size="small">转账</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="140" fixed="right">
@@ -178,6 +178,9 @@ import { getAccountList } from '../api/account'              // 导入账户API
 import { getCategoryList } from '../api/category'             // 导入分类API
 import { formatTime, formatDateTime, formatAmount } from '../utils/format' // 导入格式化工具
 import { TRANSACTION_TYPE_MAP, TRANSACTION_TYPE_INCOME, TRANSACTION_TYPE_EXPENSE, CATEGORY_TYPE_EXPENSE, CATEGORY_TYPE_INCOME } from '../constants/finance' // 导入常量
+import { logger } from '../utils/logger' // 导入日志工具
+
+const log = logger('TransactionListPage') // 创建日志实例
 
 const route = useRoute()                                    // 当前路由信息
 const router = useRouter()                                  // 路由实例
@@ -309,7 +312,7 @@ async function loadOptions() {
     accountList.value = accounts || []                       // 设置账户选项
     categoryList.value = categories || []                    // 设置分类选项
   } catch (e) {
-    if (import.meta.env.DEV) console.warn('加载选项数据失败:', e) // 开发环境日志
+    log.warn('加载选项数据失败:', e) // 开发环境日志
     ElMessage.error('账户/分类选项加载失败，下拉框可能为空，请刷新页面重试') // 明确错误提示（含影响说明）
   }
 }
@@ -400,7 +403,7 @@ async function handleDelete(row) {
   } catch (e) {
     if (e !== 'cancel') {
       // axios 拦截器已统一处理业务错误，此处记录日志便于排查非业务异常
-      if (import.meta.env.DEV) console.error('删除记录失败:', e)                    // 记录错误日志
+      log.error('删除记录失败:', e)                    // 记录错误日志
     }
   } finally {
     deletingId.value = null                                 // 重置删除标记

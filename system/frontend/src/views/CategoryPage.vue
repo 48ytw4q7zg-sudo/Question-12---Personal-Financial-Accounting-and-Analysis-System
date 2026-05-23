@@ -78,14 +78,22 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'              // 导入Vue组合式API
-import { ElMessage } from 'element-plus'                    // 导入消息提示
-// → 调用 api/category.js 的 getCategoryList()
-import { getCategoryList } from '../api/category'             // 导入分类列表API
-// → 调用 api/statistics.js 的 getCategorySummary()（P0-6 本月消费金额）
-import { getCategorySummary } from '../api/statistics'        // 导入分类汇总API
-import { formatAmount } from '../utils/format'               // 导入金额格式化
+// ===== Vue 核心库导入 =====
+import { ref, computed, onMounted } from 'vue'              // 导入Vue组合式API（ref响应式、computed计算属性、onMounted生命周期）
+import { ElMessage } from 'element-plus'                    // 导入Element Plus消息提示组件（用于错误提示）
 
+// ===== 业务API模块导入 =====
+// → 调用 api/category.js 的 getCategoryList()（获取全部分类列表）
+import { getCategoryList } from '../api/category'             // 导入分类列表API（后端种子数据）
+// → 调用 api/statistics.js 的 getCategorySummary()（P0-6 本月各分类消费金额汇总）
+import { getCategorySummary } from '../api/statistics'        // 导入分类汇总API（按分类统计金额）
+
+// ===== 工具函数和常量导入 =====
+import { formatAmount } from '../utils/format'               // 导入金额格式化工具（分转元、千分位）
+import { CATEGORY_TYPE_EXPENSE, CATEGORY_TYPE_INCOME } from '../constants/finance'  // 导入分类类型常量（1=支出，2=收入）
+import { logger } from '../utils/logger'                    // 导入统一日志工具
+
+const log = logger('CategoryPage')                          // 创建日志实例
 const loading = ref(false)                                  // 页面loading
 const activeTab = ref('expense')     // 当前激活的 Tab：'expense' 或 'income'
 const categories = ref([])           // 全部分类数据（后端返回的完整列表）
@@ -145,7 +153,7 @@ async function loadSummary() {
     const data = await getCategorySummary({ year: parseInt(year), month: parseInt(month) }) // 调用汇总API
     summaryData.value = data || []                           // 设置汇总数据
   } catch (e) {
-    if (import.meta.env.DEV) console.warn('加载汇总数据失败:', e) // 开发环境日志
+    log.warn('加载汇总数据失败:', e) // 开发环境日志
     ElMessage.warning('加载汇总数据失败')                     // 降级提示
     summaryData.value = []                                   // 清空汇总数据
   } finally {

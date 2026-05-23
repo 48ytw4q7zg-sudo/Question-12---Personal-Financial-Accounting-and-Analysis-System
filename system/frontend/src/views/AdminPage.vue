@@ -51,7 +51,9 @@ import { listUsers, deleteUser, toggleRole } from '../api/admin' // 导入管理
 import { useUserStore } from '../stores/user'               // 导入用户状态store
 import { formatTime } from '../utils/format'                // 导入时间格式化工具
 import { ROLE_ADMIN, ROLE_LABELS } from '../constants/role' // 导入角色常量
+import { logger } from '../utils/logger'                    // 导入日志工具
 
+const log = logger('AdminPage')                             // 创建日志实例
 const router = useRouter()                                  // 路由实例（用于权限不足时跳转首页）
 const userStore = useUserStore()                            // 初始化用户store
 const users = ref([])           // 用户列表数据
@@ -89,7 +91,7 @@ async function handleToggleRole(row) {
     await loadUsers()                                       // 刷新用户列表
   } catch (e) {
     if (e !== 'cancel') {                                    // 非取消操作才记录错误
-      if (import.meta.env.DEV) console.error('切换角色失败:', e) // 开发环境日志
+      log.error('切换角色失败:', e)                           // 记录错误日志
       ElMessage.error('角色切换失败，请重试')                 // 用户可见错误提示
     }
   } finally {
@@ -115,7 +117,7 @@ async function handleDelete(row) {
     await loadUsers()                                       // 刷新用户列表
   } catch (e) {
     if (e !== 'cancel') {                                    // 非取消操作才记录错误
-      if (import.meta.env.DEV) console.error('删除用户失败:', e) // 开发环境日志
+      log.error('删除用户失败:', e)                           // 记录错误日志
       ElMessage.error('用户删除失败，请重试')                 // 用户可见错误提示
     }
   } finally {

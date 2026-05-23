@@ -19,21 +19,21 @@ import java.util.List;
  * 账户控制器（PRD P0-2 账户 CRUD + P0-5 按账户汇总余额）
  *
  * 职责：接收账户管理的 HTTP 请求，参数校验后转发 AccountService 处理
- * 路由前缀：/api/account
+ * 路由前缀：/api/v1/account
  * 依赖：→ AccountService（业务逻辑层）→ AccountMapper + TransactionMapper（数据访问层）
  *
  * 接口清单：
  *   GET    /api/account          — 查询当前用户的账户列表
  *   POST   /api/account          — 创建新账户
  *   PUT    /api/account/{id}     — 更新账户信息
- *   DELETE /api/account/{id}     — 删除账户（软删除，status 置 0）
+ *   DELETE /api/v1/account/{id}     — 删除账户（软删除，status 置 0）
  *   GET    /api/account/balance  — 获取各账户余额统计
  *
  * 被前端调用：→ api/account.js 的 getAccountList/create/update/delete/getBalance
  * 被 AccountPage.vue、DashboardPage.vue、TransferPage.vue 等调用
  */
 @RestController
-@RequestMapping("/api/account")
+@RequestMapping("/api/v1/account")
 @RequiredArgsConstructor
 @Validated
 public class AccountController {

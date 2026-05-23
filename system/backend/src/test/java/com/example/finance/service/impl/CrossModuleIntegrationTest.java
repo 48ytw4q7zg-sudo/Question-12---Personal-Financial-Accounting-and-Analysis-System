@@ -24,7 +24,28 @@ import static org.mockito.Mockito.*;
 
 /**
  * 跨模块集成测试 — 验证数据在各模块间的正确流转
- * 覆盖: 账户→交易→统计→预算→周期账单 全链路
+ *
+ * <p>测试覆盖全链路:</p>
+ * <ul>
+ *   <li>用户注册 → JWT签发 → 拦截器验证 → 权限控制</li>
+ *   <li>账户创建 → 交易记录 → 余额计算 → 统计汇总</li>
+ *   <li>预算设置 → 交易消费 → 超支预警 → 预警通知</li>
+ *   <li>周期账单 → 到期生成 → 交易记录 → 余额更新</li>
+ *   <li>转账操作 → 双账户余额同步 → 事务一致性</li>
+ * </ul>
+ *
+ * <p>关键验证点:</p>
+ * <ul>
+ *   <li>数据一致性: 交易记录与账户余额、统计数据的数学关系</li>
+ *   <li>事务完整性: 转账操作的原子性、预算更新的及时性</li>
+ *   <li>权限隔离: 不同用户间的数据隔离、管理员权限控制</li>
+ *   <li>并发安全: 余额计算的N+1消除、批量操作的效率</li>
+ * </ul>
+ *
+ * <p>测试策略: 使用 @Nested 组织测试类，按业务流程分组</p>
+ *
+ * @see CrossModuleIntegrationTest.UserJwtChain
+ * @see CrossModuleIntegrationTest.AccountTransactionFlow
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("跨模块集成测试")

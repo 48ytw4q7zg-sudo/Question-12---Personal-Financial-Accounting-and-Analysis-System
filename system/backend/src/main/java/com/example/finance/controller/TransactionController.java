@@ -23,14 +23,14 @@ import org.springframework.web.multipart.MultipartFile;
  * 交易记录控制器（PRD P0-4 收支记录 + P1-1 多条件筛选 + P1-5 转账 + P2-3 CSV 批量导入）
  *
  * 职责：接收收支记录的 HTTP 请求，参数校验后转发 TransactionService 处理
- * 路由前缀：/api/transaction
+ * 路由前缀：/api/v1/transaction
  * 依赖：→ TransactionService（业务逻辑层）→ TransactionMapper + AccountMapper（数据访问层）
  *
  * 接口清单：
  *   GET    /api/transaction              — 查询交易记录（分页 + 多条件筛选）
  *   POST   /api/transaction              — 创建收支记录（记一笔）
  *   PUT    /api/transaction/{id}         — 更新收支记录
- *   DELETE /api/transaction/{id}         — 删除收支记录（转账记录禁止删除）
+ *   DELETE /api/v1/transaction/{id}         — 删除收支记录（转账记录禁止删除）
  *   POST   /api/transaction/transfer     — 转账（生成两条关联记录）
  *   POST   /api/transaction/import       — CSV 批量导入（≤5MB，≤1000 条）
  *
@@ -38,7 +38,7 @@ import org.springframework.web.multipart.MultipartFile;
  * 被 TransactionListPage.vue、TransferPage.vue、ImportPage.vue 调用
  */
 @RestController
-@RequestMapping("/api/transaction")
+@RequestMapping("/api/v1/transaction")
 @RequiredArgsConstructor
 @Validated
 public class TransactionController {

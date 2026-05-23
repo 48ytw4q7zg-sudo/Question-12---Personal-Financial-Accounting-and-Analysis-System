@@ -22,7 +22,33 @@ import static org.mockito.Mockito.*;
 
 /**
  * 正交实验设计 + 真实用户操作场景模拟测试
- * 验证系统所有小部件之间的通信正确性
+ *
+ * <p>测试方法论:</p>
+ * <ul>
+ *   <li>正交实验: 使用正交表L8(2^5)减少测试用例数量，覆盖多因素组合</li>
+ *   <li>用户场景模拟: 模拟真实用户的典型操作流程</li>
+ * </ul>
+ *
+ * <p>正交实验设计:</p>
+ * <ul>
+ *   <li>交易筛选5因素×2水平: 账户ID、分类ID、时间范围、关键词、排序方式</li>
+ *   <li>预算查询3因素×2水平: 年份、月份、分类类型</li>
+ *   <li>周期账单2因素×3水平: 周期类型、状态过滤</li>
+ * </ul>
+ *
+ * <p>用户场景模拟:</p>
+ * <ul>
+ *   <li>场景1: 新用户注册→登录→创建账户→记一笔→查看统计</li>
+ *   <li>场景2: 老用户登录→设置预算→日常记账→查看预警</li>
+ *   <li>场景3: 管理员登录→查看用户列表→删除用户→切换角色</li>
+ *   <li>场景4: 用户设置周期账单→到期生成→查看流水</li>
+ *   <li>场景5: 用户转账→查看双账户余额→验证事务一致性</li>
+ * </ul>
+ *
+ * <p>验证目标: 系统所有小部件之间的通信正确性、数据流转完整性</p>
+ *
+ * @see OrthogonalAndUserScenarioTest.OrthogonalTransactionFilter
+ * @see OrthogonalAndUserScenarioTest.UserScenarioSimulation
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("正交实验+用户场景模拟")

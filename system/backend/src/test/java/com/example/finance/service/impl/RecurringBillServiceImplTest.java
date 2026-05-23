@@ -28,6 +28,33 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * 周期账单服务实现类单元测试（PRD P1-4 周期性账单提醒）
+ *
+ * <p>测试覆盖场景：</p>
+ * <ul>
+ *   <li>周期账单创建 - 正常创建、账户验证、分类验证</li>
+ *   <li>周期账单更新 - 正常更新、账单不存在、账单已停用</li>
+ *   <li>周期账单删除 - 正常删除（软删除）、账单不存在</li>
+ *   <li>周期账单列表 - 查询用户所有账单、空数据处理</li>
+ *   <li>到期生成交易 - 生成收支记录、更新下次到期日、账单已停用</li>
+ * </ul>
+ *
+ * <p>业务规则验证：</p>
+ * <ul>
+ *   <li>周期类型：monthly（每月）、weekly（每周）</li>
+ *   <li>账单状态：1=启用、0=停用（软删除）</li>
+ *   <li>到期生成：根据周期类型自动计算下次到期日</li>
+ *   <li>账户验证：只能关联到用户自己的活跃账户</li>
+ *   <li>分类验证：分类必须存在且类型匹配</li>
+ * </ul>
+ *
+ * <p>Mock依赖: RecurringBillMapper, AccountMapper, CategoryMapper, TransactionMapper, EntityValidator</p>
+ *
+ * @see RecurringBillServiceImpl
+ * @see RecurringBillDTO
+ * @see RecurringBillRequest
+ */
 @ExtendWith(MockitoExtension.class)
 class RecurringBillServiceImplTest {
 

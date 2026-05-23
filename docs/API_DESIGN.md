@@ -8,12 +8,12 @@
 
 | 项 | 决定 | 引用 |
 |---|---|---|
-| URL 前缀 | `/api`（所有接口路径以 `/api/` 开头） | RESTful 标准 + 前端 axios baseURL `/api`（CLAUDE.md §三·三） |
+| URL 前缀 | `/api`（所有接口路径以 `/api/v1/` 开头） | RESTful 标准 + 前端 axios baseURL `/api`（CLAUDE.md §三·三） |
 | 响应格式 | 统一 `Result<T>`（`{Integer code, String message, T data}`）+ 静态工厂 | CLAUDE.md §一·三 + `common/Result.java` |
 | 鉴权 Header | `Authorization: Bearer <JWT token>`（登录后接口必含） | CLAUDE.md §一·二 + `LoginInterceptor` |
 | 分页参数 | query 参数 `pageNum`（从 1 开始）+ `pageSize`（默认 10，最大 100） | MyBatis-Plus `PaginationInnerInterceptor` |
-| RESTful 命名 | 资源用单数名词（`/api/account`）· HTTP 动词（GET 列表/详情 · POST 创建 · PUT 更新 · DELETE 删除） | RESTful 标准 |
-| 路径参数 | `/api/account/{id}`（禁止用 `/api/account?id=`） | RESTful 标准 |
+| RESTful 命名 | 资源用单数名词（`/api/v1/account`）· HTTP 动词（GET 列表/详情 · POST 创建 · PUT 更新 · DELETE 删除） | RESTful 标准 |
+| 路径参数 | `/api/v1/account/{id}`（禁止用 `/api/v1/account?id=`） | RESTful 标准 |
 | 请求体格式 | `application/json`（POST/PUT 用 body · GET/DELETE 不用 body · 查询用 query） | HTTP 标准 |
 | 时间字段格式 | 自定义格式 `yyyy-MM-dd HH:mm:ss`（如 `2026-05-16 08:30:00`，非标准 ISO 8601；需配置 Jackson `WRITE_DATES_AS_TIMESTAMPS=false` + 自定义 `date-format`）| Jackson 序列化 + LocalDateTime |
 
@@ -23,74 +23,74 @@
 
 ## 2. 接口清单（按业务模块分组）
 
-### 2.1 用户认证模块（`/api/user`）
+### 2.1 用户认证模块（`/api/v1/user`）
 
 | # | 名称 | 方法 + URL | 是否需登录 | 角色限制 | 实现优先级 |
 |---|---|---|:--:|---|:---:|
-| 1 | 注册 | POST /api/user/register | ❌ | 全角色 | P0 |
-| 2 | 登录 | POST /api/user/login | ❌ | 全角色 | P0 |
-| 3 | 修改密码 | POST /api/user/change-password | ✅ | 全角色 | P1 |
+| 1 | 注册 | POST /api/v1/user/register | ❌ | 全角色 | P0 |
+| 2 | 登录 | POST /api/v1/user/login | ❌ | 全角色 | P0 |
+| 3 | 修改密码 | POST /api/v1/user/change-password | ✅ | 全角色 | P1 |
 
-### 2.2 账户模块（`/api/account`）
-
-| # | 名称 | 方法 + URL | 是否需登录 | 角色限制 | 实现优先级 |
-|---|---|---|:--:|---|:---:|
-| 4 | 账户列表 | GET /api/account | ✅ | 全角色 | P0 |
-| 5 | 新增账户 | POST /api/account | ✅ | 全角色 | P0 |
-| 6 | 修改账户 | PUT /api/account/{id} | ✅ | 全角色 | P0 |
-| 7 | 删除账户（软删除） | DELETE /api/account/{id} | ✅ | 全角色 | P0 |
-| 8 | 账户余额汇总 | GET /api/account/balance | ✅ | 全角色 | P0 |
-
-### 2.3 分类模块（`/api/category`）
+### 2.2 账户模块（`/api/v1/account`）
 
 | # | 名称 | 方法 + URL | 是否需登录 | 角色限制 | 实现优先级 |
 |---|---|---|:--:|---|:---:|
-| 9 | 分类列表 | GET /api/category | ✅ | 全角色 | P0 |
+| 4 | 账户列表 | GET /api/v1/account | ✅ | 全角色 | P0 |
+| 5 | 新增账户 | POST /api/v1/account | ✅ | 全角色 | P0 |
+| 6 | 修改账户 | PUT /api/v1/account/{id} | ✅ | 全角色 | P0 |
+| 7 | 删除账户（软删除） | DELETE /api/v1/account/{id} | ✅ | 全角色 | P0 |
+| 8 | 账户余额汇总 | GET /api/v1/account/balance | ✅ | 全角色 | P0 |
 
-### 2.4 交易记录模块（`/api/transaction`）
-
-| # | 名称 | 方法 + URL | 是否需登录 | 角色限制 | 实现优先级 |
-|---|---|---|:--:|---|:---:|
-| 10 | 收支记录分页列表 | GET /api/transaction | ✅ | 全角色 | P0 |
-| 11 | 记一笔 | POST /api/transaction | ✅ | 全角色 | P0 |
-| 12 | 修改收支记录 | PUT /api/transaction/{id} | ✅ | 全角色 | P0 |
-| 12b | 删除收支记录 | DELETE /api/transaction/{id} | ✅ | 全角色 | P0 |
-| 13 | 转账 | POST /api/transaction/transfer | ✅ | 全角色 | P1 |
-| 13b | CSV 导入 | POST /api/transaction/import | ✅ | 全角色 | P2 |
-
-### 2.5 预算模块（`/api/budget`）
+### 2.3 分类模块（`/api/v1/category`）
 
 | # | 名称 | 方法 + URL | 是否需登录 | 角色限制 | 实现优先级 |
 |---|---|---|:--:|---|:---:|
-| 14 | 预算列表 | GET /api/budget | ✅ | 全角色 | P1 |
-| 15 | 保存预算 | POST /api/budget | ✅ | 全角色 | P1 |
-| 16 | 预算进度 | GET /api/budget/progress | ✅ | 全角色 | P1 |
-| 17 | 预算预警 | GET /api/budget/alert | ✅ | 全角色 | P2 |
+| 9 | 分类列表 | GET /api/v1/category | ✅ | 全角色 | P0 |
 
-### 2.6 统计分析模块（`/api/statistics`）
+### 2.4 交易记录模块（`/api/v1/transaction`）
 
 | # | 名称 | 方法 + URL | 是否需登录 | 角色限制 | 实现优先级 |
 |---|---|---|:--:|---|:---:|
-| 18 | 月度汇总 | GET /api/statistics/monthly | ✅ | 全角色 | P1 |
-| 19 | 年度汇总 | GET /api/statistics/yearly | ✅ | 全角色 | P1 |
-| 20 | 分类汇总 | GET /api/statistics/category-summary | ✅ | 全角色 | P1 |
-| 21 | 月度趋势 | GET /api/statistics/trend | ✅ | 全角色 | P2 |
+| 10 | 收支记录分页列表 | GET /api/v1/transaction | ✅ | 全角色 | P0 |
+| 11 | 记一笔 | POST /api/v1/transaction | ✅ | 全角色 | P0 |
+| 12 | 修改收支记录 | PUT /api/v1/transaction/{id} | ✅ | 全角色 | P0 |
+| 12b | 删除收支记录 | DELETE /api/v1/transaction/{id} | ✅ | 全角色 | P0 |
+| 13 | 转账 | POST /api/v1/transaction/transfer | ✅ | 全角色 | P1 |
+| 13b | CSV 导入 | POST /api/v1/transaction/import | ✅ | 全角色 | P2 |
 
-### 2.7 周期性账单模块（`/api/recurring-bill`）
-
-| # | 名称 | 方法 + URL | 是否需登录 | 角色限制 | 实现优先级 |
-|---|---|---|:--:|---|:---:|
-| 22 | 周期性账单列表 | GET /api/recurring-bill | ✅ | 全角色 | P1 |
-| 23 | 创建周期性账单 | POST /api/recurring-bill | ✅ | 全角色 | P1 |
-| 24 | 修改周期性账单 | PUT /api/recurring-bill/{id} | ✅ | 全角色 | P1 |
-| 25 | 停用周期性账单 | DELETE /api/recurring-bill/{id} | ✅ | 全角色 | P1 |
-| 26 | 一键生成收支记录 | POST /api/recurring-bill/{id}/generate | ✅ | 全角色 | P1 |
-
-### 2.8 汇率模块（`/api/exchange-rate`）
+### 2.5 预算模块（`/api/v1/budget`）
 
 | # | 名称 | 方法 + URL | 是否需登录 | 角色限制 | 实现优先级 |
 |---|---|---|:--:|---|:---:|
-| 27 | 汇率查询 | GET /api/exchange-rate | ✅ | 全角色 | P2 |
+| 14 | 预算列表 | GET /api/v1/budget | ✅ | 全角色 | P1 |
+| 15 | 保存预算 | POST /api/v1/budget | ✅ | 全角色 | P1 |
+| 16 | 预算进度 | GET /api/v1/budget/progress | ✅ | 全角色 | P1 |
+| 17 | 预算预警 | GET /api/v1/budget/alert | ✅ | 全角色 | P2 |
+
+### 2.6 统计分析模块（`/api/v1/statistics`）
+
+| # | 名称 | 方法 + URL | 是否需登录 | 角色限制 | 实现优先级 |
+|---|---|---|:--:|---|:---:|
+| 18 | 月度汇总 | GET /api/v1/statistics/monthly | ✅ | 全角色 | P1 |
+| 19 | 年度汇总 | GET /api/v1/statistics/yearly | ✅ | 全角色 | P1 |
+| 20 | 分类汇总 | GET /api/v1/statistics/category-summary | ✅ | 全角色 | P1 |
+| 21 | 月度趋势 | GET /api/v1/statistics/trend | ✅ | 全角色 | P2 |
+
+### 2.7 周期性账单模块（`/api/v1/recurring-bill`）
+
+| # | 名称 | 方法 + URL | 是否需登录 | 角色限制 | 实现优先级 |
+|---|---|---|:--:|---|:---:|
+| 22 | 周期性账单列表 | GET /api/v1/recurring-bill | ✅ | 全角色 | P1 |
+| 23 | 创建周期性账单 | POST /api/v1/recurring-bill | ✅ | 全角色 | P1 |
+| 24 | 修改周期性账单 | PUT /api/v1/recurring-bill/{id} | ✅ | 全角色 | P1 |
+| 25 | 停用周期性账单 | DELETE /api/v1/recurring-bill/{id} | ✅ | 全角色 | P1 |
+| 26 | 一键生成收支记录 | POST /api/v1/recurring-bill/{id}/generate | ✅ | 全角色 | P1 |
+
+### 2.8 汇率模块（`/api/v1/exchange-rate`）
+
+| # | 名称 | 方法 + URL | 是否需登录 | 角色限制 | 实现优先级 |
+|---|---|---|:--:|---|:---:|
+| 27 | 汇率查询 | GET /api/v1/exchange-rate | ✅ | 全角色 | P2 |
 
 > **总计 29 个接口**（P0: 12 个 / P1: 13 个 / P2: 4 个）
 <!-- R-04-issue-2: 已修复 - §2 总计行 P0/P1 计数修正为 14/12（与 §3 实际一致） -->
@@ -100,7 +100,7 @@
 
 ## 3. 接口详情
 
-### POST /api/user/register
+### POST /api/v1/user/register
 
 - **功能**: 新用户注册，返回用户信息和 JWT token
 - **是否需登录**: ❌ 公开
@@ -135,7 +135,7 @@
 
 ---
 
-### POST /api/user/login
+### POST /api/v1/user/login
 
 - **功能**: 用户登录（用户名不存在时自动注册），验证密码后返回 JWT token
 - **是否需登录**: ❌ 公开
@@ -170,9 +170,9 @@
 
 ---
 
-### POST /api/user/change-password
+### POST /api/v1/user/change-password
 
-> 教学简化：URL 含动词 `change-password`，不符合 RESTful 资源化原则。生产环境应改为 `PUT /api/user/password`。此处保留现有 URL 以减少前端/后端同步改动。
+> 教学简化：URL 含动词 `change-password`，不符合 RESTful 资源化原则。生产环境应改为 `PUT /api/v1/user/password`。此处保留现有 URL 以减少前端/后端同步改动。
 
 - **功能**: 已登录用户修改密码
 - **是否需登录**: ✅ 需要
@@ -204,7 +204,7 @@
 
 ---
 
-### GET /api/account
+### GET /api/v1/account
 
 - **功能**: 查询当前用户所有活跃账户列表（status=1）
 - **是否需登录**: ✅ 需要
@@ -239,7 +239,7 @@
 
 ---
 
-### POST /api/account
+### POST /api/v1/account
 
 - **功能**: 创建新账户
 - **是否需登录**: ✅ 需要
@@ -281,7 +281,7 @@
 
 ---
 
-### PUT /api/account/{id}
+### PUT /api/v1/account/{id}
 
 - **功能**: 修改账户名称或初始余额
 - **是否需登录**: ✅ 需要
@@ -312,7 +312,7 @@
 
 ---
 
-### DELETE /api/account/{id}
+### DELETE /api/v1/account/{id}
 
 - **功能**: 将账户 status 改为 0（软删除，不可恢复）
 - **是否需登录**: ✅ 需要
@@ -346,7 +346,7 @@
 
 ---
 
-### GET /api/account/balance
+### GET /api/v1/account/balance
 
 - **功能**: 查询各账户当前余额（实时计算 = 初始余额 + 累计收入 - 累计支出）
 - **是否需登录**: ✅ 需要
@@ -378,7 +378,7 @@
 
 ---
 
-### GET /api/category
+### GET /api/v1/category
 
 - **功能**: 查询全量收支分类列表（种子数据，不做增改删）
 - **是否需登录**: ✅ 需要
@@ -414,7 +414,7 @@
 
 ---
 
-### GET /api/transaction
+### GET /api/v1/transaction
 
 - **功能**: 分页查询当前用户的收支记录，支持多条件筛选（时间/账户/分类/关键词）
 - **是否需登录**: ✅ 需要
@@ -475,7 +475,7 @@
 
 ---
 
-### POST /api/transaction
+### POST /api/v1/transaction
 
 - **功能**: 创建一条收支记录（记一笔）
 - **是否需登录**: ✅ 需要
@@ -526,7 +526,7 @@
 
 ---
 
-### PUT /api/transaction/{id}
+### PUT /api/v1/transaction/{id}
 
 - **功能**: 修改已有收支记录；转账关联记录（transferId 非空）仅允许修改备注，禁止修改金额
 - **是否需登录**: ✅ 需要
@@ -563,7 +563,7 @@
 
 ---
 
-### DELETE /api/transaction/{id}
+### DELETE /api/v1/transaction/{id}
 
 - **功能**: 删除一条收支记录；转账关联记录（transferId 非空）禁止删除
 - **是否需登录**: ✅ 需要
@@ -594,7 +594,7 @@
 
 ---
 
-### POST /api/transaction/transfer
+### POST /api/v1/transaction/transfer
 
 - **功能**: 在两个账户之间转账，生成一出一进两条关联收支记录
 - **是否需登录**: ✅ 需要
@@ -654,7 +654,7 @@
 
 ---
 
-### POST /api/transaction/import
+### POST /api/v1/transaction/import
 
 - **功能**: 通过 CSV 文件批量导入收支记录
 - **是否需登录**: ✅ 需要
@@ -698,7 +698,7 @@
 
 ---
 
-### GET /api/budget
+### GET /api/v1/budget
 
 - **功能**: 查询指定月份所有分类的预算设置
 - **是否需登录**: ✅ 需要
@@ -735,7 +735,7 @@
 
 ---
 
-### POST /api/budget
+### POST /api/v1/budget
 
 - **功能**: 创建或更新预算（同一用户+同一分类+同一月份，覆盖写入）
 - **是否需登录**: ✅ 需要
@@ -778,7 +778,7 @@
 
 ---
 
-### GET /api/budget/progress
+### GET /api/v1/budget/progress
 
 - **功能**: 查询指定月份各分类的预算消耗进度和超支标记
 - **是否需登录**: ✅ 需要
@@ -822,7 +822,7 @@
 
 ---
 
-### GET /api/budget/alert
+### GET /api/v1/budget/alert
 
 - **功能**: 查询当前用户本月的预算预警记录（由 BudgetScheduler 每日凌晨 2:00 持久化到 budget_alert 表）
 - **是否需登录**: ✅ 需要
@@ -872,7 +872,7 @@
 
 ---
 
-### GET /api/statistics/monthly
+### GET /api/v1/statistics/monthly
 
 - **功能**: 按月统计收入总额、支出总额、结余
 - **是否需登录**: ✅ 需要
@@ -911,7 +911,7 @@
 
 ---
 
-### GET /api/statistics/yearly
+### GET /api/v1/statistics/yearly
 
 - **功能**: 按年统计收入总额、支出总额、结余
 - **是否需登录**: ✅ 需要
@@ -946,7 +946,7 @@
 
 ---
 
-### GET /api/statistics/category-summary
+### GET /api/v1/statistics/category-summary
 
 - **功能**: 按分类统计指定月份的收入/支出分布（饼图数据源 + CategoryPage 本月消费金额）
 - **是否需登录**: ✅ 需要
@@ -995,7 +995,7 @@
 
 ---
 
-### GET /api/statistics/trend
+### GET /api/v1/statistics/trend
 
 - **功能**: 查询 12 个月的收支趋势数据（折线图数据源）
 - **是否需登录**: ✅ 需要
@@ -1036,7 +1036,7 @@
 
 ---
 
-### GET /api/recurring-bill
+### GET /api/v1/recurring-bill
 
 - **功能**: 查询当前用户所有活跃周期性账单（status=1）
 - **是否需登录**: ✅ 需要
@@ -1074,7 +1074,7 @@
 
 ---
 
-### POST /api/recurring-bill
+### POST /api/v1/recurring-bill
 
 - **功能**: 创建周期性账单模板
 - **是否需登录**: ✅ 需要
@@ -1126,7 +1126,7 @@
 
 ---
 
-### PUT /api/recurring-bill/{id}
+### PUT /api/v1/recurring-bill/{id}
 
 - **功能**: 修改周期性账单模板
 - **是否需登录**: ✅ 需要
@@ -1150,11 +1150,11 @@
 | 5004 | 周期性账单已停用 | bill.status=0 时拒绝修改 |
 | 5002 | 关联账户已禁用 | accountId 对应账户 status=0 |
 | 5005 | 周期性账单不存在 | id 不存在（Service 查询返回 null） |
-<!-- R-04-issue-3: 已修复 - PUT /api/recurring-bill/{id} 追加 5005 资源不存在响应 -->
+<!-- R-04-issue-3: 已修复 - PUT /api/v1/recurring-bill/{id} 追加 5005 资源不存在响应 -->
 
 ---
 
-### DELETE /api/recurring-bill/{id}
+### DELETE /api/v1/recurring-bill/{id}
 
 - **功能**: 将周期性账单 status 改为 0（停用，不可恢复）
 - **是否需登录**: ✅ 需要
@@ -1187,7 +1187,7 @@
 
 ---
 
-### POST /api/recurring-bill/{id}/generate
+### POST /api/v1/recurring-bill/{id}/generate
 
 - **功能**: 根据周期性账单模板生成一条收支记录，并推进下次到期日
 - **是否需登录**: ✅ 需要
@@ -1236,7 +1236,7 @@
 
 ---
 
-### GET /api/exchange-rate
+### GET /api/v1/exchange-rate
 
 - **功能**: 查询支持的币种汇率（用于多币种账户余额折算展示）
 - **是否需登录**: ✅ 需要

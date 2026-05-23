@@ -33,8 +33,10 @@ public class CorsConfig {
   /** CORS 允许的请求头 */
   private static final List<String> ALLOWED_HEADERS = Arrays.asList("Authorization", "Content-Type", "Accept");
 
-  // OWASP A01: 开发默认 localhost, 生产必须通过 CORS_ALLOWED_ORIGINS 环境变量限定
-  @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:5174}")
+  // OWASP A01: 必须通过 CORS_ALLOWED_ORIGINS 环境变量显式配置,禁止硬编码默认值
+  // 开发环境: 通过 application-dev.yml 或 IDE 环境变量注入 localhost:5173,5174
+  // 生产环境: 必须通过服务器环境变量注入具体域名(对齐 CLAUDE.md §一·二 安全规范)
+  @Value("${cors.allowed-origins}")
   private String allowedOrigins;
 
   /** 当前激活的 Spring profile（用于区分开发/生产环境） */

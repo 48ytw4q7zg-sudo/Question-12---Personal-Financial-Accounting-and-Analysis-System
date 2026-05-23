@@ -20,7 +20,10 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { logger } from '../utils/logger'
 import { decodeJwtPayload } from '../utils/jwt'  // 导入JWT解码工具（消除router和stores中的重复解码逻辑）
+
+const log = logger('UserStore')
 
 export const useUserStore = defineStore('user', () => {
   // 当前登录用户的 ID
@@ -42,7 +45,7 @@ export const useUserStore = defineStore('user', () => {
       username.value = payload.username || ''  // 提取用户名
       role.value = payload.role || 0  // 提取角色
     } else {  // 解码失败：token 损坏或格式异常，清除 localStorage 避免后续请求携带无效 token
-      if (import.meta.env.DEV) console.warn('JWT payload 解码失败，清除无效 token')  // 开发环境日志
+      log.warn('JWT payload 解码失败，清除无效 token')  // 开发环境日志
       localStorage.removeItem('token')  // 清除无效token
       _tokenPresent.value = false  // 更新token存在标志
     }

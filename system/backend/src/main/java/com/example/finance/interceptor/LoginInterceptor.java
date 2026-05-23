@@ -26,8 +26,6 @@ public class LoginInterceptor implements HandlerInterceptor {
 
   /** HTTP 状态码：OK（body-code-first 约定，始终返回 HTTP 200 + body code） */
   private static final int HTTP_OK = 200;
-  /** 业务状态码：未认证（与 ErrorCode 号段不冲突，LoginInterceptor 专用） */
-  private static final int CODE_UNAUTHORIZED = 401;
 
   /** JSON 序列化器（用于构造 401 错误响应） */
   private final ObjectMapper objectMapper = new ObjectMapper();

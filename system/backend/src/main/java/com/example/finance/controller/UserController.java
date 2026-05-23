@@ -19,19 +19,19 @@ import org.springframework.web.bind.annotation.RestController;
  * 用户控制器（PRD P0-1 登录/JWT + P1-7 修改密码）
  *
  * 职责：接收用户认证相关的 HTTP 请求，参数校验后转发 UserService 处理
- * 路由前缀：/api/user
+ * 路由前缀：/api/v1/user
  * 依赖：→ UserService（业务逻辑层）→ UserMapper（数据访问层）
  *
  * 接口清单：
- *   POST /api/user/register       — 用户注册（公开，无需 JWT）
- *   POST /api/user/login          — 用户登录（公开，无需 JWT）
- *   POST /api/user/change-password — 修改密码（需 JWT 登录）
+ *   POST /api/v1/user/register       — 用户注册（公开，无需 JWT）
+ *   POST /api/v1/user/login          — 用户登录（公开，无需 JWT）
+ *   POST /api/v1/user/change-password — 修改密码（需 JWT 登录）
  *
  * 被前端调用：→ api/user.js 的 login() / register() / changePassword()
  * 被 LoginPage.vue、UserSettingsPage.vue 调用
  */
 @RestController
-@RequestMapping("/api/user")
+@RequestMapping("/api/v1/user")
 @RequiredArgsConstructor
 @Validated
 public class UserController {
