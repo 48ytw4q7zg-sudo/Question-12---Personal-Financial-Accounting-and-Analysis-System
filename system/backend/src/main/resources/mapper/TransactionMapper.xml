@@ -2,6 +2,25 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.finance.mapper.TransactionMapper">
 
+  <!-- 可复用的筛选条件 SQL 片段（DRY 原则 · selectTransactionList 和 selectTransactionCount 共用） -->
+  <sql id="transactionFilterConditions">
+    <if test="accountId != null">
+      AND t.account_id = #{accountId}
+    </if>
+    <if test="categoryId != null">
+      AND t.category_id = #{categoryId}
+    </if>
+    <if test="startTime != null and startTime != ''">
+      AND t.time &gt;= #{startTime}
+    </if>
+    <if test="endTime != null and endTime != ''">
+      AND t.time &lt;= #{endTime}
+    </if>
+    <if test="keyword != null and keyword != ''">
+      AND t.note LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
+    </if>
+  </sql>
+
   <!-- 带筛选条件的交易记录查询（JOIN account + category） -->
   <select id="selectTransactionList" resultType="com.example.finance.entity.dto.TransactionDTO">
     SELECT
@@ -21,21 +40,7 @@
     LEFT JOIN account a ON t.account_id = a.id
     LEFT JOIN category c ON t.category_id = c.id
     WHERE t.user_id = #{userId}
-    <if test="accountId != null">
-      AND t.account_id = #{accountId}
-    </if>
-    <if test="categoryId != null">
-      AND t.category_id = #{categoryId}
-    </if>
-    <if test="startTime != null and startTime != ''">
-      AND t.time &gt;= #{startTime}
-    </if>
-    <if test="endTime != null and endTime != ''">
-      AND t.time &lt;= #{endTime}
-    </if>
-    <if test="keyword != null and keyword != ''">
-      AND t.note LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
-    </if>
+    <include refid="transactionFilterConditions"/>
     <choose>
       <when test="sortBy == 'amount_asc'">
         ORDER BY t.amount ASC
@@ -49,29 +54,15 @@
     </choose>
   </select>
 
-  <!-- 查询交易记录总数（带筛选） -->
+  <!-- 查询交易记录总数（带筛选 · 复用 transactionFilterConditions 片段消除重复） -->
   <select id="selectTransactionCount" resultType="java.lang.Long">
     SELECT COUNT(*)
     FROM `transaction` t
     WHERE t.user_id = #{userId}
-    <if test="accountId != null">
-      AND t.account_id = #{accountId}
-    </if>
-    <if test="categoryId != null">
-      AND t.category_id = #{categoryId}
-    </if>
-    <if test="startTime != null and startTime != ''">
-      AND t.time &gt;= #{startTime}
-    </if>
-    <if test="endTime != null and endTime != ''">
-      AND t.time &lt;= #{endTime}
-    </if>
-    <if test="keyword != null and keyword != ''">
-      AND t.note LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
-    </if>
+    <include refid="transactionFilterConditions"/>
   </select>
 
-  <!-- 月度收支汇总（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_user_date 索引） -->
+  <!-- 月度收支汇总（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_transaction_user_time 索引） -->
   <select id="selectMonthlySummary" resultType="com.example.finance.entity.dto.MonthlySummaryDTO">
     SELECT
       #{year} AS year,
@@ -87,7 +78,7 @@
       AND t.transfer_id IS NULL
   </select>
 
-  <!-- 年度收支汇总（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_user_date 索引） -->
+  <!-- 年度收支汇总（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_transaction_user_time 索引） -->
   <select id="selectYearlySummary" resultType="com.example.finance.entity.dto.MonthlySummaryDTO">
     SELECT
       #{year} AS year,
@@ -103,7 +94,7 @@
       AND t.transfer_id IS NULL
   </select>
 
-  <!-- 分类汇总（type 可选，为空时返回全部 · 排除转账记录避免虚增 · 范围查询利用 idx_user_date 索引） -->
+  <!-- 分类汇总（type 可选，为空时返回全部 · 排除转账记录避免虚增 · 范围查询利用 idx_transaction_user_time 索引） -->
   <select id="selectCategorySummary" resultType="com.example.finance.entity.dto.CategorySummaryDTO">
     SELECT
       t.category_id AS categoryId,
@@ -124,7 +115,7 @@
     ORDER BY totalAmount DESC
   </select>
 
-  <!-- 月度趋势（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_user_date 索引） -->
+  <!-- 月度趋势（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_transaction_user_time 索引） -->
   <select id="selectTrend" resultType="com.example.finance.entity.dto.MonthlyTrendDTO">
     SELECT
       DATE_FORMAT(t.time, '%Y-%m') AS month,

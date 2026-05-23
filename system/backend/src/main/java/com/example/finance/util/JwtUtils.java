@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Date;
 
 /**
@@ -78,8 +79,8 @@ public class JwtUtils {
         .subject(String.valueOf(userId))
         .claim("username", username)
         .claim("role", role)
-        .issuedAt(new Date())
-        .expiration(new Date(System.currentTimeMillis() + EXPIRE))
+        .issuedAt(Date.from(Instant.now()))
+        .expiration(Date.from(Instant.now().plusMillis(EXPIRE)))
         .signWith(KEY)
         .compact();
   }
@@ -112,17 +113,15 @@ public class JwtUtils {
     }
   }
 
-  /**
-   * 解析 JWT token，返回 userId（向后兼容，内部调用 parseTokenPayload）
-   */
+  /** @deprecated 使用 {@link #parseTokenPayload(String)} 直接调用，LoginInterceptor 已迁移至 parseTokenPayload。保留供外部兼容。 */
+  @Deprecated
   public static Long parseToken(String token) {
     JwtPayload payload = parseTokenPayload(token);
     return payload != null ? payload.getUserId() : null;
   }
 
-  /**
-   * 解析 JWT token，返回 role（向后兼容，内部调用 parseTokenPayload）
-   */
+  /** @deprecated 使用 {@link #parseTokenPayload(String)} 直接调用，LoginInterceptor 已迁移至 parseTokenPayload。保留供外部兼容。 */
+  @Deprecated
   public static Integer parseRole(String token) {
     JwtPayload payload = parseTokenPayload(token);
     return payload != null ? payload.getRole() : null;

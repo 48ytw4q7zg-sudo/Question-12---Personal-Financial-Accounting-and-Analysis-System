@@ -37,14 +37,14 @@
         <!-- 金额：收入+/支出- -->
         <el-table-column prop="amount" label="金额" width="110">
           <template #default="{ row }">
-            <span :class="row.type === 1 ? 'amount-income' : 'amount-expense'">
+            <span :class="row.type === TRANSACTION_TYPE_INCOME ? 'amount-income' : 'amount-expense'">
               {{ typeMap[row.type]?.sign || '' }}¥ {{ formatAmount(row.amount) }}
             </span>
           </template>
         </el-table-column>
         <el-table-column prop="type" label="类型" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.type === 1 ? 'success' : 'danger'" size="small">
+            <el-tag :type="row.type === TRANSACTION_TYPE_INCOME ? 'success' : 'danger'" size="small">
               {{ typeMap[row.type]?.label || '未知' }}
             </el-tag>
           </template>
@@ -62,7 +62,7 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
+            <el-tag :type="row.status === STATUS_ACTIVE ? 'success' : 'info'" size="small">
               {{ statusMap[row.status] || '未知' }}
             </el-tag>
             <!-- PRD P1-4 业务规则③: 活跃账单关联账户被禁用 → 标记异常 -->
@@ -101,8 +101,8 @@
         </el-form-item>
         <el-form-item label="类型" prop="type">
           <el-radio-group v-model="formData.type">
-            <el-radio :value="2">支出</el-radio>
-            <el-radio :value="1">收入</el-radio>
+            <el-radio :value="TRANSACTION_TYPE_EXPENSE">支出</el-radio>
+            <el-radio :value="TRANSACTION_TYPE_INCOME">收入</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="周期" prop="period">
@@ -123,8 +123,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive, computed, watch, onMounted } from 'vue' // 导入Vue组合式API
+import { ElMessage, ElMessageBox } from 'element-plus'      // 导入消息和确认框
 // → 调用 api/recurring-bill.js 的 5 个接口函数
 import {
   getRecurringBillList,
@@ -132,27 +132,27 @@ import {
   updateRecurringBill,
   deleteRecurringBill,
   generateRecurringBill
-} from '../api/recurring-bill'
+} from '../api/recurring-bill'                               // 导入周期账单API
 // → 调用 api/account.js 的 getAccountList()（下拉选项）
-import { getAccountList } from '../api/account'
+import { getAccountList } from '../api/account'              // 导入账户列表API
 // → 调用 api/category.js 的 getCategoryList()（下拉选项）
-import { getCategoryList } from '../api/category'
-import { formatAmount, formatDate } from '../utils/format'
-import { PERIOD_MAP, TRANSACTION_TYPE_MAP, STATUS_MAP } from '../constants/finance'
+import { getCategoryList } from '../api/category'             // 导入分类列表API
+import { formatAmount, formatDate } from '../utils/format'   // 导入格式化工具
+import { PERIOD_MAP, TRANSACTION_TYPE_MAP, STATUS_MAP, TRANSACTION_TYPE_INCOME, TRANSACTION_TYPE_EXPENSE, CATEGORY_TYPE_EXPENSE, CATEGORY_TYPE_INCOME, STATUS_ACTIVE } from '../constants/finance' // 导入常量
 
 // 周期类型映射（从常量文件统一管理，避免硬编码散布各页面）
-const periodMap = PERIOD_MAP
-const typeMap = TRANSACTION_TYPE_MAP
-const statusMap = STATUS_MAP
+const periodMap = PERIOD_MAP                                 // 周期映射
+const typeMap = TRANSACTION_TYPE_MAP                         // 交易类型映射
+const statusMap = STATUS_MAP                                 // 状态映射
 
-const loading = ref(false)
-const submitting = ref(false)
-const deactivatingId = ref(null)
-const generatingId = ref(null)
-const dialogVisible = ref(false)
-const isEdit = ref(false)
-const editId = ref(null)
-const formRef = ref(null)
+const loading = ref(false)                                   // 页面loading
+const submitting = ref(false)                                // 提交loading
+const deactivatingId = ref(null)                             // 正在停用的账单ID
+const generatingId = ref(null)                               // 正在生成的账单ID
+const dialogVisible = ref(false)                             // 弹窗显隐
+const isEdit = ref(false)                                    // 是否编辑模式
+const editId = ref(null)                                     // 编辑的账单ID
+const formRef = ref(null)                                    // 表单引用
 
 const billList = ref([])         // 周期账单列表
 const accountList = ref([])      // 账户下拉选项
@@ -160,40 +160,40 @@ const categoryList = ref([])     // 分类下拉选项
 
 // 根据类型筛选分类（交易 type 和分类 type 值相反：交易 1=收入/2=支出，分类 1=支出/2=收入）
 const filteredCategories = computed(() => {
-  if (!categoryList.value.length) return []
+  if (!categoryList.value.length) return []                  // 无分类数据返回空
   // type=1(收入)对应 categoryType=2(收入分类)，type=2(支出)对应 categoryType=1(支出分类)
-  const categoryType = formData.type === 2 ? 1 : 2
-  return categoryList.value.filter(cat => cat.type === categoryType)
+  const categoryType = formData.type === TRANSACTION_TYPE_EXPENSE ? CATEGORY_TYPE_EXPENSE : CATEGORY_TYPE_INCOME          // 反转映射类型值
+  return categoryList.value.filter(cat => cat.type === categoryType) // 筛选匹配分类
 })
 
 // 切换类型时重置分类选择，避免选中不匹配的分类
 watch(() => formData.type, () => {
-  formData.categoryId = null
+  formData.categoryId = null                                 // 重置分类选择
 })
 
 // 新增/编辑表单数据
 const formData = reactive({
-  name: '',
-  accountId: null,
-  categoryId: null,
-  amount: null,
-  type: 2,              // 默认支出
+  name: '',                                                 // 账单名称
+  accountId: null,                                          // 账户ID
+  categoryId: null,                                         // 分类ID
+  amount: null,                                             // 金额
+  type: TRANSACTION_TYPE_EXPENSE,              // 默认支出
   period: 'monthly',    // 默认每月
-  nextDueDate: ''
+  nextDueDate: ''                                           // 下次到期日期
 })
 
 // 表单校验规则（所有字段必填）
 const formRules = {
-  name: [{ required: true, message: '请输入名称', trigger: 'blur' }, { max: 30, message: '名称长度不能超过30', trigger: 'blur' }],
-  accountId: [{ required: true, message: '请选择账户', trigger: 'change' }],
-  categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }],
-  amount: [
-    { required: true, message: '请输入金额', trigger: 'blur' },
-    { type: 'number', min: 0.01, message: '金额必须大于0', trigger: 'blur' }
+  name: [{ required: true, message: '请输入名称', trigger: 'blur' }, { max: 30, message: '名称长度不能超过30', trigger: 'blur' }], // 名称校验
+  accountId: [{ required: true, message: '请选择账户', trigger: 'change' }], // 账户必选
+  categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }], // 分类必选
+  amount: [                                                 // 金额校验
+    { required: true, message: '请输入金额', trigger: 'blur' }, // 必填
+    { type: 'number', min: 0.01, message: '金额必须大于0', trigger: 'blur' } // 最小值
   ],
-  type: [{ required: true, message: '请选择类型', trigger: 'change' }],
-  period: [{ required: true, message: '请选择周期', trigger: 'change' }],
-  nextDueDate: [{ required: true, message: '请选择下次到期日期', trigger: 'change' }]
+  type: [{ required: true, message: '请选择类型', trigger: 'change' }], // 类型必选
+  period: [{ required: true, message: '请选择周期', trigger: 'change' }], // 周期必选
+  nextDueDate: [{ required: true, message: '请选择下次到期日期', trigger: 'change' }] // 日期必选
 }
 
 /**
@@ -201,12 +201,12 @@ const formRules = {
  * → 调用 api/recurring-bill.js 的 getRecurringBillList()
  */
 async function loadBills() {
-  loading.value = true
+  loading.value = true                                      // 开启loading
   try {
-    const data = await getRecurringBillList()
-    billList.value = data || []
+    const data = await getRecurringBillList()                // 调用列表API
+    billList.value = data || []                              // 设置账单数据
   } finally {
-    loading.value = false
+    loading.value = false                                    // 关闭loading
   }
 }
 
@@ -214,14 +214,15 @@ async function loadBills() {
  * 加载下拉选项（账户 + 分类， 并行请求）
  * → 调用 api/account.js 的 getAccountList() + api/category.js 的 getCategoryList()
  */
+// → 调用 api/account.js 的 getAccountList() + api/category.js 的 getCategoryList()
 async function loadOptions() {
   try {
-    const [accounts, categories] = await Promise.all([getAccountList(), getCategoryList()])
-    accountList.value = accounts || []
-    categoryList.value = categories || []
+    const [accounts, categories] = await Promise.all([getAccountList(), getCategoryList()]) // 并行加载
+    accountList.value = accounts || []                       // 设置账户选项
+    categoryList.value = categories || []                    // 设置分类选项
   } catch (e) {
-    if (import.meta.env.DEV) console.warn('加载选项数据失败:', e)
-    ElMessage.warning('加载选项数据失败，请刷新重试')
+    if (import.meta.env.DEV) console.warn('加载选项数据失败:', e) // 开发环境日志
+    ElMessage.error('账户/分类选项加载失败，下拉框可能为空，请刷新页面重试') // 明确错误提示（含影响说明）
   }
 }
 
@@ -230,28 +231,28 @@ async function loadOptions() {
  * @param {Object|null} row - 传入行数据为编辑模式
  */
 function openDialog(row) {
-  isEdit.value = !!row
-  editId.value = row?.id || null
+  isEdit.value = !!row                                      // 判断是否编辑模式
+  editId.value = row?.id || null                            // 获取编辑ID
   if (row) {
     // 编辑模式：回填表单
-    formData.name = row.name
-    formData.accountId = row.accountId
-    formData.categoryId = row.categoryId
-    formData.amount = Number(row.amount || 0)
-    formData.type = row.type
-    formData.period = row.period
-    formData.nextDueDate = row.nextDueDate?.substring(0, 10) || ''
+    formData.name = row.name                                // 回填名称
+    formData.accountId = row.accountId                      // 回填账户
+    formData.categoryId = row.categoryId                    // 回填分类
+    formData.amount = Number(row.amount || 0)               // 回填金额
+    formData.type = row.type                                // 回填类型
+    formData.period = row.period                            // 回填周期
+    formData.nextDueDate = row.nextDueDate?.substring(0, 10) || '' // 回填到期日期
   } else {
     // 新增模式：重置表单
-    formData.name = ''
-    formData.accountId = null
-    formData.categoryId = null
-    formData.amount = null
-    formData.type = 2
-    formData.period = 'monthly'
-    formData.nextDueDate = ''
+    formData.name = ''                                      // 清空名称
+    formData.accountId = null                               // 清空账户
+    formData.categoryId = null                              // 清空分类
+    formData.amount = null                                  // 清空金额
+    formData.type = TRANSACTION_TYPE_EXPENSE                                       // 默认支出
+    formData.period = 'monthly'                             // 默认每月
+    formData.nextDueDate = ''                               // 清空日期
   }
-  dialogVisible.value = true
+  dialogVisible.value = true                                // 显示弹窗
 }
 
 /**
@@ -259,22 +260,22 @@ function openDialog(row) {
  * → 调用 api/recurring-bill.js 的 createRecurringBill() 或 updateRecurringBill()
  */
 async function handleSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  const valid = await formRef.value.validate().catch(() => false) // 触发校验
+  if (!valid) return                                        // 校验不通过不提交
 
-  submitting.value = true
+  submitting.value = true                                   // 开启提交loading
   try {
     if (isEdit.value) {
-      await updateRecurringBill(editId.value, formData)
-      ElMessage.success('更新成功')
+      await updateRecurringBill(editId.value, formData)     // 调用更新API
+      ElMessage.success('更新成功')                          // 成功提示
     } else {
-      await createRecurringBill(formData)
-      ElMessage.success('新增成功')
+      await createRecurringBill(formData)                   // 调用创建API
+      ElMessage.success('新增成功')                          // 成功提示
     }
-    dialogVisible.value = false
-    loadBills()
+    dialogVisible.value = false                             // 关闭弹窗
+    loadBills()                                             // 刷新列表
   } finally {
-    submitting.value = false
+    submitting.value = false                                // 关闭提交loading
   }
 }
 
@@ -284,20 +285,20 @@ async function handleSubmit() {
  */
 async function handleDeactivate(row) {
   try {
-    await ElMessageBox.confirm('确定停用该周期账单吗？', '提示', { type: 'warning' })
-    deactivatingId.value = row.id
-    await deleteRecurringBill(row.id)
-    ElMessage.success('已停用')
-    loadBills()
+    await ElMessageBox.confirm('确定停用该周期账单吗？', '提示', { type: 'warning' }) // 停用确认
+    deactivatingId.value = row.id                           // 标记正在停用
+    await deleteRecurringBill(row.id)                       // 调用停用API
+    ElMessage.success('已停用')                              // 成功提示
+    loadBills()                                             // 刷新列表
   } catch (e) {
     if (e === 'cancel') {
       // 用户取消，无需处理
     } else {
       // 其他错误由 axios 拦截器统一处理，此处记录日志便于排查
-      console.error('停用账单失败:', e)
+      if (import.meta.env.DEV) console.error('停用账单失败:', e)                    // 记录错误日志
     }
   } finally {
-    deactivatingId.value = null
+    deactivatingId.value = null                             // 重置停用标记
   }
 }
 
@@ -307,27 +308,29 @@ async function handleDeactivate(row) {
  */
 async function handleGenerate(row) {
   try {
-    await ElMessageBox.confirm('确定生成该周期账单的交易记录吗？', '提示', { type: 'info' })
-    generatingId.value = row.id
-    await generateRecurringBill(row.id)
-    ElMessage.success('生成成功')
-    loadBills()
+    await ElMessageBox.confirm('确定生成该周期账单的交易记录吗？', '提示', { type: 'info' }) // 生成确认
+    generatingId.value = row.id                             // 标记正在生成
+    await generateRecurringBill(row.id)                     // 调用生成API
+    ElMessage.success('生成成功')                            // 成功提示
+    loadBills()                                             // 刷新列表
   } catch (e) {
     if (e === 'cancel') {
       // 用户取消，无需处理
     } else {
       // 其他错误由 axios 拦截器统一处理，此处记录日志便于排查
-      console.error('生成账单失败:', e)
+      if (import.meta.env.DEV) console.error('生成账单失败:', e)                    // 记录错误日志
     }
   } finally {
-    generatingId.value = null
+    generatingId.value = null                               // 重置生成标记
   }
 }
 
-// 页面挂载时加载下拉选项和周期账单列表
-onMounted(() => {
-  loadOptions()
-  loadBills()
+// 页面挂载时加载下拉选项和周期账单列表（async+Promise.all 并行加载，await保证异常可追踪）
+onMounted(async () => {
+  await Promise.all([                                        // 并行加载下拉选项+账单列表
+    loadOptions(),                                           // 加载下拉选项
+    loadBills()                                              // 加载账单列表
+  ])
 })
 </script>
 

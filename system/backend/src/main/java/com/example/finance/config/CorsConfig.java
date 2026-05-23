@@ -43,16 +43,16 @@ public class CorsConfig {
 
   /** 生产环境启动校验：检测到 localhost 默认 CORS 值时阻止启动（对齐 JwtConfig） */
   @PostConstruct
-  public void validateCorsOrigins() {
-    boolean hasLocalhost = Arrays.stream(allowedOrigins.split(","))
-        .map(String::trim)
-        .anyMatch(o -> o.contains("localhost"));
-    if (hasLocalhost && "prod".equalsIgnoreCase(activeProfile)) {
-      throw new IllegalStateException(
+  public void validateCorsOrigins() {  // 生产环境启动校验CORS配置安全性
+    boolean hasLocalhost = Arrays.stream(allowedOrigins.split(","))  // 拆分允许源列表
+        .map(String::trim)  // 去除空格
+        .anyMatch(o -> o.contains("localhost"));  // 检测是否包含localhost
+    if (hasLocalhost && "prod".equalsIgnoreCase(activeProfile)) {  // 生产环境包含localhost
+      throw new IllegalStateException(  // 阻止启动(安全红线)
           "⚠️ 检测到 CORS allowedOrigins 包含 localhost，生产环境必须通过 CORS_ALLOWED_ORIGINS 环境变量替换为实际域名，应用拒绝启动");
     }
-    if (hasLocalhost) {
-      log.warn("⚠️ 检测到 CORS allowedOrigins 包含 localhost（当前 profile={}），开发环境允许使用但生产环境必须替换！", activeProfile);
+    if (hasLocalhost) {  // 开发环境包含localhost(允许但警告)
+      log.warn("⚠️ 检测到 CORS allowedOrigins 包含 localhost（当前 profile={}），开发环境允许使用但生产环境必须替换！", activeProfile);  // 记录警告日志
     }
   }
 
@@ -69,19 +69,19 @@ public class CorsConfig {
    * @return CorsFilter 实例（注册到 Spring 容器）
    */
   @Bean
-  public CorsFilter corsFilter() {
-    CorsConfiguration config = new CorsConfiguration();
+  public CorsFilter corsFilter() {  // 创建CORS过滤器Bean
+    CorsConfiguration config = new CorsConfiguration();  // 创建CORS配置对象
     // 安全加固: 所有源必须明确指定, 禁止通配符（OWASP A01）
-    Arrays.stream(allowedOrigins.split(",")).map(String::trim).forEach(config::addAllowedOrigin);
-    config.setAllowedMethods(ALLOWED_METHODS);
-    config.setAllowedHeaders(ALLOWED_HEADERS);
-    config.setAllowCredentials(true);
-    config.addExposedHeader("Authorization");
+    Arrays.stream(allowedOrigins.split(",")).map(String::trim).forEach(config::addAllowedOrigin);  // 逐个添加允许源(逗号分隔)
+    config.setAllowedMethods(ALLOWED_METHODS);  // 设置允许的HTTP方法
+    config.setAllowedHeaders(ALLOWED_HEADERS);  // 设置允许的请求头
+    config.setAllowCredentials(true);  // 允许携带Cookie/凭证
+    config.addExposedHeader("Authorization");  // 暴露Authorization响应头给前端
     // 缓存预检请求 1 小时，减少 OPTIONS 请求频率
-    config.setMaxAge(CORS_PREFLIGHT_CACHE_SECONDS);
+    config.setMaxAge(CORS_PREFLIGHT_CACHE_SECONDS);  // 设置预检缓存时间
 
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", config);
-    return new CorsFilter(source);
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();  // 创建CORS配置源
+    source.registerCorsConfiguration("/**", config);  // 对所有路径应用CORS配置
+    return new CorsFilter(source);  // 返回CorsFilter实例
   }
 }

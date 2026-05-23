@@ -70,7 +70,7 @@ public class UserController {
    * @return Result<LoginResponse> 包含 JWT token 的登录响应
    *
    * 被前端 LoginPage.vue 的 login 表单调用 → api/user.js 的 login()
-   * 业务异常码：1002 = 用户名不存在 / 1003 = 密码错误
+   * 业务异常码：1002 = 用户名或密码错误（不区分具体原因，防枚举攻击）/ 1004 = 登录频率限制
    */
   @PostMapping("/login")
   public Result<LoginResponse> login(@Valid @RequestBody UserLoginRequest request) {

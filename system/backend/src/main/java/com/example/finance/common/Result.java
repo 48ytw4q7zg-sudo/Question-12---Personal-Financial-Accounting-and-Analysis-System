@@ -11,6 +11,9 @@ import lombok.Data;
 @Data
 public class Result<T> {
 
+  public static final int CODE_SUCCESS = 200;
+  public static final int CODE_DEFAULT_ERROR = 500;
+
   /** HTTP 状态码或业务状态码（200=成功，401=未登录，4xx/5xx=错误） */
   private Integer code;
 
@@ -25,10 +28,6 @@ public class Result<T> {
 
   /**
    * 全参构造器
-   *
-   * @param code    状态码
-   * @param message 响应消息
-   * @param data    响应数据
    */
   public Result(Integer code, String message, T data) {
     this.code = code;
@@ -40,14 +39,14 @@ public class Result<T> {
    * 成功响应，返回数据（code=200, message="操作成功"）
    */
   public static <T> Result<T> success(T data) {
-    return new Result<>(200, "操作成功", data);
+    return new Result<>(CODE_SUCCESS, "操作成功", data);
   }
 
   /**
    * 成功响应，返回数据 + 自定义消息（code=200）
    */
   public static <T> Result<T> success(T data, String message) {
-    return new Result<>(200, message, data);
+    return new Result<>(CODE_SUCCESS, message, data);
   }
 
   /**
@@ -61,6 +60,6 @@ public class Result<T> {
    * 错误响应，默认500错误码（data=null）
    */
   public static <T> Result<T> error(String message) {
-    return new Result<>(500, message, null);
+    return new Result<>(CODE_DEFAULT_ERROR, message, null);
   }
 }

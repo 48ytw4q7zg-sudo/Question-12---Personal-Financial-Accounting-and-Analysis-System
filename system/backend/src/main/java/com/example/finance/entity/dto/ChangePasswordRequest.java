@@ -8,7 +8,7 @@ import lombok.Data;
  * 修改密码请求体（前端 UserSettingsPage.vue → POST /api/user/change-password）
  *
  * 需 JWT 登录态（LoginInterceptor 提取 userId），用户名从 token 解码
- * 校验规则：旧密码必填 + 新密码 6-20 字符 + 新旧密码不可相同（Service 层校验）
+ * 校验规则：旧密码 6-20 字符 + 新密码 6-20 字符 + 新旧密码不可相同（Service 层校验）
  */
 @Data
 public class ChangePasswordRequest {

@@ -11,6 +11,7 @@ import com.example.finance.mapper.AccountMapper;
 import com.example.finance.mapper.CategoryMapper;
 import com.example.finance.mapper.RecurringBillMapper;
 import com.example.finance.mapper.TransactionMapper;
+import com.example.finance.common.EntityValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,8 @@ class RecurringBillServiceImplTest {
   private AccountMapper accountMapper;
   @Mock
   private CategoryMapper categoryMapper;
+  @Mock
+  private EntityValidator entityValidator;
 
   @InjectMocks
   private RecurringBillServiceImpl service;
@@ -74,8 +77,8 @@ class RecurringBillServiceImplTest {
   @Test
   @DisplayName("创建周期账单成功")
   void create_success() {
-    when(accountMapper.selectById(1L)).thenReturn(testAccount);
-    when(categoryMapper.selectById(1L)).thenReturn(testCategory);
+    when(entityValidator.validateAccount(1L, 1L)).thenReturn(testAccount);  // mock EntityValidator 校验账户
+    when(entityValidator.validateCategory(1L)).thenReturn(testCategory);  // mock EntityValidator 校验分类
     when(recurringBillMapper.insert(any(RecurringBill.class))).thenReturn(1);
 
     RecurringBillRequest req = new RecurringBillRequest();
@@ -96,7 +99,7 @@ class RecurringBillServiceImplTest {
   @Test
   @DisplayName("创建失败 - 账户不存在")
   void create_accountNotFound() {
-    when(accountMapper.selectById(999L)).thenReturn(null);
+    when(entityValidator.validateAccount(1L, 999L)).thenThrow(new BusinessException(3004, "账户不存在或已禁用"));  // mock EntityValidator 账户不存在
 
     RecurringBillRequest req = new RecurringBillRequest();
     req.setAccountId(999L);
@@ -109,7 +112,8 @@ class RecurringBillServiceImplTest {
 
     BusinessException ex = assertThrows(BusinessException.class,
         () -> service.create(1L, req));
-    assertEquals(5007, ex.getCode());
+    // ErrorCode 已改为 ACCOUNT_NOT_FOUND_OR_DISABLED(3004)，因为 validateAccount 现在走 EntityValidator
+    assertEquals(3004, ex.getCode());
   }
 
   @Test

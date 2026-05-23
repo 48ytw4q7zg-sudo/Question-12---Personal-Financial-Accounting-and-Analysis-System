@@ -5,7 +5,6 @@ import com.example.finance.common.BusinessException;
 import com.example.finance.common.ErrorCode;
 import com.example.finance.common.enums.RecurringPeriod;
 import com.example.finance.common.enums.Status;
-import com.example.finance.common.enums.TransactionType;
 import com.example.finance.entity.Account;
 import com.example.finance.entity.Category;
 import com.example.finance.entity.RecurringBill;
@@ -18,6 +17,7 @@ import com.example.finance.mapper.CategoryMapper;
 import com.example.finance.mapper.RecurringBillMapper;
 import com.example.finance.mapper.TransactionMapper;
 import com.example.finance.service.RecurringBillService;
+import com.example.finance.common.EntityValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;  // 日期解析异常（用户输入非法 YYYY-MM-DD 时捕获）
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -57,6 +58,7 @@ public class RecurringBillServiceImpl implements RecurringBillService {
 
   /** 时间格式化常量（复用避免重复创建 DateTimeFormatter） */
   private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+  private static final String RECURRING_NOTE_PREFIX = "周期性账单生成: ";
 
   /** -> RecurringBillMapper：周期性账单 CRUD 数据访问 */
   private final RecurringBillMapper recurringBillMapper;
@@ -66,6 +68,8 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   private final AccountMapper accountMapper;
   /** -> CategoryMapper：校验分类存在 + 批量加载分类名称 */
   private final CategoryMapper categoryMapper;
+  /** -> EntityValidator：跨 Service 共享的 validateAccount/validateCategory 校验（替代本地重复方法） */
+  private final EntityValidator entityValidator;
 
   /**
    * 查询用户周期性账单列表（status=1），批量加载关联数据避免 N+1
@@ -73,32 +77,32 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   @Override
   @Transactional(readOnly = true)
   public List<RecurringBillDTO> list(Long userId) {
-    List<RecurringBill> bills = recurringBillMapper.selectList(
+    List<RecurringBill> bills = recurringBillMapper.selectList(  // 查询用户活跃周期性账单列表
         new LambdaQueryWrapper<RecurringBill>()
-            .eq(RecurringBill::getUserId, userId)
-            .eq(RecurringBill::getStatus, Status.ACTIVE.getValue())
-            .orderByDesc(RecurringBill::getCreateTime)
+            .eq(RecurringBill::getUserId, userId)  // 筛选当前用户
+            .eq(RecurringBill::getStatus, Status.ACTIVE.getValue())  // 仅查活跃账单
+            .orderByDesc(RecurringBill::getCreateTime)  // 按创建时间倒序
     );
 
     // 批量加载关联的账户和分类（含账户status，用于PRD P1-4异常标记）
-    Set<Long> accountIds = bills.stream().map(RecurringBill::getAccountId).filter(Objects::nonNull).collect(Collectors.toSet());
-    Set<Long> categoryIds = bills.stream().map(RecurringBill::getCategoryId).filter(Objects::nonNull).collect(Collectors.toSet());
+    Set<Long> accountIds = bills.stream().map(RecurringBill::getAccountId).filter(Objects::nonNull).collect(Collectors.toSet());  // 收集账户ID集合
+    Set<Long> categoryIds = bills.stream().map(RecurringBill::getCategoryId).filter(Objects::nonNull).collect(Collectors.toSet());  // 收集分类ID集合
 
-    Map<Long, Account> accountMap = accountIds.isEmpty()
-        ? Map.of()
-        : accountMapper.selectByIds(accountIds).stream()
-            .collect(Collectors.toMap(Account::getId, a -> a, (a1, a2) -> a1));
-    Map<Long, String> accountNameMap = accountMap.entrySet().stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getName()));
+    Map<Long, Account> accountMap = accountIds.isEmpty()  // 批量查询关联账户
+        ? Map.of()  // 无ID则返回空Map
+        : accountMapper.selectByIds(accountIds).stream()  // 一次性查询所有账户
+            .collect(Collectors.toMap(Account::getId, a -> a, (a1, a2) -> a1));  // 账户ID→账户对象(重复key取第一个)
+    Map<Long, String> accountNameMap = accountMap.entrySet().stream()  // 提取账户名称映射
+        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getName()));  // 账户ID→名称
     // PRD P1-4 业务规则③: 活跃账单关联账户被禁用 → 标记异常
-    Map<Long, Boolean> accountDisabledMap = accountMap.entrySet().stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getStatus() != null && e.getValue().getStatus() != Status.ACTIVE.getValue()));
-    Map<Long, String> categoryNameMap = categoryIds.isEmpty()
-        ? Map.of()
-        : categoryMapper.selectByIds(categoryIds).stream()
-            .collect(Collectors.toMap(Category::getId, Category::getName));
+    Map<Long, Boolean> accountDisabledMap = accountMap.entrySet().stream()  // 提取账户禁用状态映射
+        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getStatus() != null && !Objects.equals(e.getValue().getStatus(), Status.ACTIVE.getValue())));  // 账户ID→是否禁用（Integer用Objects.equals比较值，避免引用比较bug）
+    Map<Long, String> categoryNameMap = categoryIds.isEmpty()  // 批量查询分类名称
+        ? Map.of()  // 无ID则返回空Map
+        : categoryMapper.selectByIds(categoryIds).stream()  // 一次性查询所有分类
+            .collect(Collectors.toMap(Category::getId, Category::getName));  // 分类ID→名称
 
-    return bills.stream().map(bill -> toDTO(bill, accountNameMap, accountDisabledMap, categoryNameMap)).toList();
+    return bills.stream().map(bill -> toDTO(bill, accountNameMap, accountDisabledMap, categoryNameMap)).toList();  // 遍历转DTO
   }
 
   /**
@@ -116,30 +120,27 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   @Transactional
   public RecurringBillDTO create(Long userId, RecurringBillRequest request) {
     // 校验账户归属并复用对象
-    Account account = validateAccount(userId, request.getAccountId());
+    Account account = entityValidator.validateAccount(userId, request.getAccountId());  // 校验账户归属并返回对象
     // 校验分类存在并复用对象
-    Category category = validateCategory(request.getCategoryId());
+    Category category = entityValidator.validateCategory(request.getCategoryId());  // 校验分类存在并返回对象
     // 校验下次到期日必须是未来日期（PRD P1-4 异常流程①: 下次到期日为空/过去日期 → 400）
-    LocalDate dueDate = LocalDate.parse(request.getNextDueDate(), DateTimeFormatter.ISO_LOCAL_DATE);
-    if (!dueDate.isAfter(LocalDate.now())) {
-      throw new BusinessException(ErrorCode.BILL_DUE_DATE_INVALID.getCode(), ErrorCode.BILL_DUE_DATE_INVALID.getMsg());
-    }
+    LocalDate dueDate = parseAndValidateDueDate(request.getNextDueDate());  // 提取公共方法避免重复（create/update共用）
 
-    RecurringBill bill = new RecurringBill();
-    bill.setUserId(userId);
-    bill.setAccountId(request.getAccountId());
-    bill.setCategoryId(request.getCategoryId());
-    bill.setName(request.getName());
-    bill.setAmount(request.getAmount());
-    bill.setType(request.getType());
-    bill.setPeriod(request.getPeriod());
-    bill.setNextDueDate(dueDate);
-    bill.setStatus(Status.ACTIVE.getValue());
-    bill.setCreateTime(LocalDateTime.now());
-    bill.setUpdateTime(LocalDateTime.now());
+    RecurringBill bill = new RecurringBill();  // 创建账单实体
+    bill.setUserId(userId);  // 设置用户ID
+    bill.setAccountId(request.getAccountId());  // 设置账户ID
+    bill.setCategoryId(request.getCategoryId());  // 设置分类ID
+    bill.setName(request.getName());  // 设置账单名称
+    bill.setAmount(request.getAmount());  // 设置金额
+    bill.setType(request.getType());  // 设置类型(1=收入/2=支出)
+    bill.setPeriod(request.getPeriod());  // 设置周期(monthly/weekly/daily/yearly)
+    bill.setNextDueDate(dueDate);  // 设置下次到期日
+    bill.setStatus(Status.ACTIVE.getValue());  // 设置状态为活跃
+    bill.setCreateTime(LocalDateTime.now());  // 设置创建时间
+    bill.setUpdateTime(LocalDateTime.now());  // 设置更新时间
 
-    recurringBillMapper.insert(bill);
-    return toDTO(bill, account, category);
+    recurringBillMapper.insert(bill);  // 插入数据库
+    return toDTO(bill, account, category);  // 转为DTO返回
   }
 
   /**
@@ -158,28 +159,25 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   @Override
   @Transactional
   public RecurringBillDTO update(Long userId, Long billId, RecurringBillRequest request) {
-    RecurringBill bill = getBillById(userId, billId);
+    RecurringBill bill = getBillById(userId, billId);  // 查询并校验账单归属
 
     // 安全校验: 更新时重新校验账户归属当前用户且status=1, 分类存在，复用对象
-    Account account = validateAccount(userId, request.getAccountId());
-    Category category = validateCategory(request.getCategoryId());
-    // 校验下次到期日必须是未来日期
-    LocalDate dueDate = LocalDate.parse(request.getNextDueDate(), DateTimeFormatter.ISO_LOCAL_DATE);
-    if (!dueDate.isAfter(LocalDate.now())) {
-      throw new BusinessException(ErrorCode.BILL_DUE_DATE_INVALID.getCode(), ErrorCode.BILL_DUE_DATE_INVALID.getMsg());
-    }
+    Account account = entityValidator.validateAccount(userId, request.getAccountId());  // 校验账户归属
+    Category category = entityValidator.validateCategory(request.getCategoryId());  // 校验分类存在
+    // 校验下次到期日必须是未来日期（与 create() 一致的异常处理：格式错误返回 400 而非 500）
+    LocalDate dueDate = parseAndValidateDueDate(request.getNextDueDate());  // 提取公共方法避免重复（create/update共用）
 
-    bill.setName(request.getName());
-    bill.setAccountId(request.getAccountId());
-    bill.setCategoryId(request.getCategoryId());
-    bill.setAmount(request.getAmount());
-    bill.setType(request.getType());
-    bill.setPeriod(request.getPeriod());
-    bill.setNextDueDate(dueDate);
-    bill.setUpdateTime(LocalDateTime.now());
+    bill.setName(request.getName());  // 更新名称
+    bill.setAccountId(request.getAccountId());  // 更新账户ID
+    bill.setCategoryId(request.getCategoryId());  // 更新分类ID
+    bill.setAmount(request.getAmount());  // 更新金额
+    bill.setType(request.getType());  // 更新类型
+    bill.setPeriod(request.getPeriod());  // 更新周期
+    bill.setNextDueDate(dueDate);  // 更新下次到期日
+    bill.setUpdateTime(LocalDateTime.now());  // 更新修改时间
 
-    recurringBillMapper.updateById(bill);
-    return toDTO(bill, account, category);
+    recurringBillMapper.updateById(bill);  // 写入数据库
+    return toDTO(bill, account, category);  // 转为DTO返回
   }
 
   /**
@@ -195,13 +193,13 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   @Override
   @Transactional
   public void deactivate(Long userId, Long billId) {
-    RecurringBill bill = getBillById(userId, billId);
-    if (bill.getStatus() == Status.DISABLED.getValue()) {
-      throw new BusinessException(ErrorCode.BILL_INACTIVE.getCode(), ErrorCode.BILL_INACTIVE.getMsg());
+    RecurringBill bill = getBillById(userId, billId);  // 查询并校验账单归属
+    if (Objects.equals(bill.getStatus(), Status.DISABLED.getValue())) {  // 已停用不可再次停用 · Objects.equals 避免 Integer 拆箱 NPE
+      throw new BusinessException(ErrorCode.BILL_INACTIVE.getCode(), ErrorCode.BILL_INACTIVE.getMsg());  // 抛出业务异常
     }
-    bill.setStatus(Status.DISABLED.getValue());
-    bill.setUpdateTime(LocalDateTime.now());
-    recurringBillMapper.updateById(bill);
+    bill.setStatus(Status.DISABLED.getValue());  // 设置状态为停用
+    bill.setUpdateTime(LocalDateTime.now());  // 更新修改时间
+    recurringBillMapper.updateById(bill);  // 写入数据库
   }
 
   /**
@@ -224,58 +222,62 @@ public class RecurringBillServiceImpl implements RecurringBillService {
   @Override
   @Transactional
   public TransactionDTO generate(Long userId, Long billId) {
-    RecurringBill bill = getBillById(userId, billId);
-    if (bill.getStatus() == Status.DISABLED.getValue()) {
-      throw new BusinessException(ErrorCode.BILL_INACTIVE.getCode(), ErrorCode.BILL_INACTIVE.getMsg());
+    RecurringBill bill = getBillById(userId, billId);  // 查询并校验账单归属
+    if (Objects.equals(bill.getStatus(), Status.DISABLED.getValue())) {  // 已停用账单不可生成 · Objects.equals 避免 Integer 拆箱 NPE
+      throw new BusinessException(ErrorCode.BILL_INACTIVE.getCode(), ErrorCode.BILL_INACTIVE.getMsg());  // 抛出业务异常
     }
 
     // PRD P1-4 异常流程②: 一键生成时关联账户已禁用 → 拒绝生成
     // 安全校验: generate() 也需校验 account userId 归属（防数据篡改后账单引用他人账户）
-    Account account = accountMapper.selectById(bill.getAccountId());
-    if (account == null || !account.getUserId().equals(userId) || account.getStatus() != Status.ACTIVE.getValue()) {
-      throw new BusinessException(ErrorCode.BILL_ACCOUNT_DISABLED_GEN.getCode(), ErrorCode.BILL_ACCOUNT_DISABLED_GEN.getMsg());
+    Account account = accountMapper.selectById(bill.getAccountId());  // 查询关联账户
+    if (account == null || !account.getUserId().equals(userId) || !Objects.equals(account.getStatus(), Status.ACTIVE.getValue())) {  // 账户不存在/不归属/已禁用 · Objects.equals 避免 Integer 拆箱 NPE
+      throw new BusinessException(ErrorCode.BILL_ACCOUNT_DISABLED_GEN.getCode(), ErrorCode.BILL_ACCOUNT_DISABLED_GEN.getMsg());  // 抛出业务异常
     }
     // 安全校验: category 必须存在（分类被删除后账单引用的 categoryId 无效）
-    Category category = categoryMapper.selectById(bill.getCategoryId());
-    if (category == null) {
-      throw new BusinessException(ErrorCode.BILL_CATEGORY_NOT_FOUND.getCode(), ErrorCode.BILL_CATEGORY_NOT_FOUND.getMsg());
+    Category category = categoryMapper.selectById(bill.getCategoryId());  // 查询关联分类
+    if (category == null) {  // 分类不存在
+      throw new BusinessException(ErrorCode.BILL_CATEGORY_NOT_FOUND.getCode(), ErrorCode.BILL_CATEGORY_NOT_FOUND.getMsg());  // 抛出业务异常
     }
 
     // 创建交易记录
-    Transaction transaction = new Transaction();
-    transaction.setUserId(userId);
-    transaction.setAccountId(bill.getAccountId());
-    transaction.setCategoryId(bill.getCategoryId());
-    transaction.setType(bill.getType());
-    transaction.setAmount(bill.getAmount());
-    transaction.setNote("周期性账单生成: " + bill.getName());
-    transaction.setTime(LocalDateTime.now());
-    transaction.setCreateTime(LocalDateTime.now());
-    transaction.setUpdateTime(LocalDateTime.now());
+    Transaction transaction = new Transaction();  // 创建交易实体
+    transaction.setUserId(userId);  // 设置用户ID
+    transaction.setAccountId(bill.getAccountId());  // 设置账户ID
+    transaction.setCategoryId(bill.getCategoryId());  // 设置分类ID
+    transaction.setType(bill.getType());  // 设置交易类型
+    transaction.setAmount(bill.getAmount());  // 设置金额
+    transaction.setNote(RECURRING_NOTE_PREFIX + bill.getName());  // 设置备注(标记来源)
+    transaction.setTime(bill.getNextDueDate().atStartOfDay());  // 设置交易时间为到期日零点（财务记录准确性）
+    transaction.setCreateTime(LocalDateTime.now());  // 设置创建时间
+    transaction.setUpdateTime(LocalDateTime.now());  // 设置更新时间
 
-    transactionMapper.insert(transaction);
+    transactionMapper.insert(transaction);  // 插入交易记录
 
-    // 更新下次到期日
-    bill.setNextDueDate(calculateNextDueDate(bill.getNextDueDate(), bill.getPeriod()));
-    bill.setUpdateTime(LocalDateTime.now());
-    recurringBillMapper.updateById(bill);
+    // 更新下次到期日 · 循环推进直到未来日期（避免用户忘记生成多月后仍停留在过去日期）
+    LocalDate nextDate = calculateNextDueDate(bill.getNextDueDate(), bill.getPeriod());  // 计算下个周期
+    while (!nextDate.isAfter(LocalDate.now())) {  // 如果下个周期仍是过去日期
+      nextDate = calculateNextDueDate(nextDate, bill.getPeriod());  // 继续推进一个周期
+    }
+    bill.setNextDueDate(nextDate);  // 设置推进后的到期日
+    bill.setUpdateTime(LocalDateTime.now());  // 更新修改时间
+    recurringBillMapper.updateById(bill);  // 写入数据库
 
     // 转换为 DTO（复用已预加载的 account 和 category，消除额外 DB 查询）
-    TransactionDTO dto = new TransactionDTO();
-    dto.setId(transaction.getId());
-    dto.setAccountId(transaction.getAccountId());
-    dto.setCategoryId(transaction.getCategoryId());
-    dto.setType(transaction.getType());
-    dto.setAmount(transaction.getAmount());
-    dto.setNote(transaction.getNote());
-    dto.setTime(transaction.getTime().format(DTF));
-    dto.setCreateTime(transaction.getCreateTime());
-    dto.setUpdateTime(transaction.getUpdateTime());
+    TransactionDTO dto = new TransactionDTO();  // 创建交易DTO
+    dto.setId(transaction.getId());  // 设置ID
+    dto.setAccountId(transaction.getAccountId());  // 设置账户ID
+    dto.setCategoryId(transaction.getCategoryId());  // 设置分类ID
+    dto.setType(transaction.getType());  // 设置交易类型
+    dto.setAmount(transaction.getAmount());  // 设置金额
+    dto.setNote(transaction.getNote());  // 设置备注
+    dto.setTime(transaction.getTime().format(DTF));  // 设置格式化时间
+    dto.setCreateTime(transaction.getCreateTime());  // 设置创建时间
+    dto.setUpdateTime(transaction.getUpdateTime());  // 设置更新时间
 
-    dto.setAccountName(account.getName());
-    dto.setCategoryName(category.getName());
+    dto.setAccountName(account.getName());  // 设置账户名称
+    dto.setCategoryName(category.getName());  // 设置分类名称
 
-    return dto;
+    return dto;  // 返回交易DTO
   }
 
   /**
@@ -288,91 +290,99 @@ public class RecurringBillServiceImpl implements RecurringBillService {
    * @param period 周期(monthly/weekly/daily/yearly)
    * @return 新的到期日
    */
-  private LocalDate calculateNextDueDate(LocalDate current, String period) {
-    RecurringPeriod rp = RecurringPeriod.fromValue(period);
-    return switch (rp) {
-      case DAILY -> current.plusDays(1);
-      case WEEKLY -> current.plusWeeks(1);
-      case MONTHLY -> current.plusMonths(1);
-      case YEARLY -> current.plusYears(1);
+  private LocalDate calculateNextDueDate(LocalDate current, String period) {  // 计算下次到期日
+    RecurringPeriod rp = RecurringPeriod.fromValue(period);  // 将字符串转为枚举
+    return switch (rp) {  // 根据周期类型推进
+      case DAILY -> current.plusDays(1);  // 日周期+1天
+      case WEEKLY -> current.plusWeeks(1);  // 周周期+1周
+      case MONTHLY -> current.plusMonths(1);  // 月周期+1月
+      case YEARLY -> current.plusYears(1);  // 年周期+1年
     };
   }
 
   /**
-   * 校验账户归属
+   * 解析并校验到期日期（提取公共方法避免 create/update 重复）
+   *
+   * <p>校验规则：</p>
+   * <ol>
+   *   <li>日期格式必须为 YYYY-MM-DD（ISO_LOCAL_DATE）</li>
+   *   <li>到期日必须是未来日期（isAfter(LocalDate.now())）</li>
+   * </ol>
+   *
+   * @param nextDueDate 到期日字符串（YYYY-MM-DD 格式）
+   * @return 解析后的 LocalDate
+   * @throws BusinessException 3013=日期格式错误 / 5004=到期日必须是未来日期
    */
-  private Account validateAccount(Long userId, Long accountId) {
-    Account account = accountMapper.selectById(accountId);
-    if (account == null || !account.getUserId().equals(userId) || account.getStatus() != Status.ACTIVE.getValue()) {
-      throw new BusinessException(ErrorCode.BILL_ACCOUNT_NOT_FOUND.getCode(), ErrorCode.BILL_ACCOUNT_NOT_FOUND.getMsg());
+  private LocalDate parseAndValidateDueDate(String nextDueDate) {  // 解析并校验到期日期
+    LocalDate dueDate;  // 到期日变量
+    try {
+      dueDate = LocalDate.parse(nextDueDate, DateTimeFormatter.ISO_LOCAL_DATE);  // 解析日期字符串
+    } catch (DateTimeParseException e) {  // 捕获日期解析异常
+      throw new BusinessException(ErrorCode.DATE_FORMAT_INVALID.getCode(), ErrorCode.DATE_FORMAT_INVALID.getMsg());  // 抛出业务异常
     }
-    return account;
-  }
-
-  /**
-   * 校验分类存在并返回分类对象（复用避免重复查询）
-   */
-  private Category validateCategory(Long categoryId) {
-    Category category = categoryMapper.selectById(categoryId);
-    if (category == null) {
-      throw new BusinessException(ErrorCode.BILL_CATEGORY_NOT_FOUND.getCode(), ErrorCode.BILL_CATEGORY_NOT_FOUND.getMsg());
+    if (!dueDate.isAfter(LocalDate.now())) {  // 到期日不是未来日期
+      throw new BusinessException(ErrorCode.BILL_DUE_DATE_INVALID.getCode(), ErrorCode.BILL_DUE_DATE_INVALID.getMsg());  // 抛出业务异常
     }
-    return category;
+    return dueDate;  // 返回解析后的到期日
   }
 
   /**
    * 根据ID查询周期性账单（校验归属）
    */
-  private RecurringBill getBillById(Long userId, Long billId) {
-    RecurringBill bill = recurringBillMapper.selectById(billId);
-    if (bill == null || !bill.getUserId().equals(userId)) {
-      throw new BusinessException(ErrorCode.BILL_NOT_FOUND.getCode(), ErrorCode.BILL_NOT_FOUND.getMsg());
+  private RecurringBill getBillById(Long userId, Long billId) {  // 查询账单并校验归属
+    RecurringBill bill = recurringBillMapper.selectById(billId);  // 根据ID查询账单
+    // 校验：账单存在 + 归属当前用户（Integer用Objects.equals比较值，避免引用比较bug和null userId NPE）
+    if (bill == null || !Objects.equals(bill.getUserId(), userId)) {
+      throw new BusinessException(ErrorCode.BILL_NOT_FOUND.getCode(), ErrorCode.BILL_NOT_FOUND.getMsg());  // 抛出业务异常
     }
-    return bill;
+    return bill;  // 返回账单实体
   }
 
   /**
    * Entity → DTO 转换（批量查询用，传入预加载的名称映射）
+   * <p>调用方: list() 方法（service/impl/RecurringBillServiceImpl.java 第105行）</p>
    */
-  private RecurringBillDTO toDTO(RecurringBill bill, Map<Long, String> accountNameMap, Map<Long, Boolean> accountDisabledMap, Map<Long, String> categoryNameMap) {
-    RecurringBillDTO dto = new RecurringBillDTO();
-    dto.setId(bill.getId());
-    dto.setName(bill.getName());
-    dto.setAccountId(bill.getAccountId());
-    dto.setCategoryId(bill.getCategoryId());
-    dto.setAmount(bill.getAmount());
-    dto.setType(bill.getType());
-    dto.setPeriod(bill.getPeriod());
-    dto.setNextDueDate(bill.getNextDueDate() != null ? bill.getNextDueDate().format(DateTimeFormatter.ISO_LOCAL_DATE) : null);
-    dto.setStatus(bill.getStatus());
-    dto.setCreateTime(bill.getCreateTime());
-    dto.setUpdateTime(bill.getUpdateTime());
-    dto.setAccountName(accountNameMap.getOrDefault(bill.getAccountId(), ""));
-    dto.setCategoryName(categoryNameMap.getOrDefault(bill.getCategoryId(), ""));
+  private RecurringBillDTO toDTO(RecurringBill bill, Map<Long, String> accountNameMap, Map<Long, Boolean> accountDisabledMap, Map<Long, String> categoryNameMap) {  // Entity→DTO批量版
+    RecurringBillDTO dto = new RecurringBillDTO();  // 创建DTO对象
+    fillBaseFields(dto, bill);  // 填充基础字段（消除两个toDTO方法的重复代码）
+    dto.setAccountName(accountNameMap.getOrDefault(bill.getAccountId(), ""));  // 设置账户名称(从预加载映射获取)
+    dto.setCategoryName(categoryNameMap.getOrDefault(bill.getCategoryId(), ""));  // 设置分类名称(从预加载映射获取)
     // PRD P1-4 业务规则③: 活跃账单关联账户被禁用 → accountDisabled=true
-    dto.setAccountDisabled(accountDisabledMap.getOrDefault(bill.getAccountId(), false));
-    return dto;
+    dto.setAccountDisabled(accountDisabledMap.getOrDefault(bill.getAccountId(), false));  // 设置账户是否禁用
+    return dto;  // 返回DTO
   }
 
   /**
    * Entity → DTO 转换（传入预加载的关联对象，避免重复查询）
+   * <p>调用方: create() / update() / generate() 方法（service/impl/RecurringBillServiceImpl.java）</p>
    */
-  private RecurringBillDTO toDTO(RecurringBill bill, Account account, Category category) {
-    RecurringBillDTO dto = new RecurringBillDTO();
-    dto.setId(bill.getId());
-    dto.setName(bill.getName());
-    dto.setAccountId(bill.getAccountId());
-    dto.setCategoryId(bill.getCategoryId());
-    dto.setAmount(bill.getAmount());
-    dto.setType(bill.getType());
-    dto.setPeriod(bill.getPeriod());
-    dto.setNextDueDate(bill.getNextDueDate() != null ? bill.getNextDueDate().format(DateTimeFormatter.ISO_LOCAL_DATE) : null);
-    dto.setStatus(bill.getStatus());
-    dto.setCreateTime(bill.getCreateTime());
-    dto.setUpdateTime(bill.getUpdateTime());
-    dto.setAccountName(account != null ? account.getName() : "");
-    dto.setAccountDisabled(account != null && account.getStatus() != Status.ACTIVE.getValue());
-    dto.setCategoryName(category != null ? category.getName() : "");
-    return dto;
+  private RecurringBillDTO toDTO(RecurringBill bill, Account account, Category category) {  // Entity→DTO对象版
+    RecurringBillDTO dto = new RecurringBillDTO();  // 创建DTO对象
+    fillBaseFields(dto, bill);  // 填充基础字段（消除两个toDTO方法的重复代码）
+    dto.setAccountName(account != null ? account.getName() : "");  // 设置账户名称(null保护)
+    dto.setAccountDisabled(account != null && !Objects.equals(account.getStatus(), Status.ACTIVE.getValue()));  // 设置账户是否禁用（Integer用Objects.equals比较值，避免引用比较bug）
+    dto.setCategoryName(category != null ? category.getName() : "");  // 设置分类名称(null保护)
+    return dto;  // 返回DTO
+  }
+
+  /**
+   * 填充 RecurringBillDTO 基础字段（提取公共逻辑，消除两个 toDTO 方法的代码重复）
+   * <p>被两个 toDTO 重载方法共用，避免字段映射逻辑重复维护。</p>
+   *
+   * @param dto  待填充的DTO对象
+   * @param bill 周期性账单实体
+   */
+  private void fillBaseFields(RecurringBillDTO dto, RecurringBill bill) {  // 填充DTO基础字段
+    dto.setId(bill.getId());  // 设置ID
+    dto.setName(bill.getName());  // 设置名称
+    dto.setAccountId(bill.getAccountId());  // 设置账户ID
+    dto.setCategoryId(bill.getCategoryId());  // 设置分类ID
+    dto.setAmount(bill.getAmount());  // 设置金额
+    dto.setType(bill.getType());  // 设置类型
+    dto.setPeriod(bill.getPeriod());  // 设置周期
+    dto.setNextDueDate(bill.getNextDueDate() != null ? bill.getNextDueDate().format(DateTimeFormatter.ISO_LOCAL_DATE) : null);  // 设置到期日(null保护)
+    dto.setStatus(bill.getStatus());  // 设置状态
+    dto.setCreateTime(bill.getCreateTime());  // 设置创建时间
+    dto.setUpdateTime(bill.getUpdateTime());  // 设置更新时间
   }
 }

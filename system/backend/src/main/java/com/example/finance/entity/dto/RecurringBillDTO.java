@@ -35,7 +35,7 @@ public class RecurringBillDTO {
   /** 金额（DECIMAL(12,2)） */
   private BigDecimal amount;
 
-  /** 类型：1=支出 2=收入（前端 tag 颜色区分） */
+  /** 类型：1=收入 2=支出（对齐 TransactionType 枚举 · 前端 tag 颜色区分） */
   private Integer type;
 
   /** 周期：daily/weekly/monthly/yearly */

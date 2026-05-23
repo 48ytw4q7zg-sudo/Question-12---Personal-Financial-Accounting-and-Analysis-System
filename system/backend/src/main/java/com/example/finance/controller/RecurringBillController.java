@@ -75,7 +75,7 @@ public class RecurringBillController {
    *
    * 被前端 RecurringBillPage.vue 新建弹窗调用
    * period 可选值：monthly=每月 / weekly=每周
-   * 业务异常码：5006 = 账户不存在 / 5002 = 关联账户已禁用
+   * 业务异常码：3004=账户不存在或已禁用（EntityValidator.validateAccount 抛出）/ 3005=分类不存在（EntityValidator.validateCategory 抛出）/ 5004=下次到期日必须是未来日期
    */
   @PostMapping
   public Result<RecurringBillDTO> create(@Valid @RequestBody RecurringBillRequest request,
@@ -140,7 +140,7 @@ public class RecurringBillController {
    * @return Result<TransactionDTO> 生成的交易记录
    *
    * 被前端 RecurringBillPage.vue「生成」按钮调用
-   * 业务异常码：5004 = 账单已停用 / 5002 = 关联账户已禁用
+   * 业务异常码：5006=账单不存在（getBillById 抛出）/ 5005=账单已停用（BILL_INACTIVE）/ 5003=关联账户已禁用不可生成（BILL_ACCOUNT_DISABLED_GEN）
    */
   @PostMapping("/{id}/generate")
   public Result<TransactionDTO> generate(@PathVariable @Min(1) Long id, HttpServletRequest request) {

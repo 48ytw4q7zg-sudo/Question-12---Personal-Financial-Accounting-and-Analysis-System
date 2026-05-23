@@ -10,7 +10,6 @@ import com.example.finance.mapper.CategoryMapper;
 import com.example.finance.service.BudgetAlertService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -45,7 +44,6 @@ public class BudgetAlertServiceImpl implements BudgetAlertService {
    * @return 预警记录列表
    */
   @Override
-  @Transactional(readOnly = true)
   public List<BudgetAlertDTO> getAlerts(Long userId, String year, String month) {
     String monthStr = EntityValidator.defaultAndFormatYearMonth(year, month);
 

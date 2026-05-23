@@ -18,6 +18,7 @@ import com.example.finance.mapper.RecurringBillMapper;
 import com.example.finance.mapper.TransactionMapper;
 import com.example.finance.mapper.UserMapper;
 import com.example.finance.service.AdminService;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,7 +65,7 @@ public class AdminServiceImpl implements AdminService {
   @Override
   @Transactional(readOnly = true)
   public List<UserDTO> listAllUserDTOs() {
-    return userMapper.selectList(new LambdaQueryWrapper<User>().orderByAsc(User::getId)).stream().map(UserDTO::fromUser).toList();
+    return userMapper.selectList(new LambdaQueryWrapper<User>().orderByAsc(User::getId)).stream().map(UserDTO::fromUser).toList();  // 查询所有用户并转为DTO列表
   }
 
   /**
@@ -84,27 +85,30 @@ public class AdminServiceImpl implements AdminService {
   @Transactional
   public void deleteUser(Long userId, Long currentUserId) {
     // 防止管理员删除自己
-    if (currentUserId.equals(userId)) {
-      throw new BusinessException(ErrorCode.ADMIN_CANNOT_DELETE_SELF.getCode(), ErrorCode.ADMIN_CANNOT_DELETE_SELF.getMsg());
+    if (currentUserId.equals(userId)) {  // 目标用户就是当前管理员
+      throw new BusinessException(ErrorCode.ADMIN_CANNOT_DELETE_SELF.getCode(), ErrorCode.ADMIN_CANNOT_DELETE_SELF.getMsg());  // 抛出业务异常
     }
     // 校验用户是否存在
-    User user = userMapper.selectById(userId);
-    if (user == null) {
-      throw new BusinessException(ErrorCode.ADMIN_USER_NOT_FOUND.getCode(), ErrorCode.ADMIN_USER_NOT_FOUND.getMsg());
+    User user = userMapper.selectById(userId);  // 根据ID查询用户
+    if (user == null) {  // 用户不存在
+      throw new BusinessException(ErrorCode.ADMIN_USER_NOT_FOUND.getCode(), ErrorCode.ADMIN_USER_NOT_FOUND.getMsg());  // 抛出业务异常
     }
     // 级联清理：按依赖顺序删除关联数据，避免孤儿记录
     // 1. 删除交易记录（依赖账户，先删）
-    transactionMapper.delete(new LambdaQueryWrapper<Transaction>().eq(Transaction::getUserId, userId));
+    transactionMapper.delete(new LambdaQueryWrapper<Transaction>().eq(Transaction::getUserId, userId));  // 删除该用户所有交易记录
     // 2. 删除预算预警
-    budgetAlertMapper.delete(new LambdaQueryWrapper<BudgetAlert>().eq(BudgetAlert::getUserId, userId));
+    budgetAlertMapper.delete(new LambdaQueryWrapper<BudgetAlert>().eq(BudgetAlert::getUserId, userId));  // 删除该用户所有预算预警
     // 3. 删除预算
-    budgetMapper.delete(new LambdaQueryWrapper<Budget>().eq(Budget::getUserId, userId));
+    budgetMapper.delete(new LambdaQueryWrapper<Budget>().eq(Budget::getUserId, userId));  // 删除该用户所有预算
     // 4. 删除周期性账单
-    recurringBillMapper.delete(new LambdaQueryWrapper<RecurringBill>().eq(RecurringBill::getUserId, userId));
+    recurringBillMapper.delete(new LambdaQueryWrapper<RecurringBill>().eq(RecurringBill::getUserId, userId));  // 删除该用户所有周期性账单
     // 5. 删除账户
-    accountMapper.delete(new LambdaQueryWrapper<Account>().eq(Account::getUserId, userId));
+    accountMapper.delete(new LambdaQueryWrapper<Account>().eq(Account::getUserId, userId));  // 删除该用户所有账户
     // 6. 删除用户
-    userMapper.deleteById(userId);
+    int rows = userMapper.deleteById(userId);
+    if (rows == 0) {
+      throw new BusinessException(ErrorCode.ADMIN_USER_NOT_FOUND.getCode(), ErrorCode.ADMIN_USER_NOT_FOUND.getMsg());
+    }
   }
 
   /**
@@ -123,16 +127,17 @@ public class AdminServiceImpl implements AdminService {
   @Override
   @Transactional
   public UserDTO toggleUserRole(Long userId, Long currentUserId) {
-    if (currentUserId.equals(userId)) {
-      throw new BusinessException(ErrorCode.ADMIN_CANNOT_MODIFY_SELF.getCode(), ErrorCode.ADMIN_CANNOT_MODIFY_SELF.getMsg());
+    if (currentUserId.equals(userId)) {  // 不能切换自己的角色
+      throw new BusinessException(ErrorCode.ADMIN_CANNOT_MODIFY_SELF.getCode(), ErrorCode.ADMIN_CANNOT_MODIFY_SELF.getMsg());  // 抛出业务异常
     }
-    User user = userMapper.selectById(userId);
-    if (user == null) {
-      throw new BusinessException(ErrorCode.ADMIN_USER_NOT_FOUND.getCode(), ErrorCode.ADMIN_USER_NOT_FOUND.getMsg());
+    User user = userMapper.selectById(userId);  // 根据ID查询用户
+    if (user == null) {  // 用户不存在
+      throw new BusinessException(ErrorCode.ADMIN_USER_NOT_FOUND.getCode(), ErrorCode.ADMIN_USER_NOT_FOUND.getMsg());  // 抛出业务异常
     }
-    user.setRole(user.getRole() == UserRole.ADMIN.getValue() ? UserRole.NORMAL.getValue() : UserRole.ADMIN.getValue());
-    user.setUpdateTime(LocalDateTime.now());
-    userMapper.updateById(user);
-    return UserDTO.fromUser(user);
+    // 翻转角色（Integer用Objects.equals比较值，避免引用比较bug和自动拆箱NPE）
+    user.setRole(Objects.equals(user.getRole(), UserRole.ADMIN.getValue()) ? UserRole.NORMAL.getValue() : UserRole.ADMIN.getValue());
+    user.setUpdateTime(LocalDateTime.now());  // 更新修改时间
+    userMapper.updateById(user);  // 写入数据库
+    return UserDTO.fromUser(user);  // 转为DTO返回
   }
 }

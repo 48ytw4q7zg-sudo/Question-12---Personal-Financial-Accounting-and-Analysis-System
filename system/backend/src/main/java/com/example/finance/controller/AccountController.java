@@ -117,7 +117,7 @@ public class AccountController {
    * @return Result<Void> 成功无返回数据
    *
    * 被前端 AccountPage.vue 删除账户确认弹窗调用
-   * 业务异常码：1005 = 账户存在关联记录，禁止删除
+   * 业务异常码：2002 = 账户下有收支记录 / 2003 = 账户下有活跃周期性账单 / 2004 = 账户不存在
    */
   @DeleteMapping("/{id}")
   public Result<Void> delete(@PathVariable @Min(1) Long id, HttpServletRequest request) {

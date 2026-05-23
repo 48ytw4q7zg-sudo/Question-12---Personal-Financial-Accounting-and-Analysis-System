@@ -221,8 +221,8 @@ class OrthogonalAndUserScenarioTest {
       assertEquals(new BigDecimal("2000.00"), bDto.getAmount());
 
       // Create recurring bill for rent
-      when(accountMapper.selectById(2L)).thenReturn(bankAcct);
-      when(categoryMapper.selectById(4L)).thenReturn(housingCat);
+      lenient().when(accountMapper.selectById(2L)).thenReturn(bankAcct);
+      lenient().when(categoryMapper.selectById(4L)).thenReturn(housingCat);
       when(recurringBillMapper.insert(any(RecurringBill.class))).thenReturn(1);
       RecurringBillRequest rReq = new RecurringBillRequest();
       rReq.setName("月房租"); rReq.setAmount(new BigDecimal("2500.00")); rReq.setType(2);
@@ -468,8 +468,8 @@ class OrthogonalAndUserScenarioTest {
 
       assertNotNull(result.getTransferId());
       assertEquals(result.getOutRecord().getTransferId(), result.getInRecord().getTransferId());
-      assertEquals("A→B(转出)", result.getOutRecord().getNote());
-      assertEquals("A→B(转入)", result.getInRecord().getNote());
+      assertEquals("A → B(转出)", result.getOutRecord().getNote());
+      assertEquals("A → B(转入)", result.getInRecord().getNote());
     }
   }
 
@@ -529,7 +529,8 @@ class OrthogonalAndUserScenarioTest {
       Category c2 = new Category(); c2.setId(2L); c2.setName("C2");
       when(categoryMapper.selectByIds(anySet())).thenReturn(List.of(c1, c2));
 
-      RecurringBillServiceImpl rbService = new RecurringBillServiceImpl(recurringBillMapper, transactionMapper, accountMapper, categoryMapper);
+      EntityValidator entityValidator = new EntityValidator(accountMapper, categoryMapper);  // 创建共享校验器（RecurringBillServiceImpl 新增的构造参数）
+      RecurringBillServiceImpl rbService = new RecurringBillServiceImpl(recurringBillMapper, transactionMapper, accountMapper, categoryMapper, entityValidator);
       List<RecurringBillDTO> list = rbService.list(1L);
 
       assertEquals(2, list.size());

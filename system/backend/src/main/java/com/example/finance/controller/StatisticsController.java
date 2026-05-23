@@ -35,6 +35,9 @@ import java.util.List;
  * 被 DashboardPage.vue（P1-2 月度卡片 + 饼图 + 趋势图）和 AnalyticsPage.vue（P2-1 ECharts 图表）调用
  *
  * SQL 实现：均在 TransactionMapper.xml 中，排除转账记录（transfer_id IS NULL）避免虚增
+ *
+ * 注意：year/month 参数校验使用 @Min/@Max 在 Controller 层执行（标准 Spring MVC 做法），
+ * 业务逻辑校验在 StatisticsService.validateYearMonth() 中执行。
  */
 @RestController
 @RequestMapping("/api/statistics")
@@ -61,14 +64,14 @@ public class StatisticsController {
    *
    * 被前端 DashboardPage.vue 顶部三个摘要卡片（月收入/月支出/月结余）调用
    */
-  @GetMapping("/monthly")
-  public Result<MonthlySummaryDTO> getMonthlySummary(
-      @RequestParam @Min(2000) @Max(2100) int year, @RequestParam @Min(1) @Max(12) int month,
+  @GetMapping("/monthly")  // GET /api/statistics/monthly
+  public Result<MonthlySummaryDTO> getMonthlySummary(  // 月度收支汇总接口
+      @RequestParam @Min(2000) @Max(2100) int year, @RequestParam @Min(1) @Max(12) int month,  // 年份和月份参数(含校验)
       HttpServletRequest request) {
-    Long userId = LoginInterceptor.getUserId(request);
+    Long userId = LoginInterceptor.getUserId(request);  // 从请求属性获取用户ID
     // → StatisticsService.getMonthlySummary() → TransactionMapper.selectMonthlySummary()
-    MonthlySummaryDTO summary = statisticsService.getMonthlySummary(userId, year, month);
-    return Result.success(summary);
+    MonthlySummaryDTO summary = statisticsService.getMonthlySummary(userId, year, month);  // 调用Service层获取月度汇总
+    return Result.success(summary);  // 包装为统一返回格式
   }
 
   /**
@@ -84,13 +87,13 @@ public class StatisticsController {
    *
    * 被前端 AnalyticsPage.vue 年度汇总卡片调用
    */
-  @GetMapping("/yearly")
-  public Result<MonthlySummaryDTO> getYearlySummary(@RequestParam @Min(2000) @Max(2100) int year,
+  @GetMapping("/yearly")  // GET /api/statistics/yearly
+  public Result<MonthlySummaryDTO> getYearlySummary(@RequestParam @Min(2000) @Max(2100) int year,  // 年份参数(含校验)
       HttpServletRequest request) {
-    Long userId = LoginInterceptor.getUserId(request);
+    Long userId = LoginInterceptor.getUserId(request);  // 从请求属性获取用户ID
     // → StatisticsService.getYearlySummary() → TransactionMapper.selectYearlySummary()
-    MonthlySummaryDTO summary = statisticsService.getYearlySummary(userId, year);
-    return Result.success(summary);
+    MonthlySummaryDTO summary = statisticsService.getYearlySummary(userId, year);  // 调用Service层获取年度汇总
+    return Result.success(summary);  // 包装为统一返回格式
   }
 
   /**
@@ -108,15 +111,15 @@ public class StatisticsController {
    *
    * 被前端 DashboardPage.vue 支出分类饼图 + AnalyticsPage.vue 分类饼图调用
    */
-  @GetMapping("/category-summary")
-  public Result<List<CategorySummaryDTO>> getCategorySummary(
-      @RequestParam @Min(2000) @Max(2100) int year, @RequestParam @Min(1) @Max(12) int month,
-      @RequestParam(required = false) @Min(1) @Max(2) Integer type,
+  @GetMapping("/category-summary")  // GET /api/statistics/category-summary
+  public Result<List<CategorySummaryDTO>> getCategorySummary(  // 分类汇总接口(饼图数据源)
+      @RequestParam @Min(2000) @Max(2100) int year, @RequestParam @Min(1) @Max(12) int month,  // 年份和月份参数(含校验)
+      @RequestParam(required = false) @Min(1) @Max(2) Integer type,  // 收支类型筛选(可选:1=收入2=支出)
       HttpServletRequest request) {
-    Long userId = LoginInterceptor.getUserId(request);
+    Long userId = LoginInterceptor.getUserId(request);  // 从请求属性获取用户ID
     // → StatisticsService.getCategorySummary() → TransactionMapper.selectCategorySummary()
-    List<CategorySummaryDTO> list = statisticsService.getCategorySummary(userId, year, month, type);
-    return Result.success(list);
+    List<CategorySummaryDTO> list = statisticsService.getCategorySummary(userId, year, month, type);  // 调用Service层获取分类汇总
+    return Result.success(list);  // 包装为统一返回格式
   }
 
   /**
@@ -132,12 +135,12 @@ public class StatisticsController {
    *
    * 被前端 DashboardPage.vue 近 12 月趋势折线图 + AnalyticsPage.vue 趋势折线图调用
    */
-  @GetMapping("/trend")
-  public Result<List<MonthlyTrendDTO>> getTrend(@RequestParam @Min(2000) @Max(2100) int year,
+  @GetMapping("/trend")  // GET /api/statistics/trend
+  public Result<List<MonthlyTrendDTO>> getTrend(@RequestParam @Min(2000) @Max(2100) int year,  // 年份参数(含校验)
       HttpServletRequest request) {
-    Long userId = LoginInterceptor.getUserId(request);
+    Long userId = LoginInterceptor.getUserId(request);  // 从请求属性获取用户ID
     // → StatisticsService.getTrend() → TransactionMapper.selectTrend()
-    List<MonthlyTrendDTO> list = statisticsService.getTrend(userId, year);
-    return Result.success(list);
+    List<MonthlyTrendDTO> list = statisticsService.getTrend(userId, year);  // 调用Service层获取趋势数据
+    return Result.success(list);  // 包装为统一返回格式
   }
 }

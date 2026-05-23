@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 /**
  * 周期性账单创建/更新请求体（前端 RecurringBillPage.vue 弹窗 → POST/PUT /api/recurring-bill）
  *
- * 校验规则：名称 1-50 字符，账户/分类/金额/类型/周期/到期日必填
+ * 校验规则：名称 1-30 字符（@Size(max=30)），账户/分类/金额/类型/周期/到期日必填
  * 业务约束：关联账户必须存在且状态=1，到期日是 @Scheduled 判断依据不可为空
  */
 @Data

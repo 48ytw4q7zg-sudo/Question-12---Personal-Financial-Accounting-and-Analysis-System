@@ -20,6 +20,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { decodeJwtPayload } from '../utils/jwt'  // 导入JWT解码工具（消除router和stores中的重复解码逻辑）
 
 export const useUserStore = defineStore('user', () => {
   // 当前登录用户的 ID
@@ -32,19 +33,18 @@ export const useUserStore = defineStore('user', () => {
   const _tokenPresent = ref(!!localStorage.getItem('token'))
 
   // 页面刷新时从 JWT payload 解码恢复用户信息（防 localStorage 独立篡改 role）
+  // 使用 utils/jwt.js 的 decodeJwtPayload() 消除 router/index.js 和 stores/user.js 的重复解码逻辑
   if (_tokenPresent.value) {
-    try {
-      const token = localStorage.getItem('token')
-      // JWT payload 是 base64url 编码的 JSON，解码提取 userId/username/role
-      // 使用 Unicode 安全的 base64url 解码：atob 不支持 Unicode，需先转码再 decodeURIComponent
-      const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-      const decoded = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))
-      const payload = JSON.parse(decoded)
-      userId.value = payload.userId || payload.sub || null
-      username.value = payload.username || ''
-      role.value = payload.role || 0
-    } catch (e) { /* token 格式异常或损坏时静默忽略，后续 API 调用 401 会自动跳登录 */
-      if (import.meta.env.DEV) console.warn('JWT payload 解码失败:', e)
+    const token = localStorage.getItem('token')
+    const payload = decodeJwtPayload(token)  // 调用公共工具函数解码JWT payload
+    if (payload) {  // 解码成功
+      userId.value = payload.userId || payload.sub || null  // 提取用户ID
+      username.value = payload.username || ''  // 提取用户名
+      role.value = payload.role || 0  // 提取角色
+    } else {  // 解码失败：token 损坏或格式异常，清除 localStorage 避免后续请求携带无效 token
+      if (import.meta.env.DEV) console.warn('JWT payload 解码失败，清除无效 token')  // 开发环境日志
+      localStorage.removeItem('token')  // 清除无效token
+      _tokenPresent.value = false  // 更新token存在标志
     }
   }
 
@@ -56,7 +56,8 @@ export const useUserStore = defineStore('user', () => {
   function setUser(user) {
     userId.value = user.userId
     username.value = user.username
-    role.value = user.role !== null && user.role !== undefined ? user.role : 0
+    // 使用 nullish coalescing 简化空值判断（?? 比 !== null && !== undefined 更简洁）
+    role.value = user.role ?? 0
     if (user.token) {
       localStorage.setItem('token', user.token)
     }

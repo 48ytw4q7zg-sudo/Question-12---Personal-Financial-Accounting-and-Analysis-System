@@ -54,80 +54,83 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { transfer } from '../api/transaction'
-import { getAccountList } from '../api/account'
+import { ref, reactive, onMounted } from 'vue'              // 导入Vue组合式API
+import { ElMessage } from 'element-plus'                    // 导入消息提示
+import { transfer } from '../api/transaction'               // 导入转账API
+import { getAccountList } from '../api/account'              // 导入账户列表API
 
 const loading = ref(false)          // 初始加载状态
 const submitting = ref(false)       // 提交 loading
-const formRef = ref(null)
-const accountList = ref([])
+const formRef = ref(null)           // 表单引用
+const accountList = ref([])         // 账户下拉选项列表
 
 const formData = reactive({
-  fromAccountId: null,
-  toAccountId: null,
-  amount: null,
-  note: ''
+  fromAccountId: null,              // 转出账户ID
+  toAccountId: null,                // 转入账户ID
+  amount: null,                     // 转账金额
+  note: ''                          // 备注内容
 })
 
 const formRules = {
-  fromAccountId: [{ required: true, message: '请选择转出账户', trigger: 'change' }],
-  toAccountId: [
-    { required: true, message: '请选择转入账户', trigger: 'change' },
+  fromAccountId: [{ required: true, message: '请选择转出账户', trigger: 'change' }], // 转出账户必填
+  toAccountId: [                                            // 转入账户校验规则
+    { required: true, message: '请选择转入账户', trigger: 'change' }, // 必填校验
     {
-      validator: (rule, value, callback) => {
-        if (value && value === formData.fromAccountId) {
-          callback(new Error('转入账户不能与转出账户相同'))
+      validator: (rule, value, callback) => {               // 自定义校验器
+        if (value && value === formData.fromAccountId) {    // 与转出账户相同
+          callback(new Error('转入账户不能与转出账户相同'))  // 校验失败
         } else {
-          callback()
+          callback()                                        // 校验通过
         }
       },
-      trigger: 'change'
+      trigger: 'change'                                     // 选项变化触发
     }
   ],
-  amount: [
-    { required: true, message: '请输入转账金额', trigger: 'blur' },
-    { type: 'number', min: 0.01, message: '转账金额必须大于0', trigger: 'blur' }
+  amount: [                                                 // 金额校验规则
+    { required: true, message: '请输入转账金额', trigger: 'blur' }, // 必填校验
+    { type: 'number', min: 0.01, message: '转账金额必须大于0', trigger: 'blur' } // 最小值校验
   ],
-  note: [{ max: 200, message: '备注长度不能超过200', trigger: 'blur' }]
+  note: [{ max: 200, message: '备注长度不能超过200', trigger: 'blur' }] // 备注长度限制
 }
 
+/** 加载账户列表 */
 async function loadAccounts() {
-  loading.value = true
+  loading.value = true                                      // 开启loading
   try {
-    const data = await getAccountList()
-    accountList.value = data || []
+    const data = await getAccountList()                      // 调用API获取账户列表
+    accountList.value = data || []                           // 设置账户选项数据
   } catch (e) {
     // axios 拦截器已统一处理业务错误消息，此处额外做本地降级提示（账户下拉为空时用户需手动刷新）
-    if (import.meta.env.DEV) console.warn('加载账户列表失败:', e)
-    ElMessage.warning('加载账户列表失败，请刷新重试')
+    if (import.meta.env.DEV) console.warn('加载账户列表失败:', e) // 开发环境日志
+    ElMessage.warning('加载账户列表失败，请刷新重试')          // 降级提示
   } finally {
-    loading.value = false
+    loading.value = false                                    // 关闭loading
   }
 }
 
+/** 提交转账 */
 async function handleSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  const valid = await formRef.value.validate().catch(() => false) // 触发表单校验
+  if (!valid) return                                        // 校验不通过不提交
 
-  submitting.value = true
+  submitting.value = true                                   // 开启提交loading
   try {
-    await transfer(formData)
-    ElMessage.success('转账成功')
-    formRef.value.resetFields()
+    await transfer(formData)                                // 调用转账API
+    ElMessage.success('转账成功')                             // 成功提示
+    formRef.value.resetFields()                              // 重置表单字段
     // 转账后刷新账户列表（余额可能已变化）
-    await loadAccounts()
+    await loadAccounts()                                    // 刷新账户列表
   } catch (e) {
-    // axios 拦截器已统一处理业务错误消息（如余额不足、账户禁用等），此处仅记录非业务异常
-    if (e && e.message && !e.message.includes('业务')) console.error('转账异常:', e)
+    // axios 拦截器已统一处理业务错误消息（如余额不足、账户禁用等），此处仅记录异常到控制台
+    if (import.meta.env.DEV) console.error('转账异常:', e)                            // 记录异常日志
   } finally {
-    submitting.value = false
+    submitting.value = false                                 // 关闭提交loading
   }
 }
 
-onMounted(() => {
-  loadAccounts()
+/** 页面挂载时加载账户列表（async+await 确保未捕获异常不会变成 unhandled rejection） */
+onMounted(async () => {
+  await loadAccounts()                                      // 挂载时加载账户（await保证异常可追踪）
 })
 </script>
 

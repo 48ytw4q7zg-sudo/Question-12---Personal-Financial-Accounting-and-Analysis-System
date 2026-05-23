@@ -78,15 +78,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, onMounted } from 'vue'              // 导入Vue组合式API
+import { ElMessage } from 'element-plus'                    // 导入消息提示
 // → 调用 api/category.js 的 getCategoryList()
-import { getCategoryList } from '../api/category'
+import { getCategoryList } from '../api/category'             // 导入分类列表API
 // → 调用 api/statistics.js 的 getCategorySummary()（P0-6 本月消费金额）
-import { getCategorySummary } from '../api/statistics'
-import { formatAmount } from '../utils/format'
+import { getCategorySummary } from '../api/statistics'        // 导入分类汇总API
+import { formatAmount } from '../utils/format'               // 导入金额格式化
 
-const loading = ref(false)
+const loading = ref(false)                                  // 页面loading
 const activeTab = ref('expense')     // 当前激活的 Tab：'expense' 或 'income'
 const categories = ref([])           // 全部分类数据（后端返回的完整列表）
 const summaryData = ref([])          // 本月各分类消费金额汇总（category-summary API 返回）
@@ -94,25 +94,25 @@ const selectedMonth = ref('')        // 选中的月份（YYYY-MM 格式）
 
 // 预构建 summaryMap（categoryId → totalAmount），避免 O(n*m) 嵌套 find
 const summaryMap = computed(() => {
-  const map = new Map()
-  for (const s of summaryData.value) {
-    map.set(s.categoryId, s.totalAmount)
+  const map = new Map()                                     // 创建Map映射
+  for (const s of summaryData.value) {                      // 遍历汇总数据
+    map.set(s.categoryId, s.totalAmount)                    // 分类ID映射到金额
   }
-  return map
+  return map                                                // 返回映射表
 })
 
 // 计算属性：筛选支出分类（type=1）并关联本月消费金额（O(n+m) Map查找）
 const expenseCategoriesWithAmount = computed(() =>
   categories.value
-    .filter(item => item.type === 1)
-    .map(cat => ({ ...cat, monthAmount: summaryMap.value.get(cat.id) || 0 }))
+    .filter(item => item.type === CATEGORY_TYPE_EXPENSE)                        // 筛选支出分类
+    .map(cat => ({ ...cat, monthAmount: summaryMap.value.get(cat.id) || 0 })) // 关联本月金额
 )
 
 // 计算属性：筛选收入分类（type=2）并关联本月收入金额（O(n+m) Map查找）
 const incomeCategoriesWithAmount = computed(() =>
   categories.value
-    .filter(item => item.type === 2)
-    .map(cat => ({ ...cat, monthAmount: summaryMap.value.get(cat.id) || 0 }))
+    .filter(item => item.type === CATEGORY_TYPE_INCOME)                        // 筛选收入分类
+    .map(cat => ({ ...cat, monthAmount: summaryMap.value.get(cat.id) || 0 })) // 关联本月金额
 )
 
 /**
@@ -121,12 +121,12 @@ const incomeCategoriesWithAmount = computed(() =>
  * 返回的数组包含收入和支出两种类型，前端用 computed 分别筛选
  */
 async function loadCategories() {
-  loading.value = true
+  loading.value = true                                      // 开启loading
   try {
-    const data = await getCategoryList()
-    categories.value = data || []
+    const data = await getCategoryList()                     // 调用分类列表API
+    categories.value = data || []                            // 设置分类数据
   } finally {
-    loading.value = false
+    loading.value = false                                    // 关闭loading
   }
 }
 
@@ -137,29 +137,31 @@ async function loadCategories() {
  * 返回：[{ categoryId, categoryName, totalAmount, transactionCount }, ...]
  */
 async function loadSummary() {
-  if (!selectedMonth.value) return
-  const [year, month] = selectedMonth.value.split('-')
-  loading.value = true
+  if (!selectedMonth.value) return                           // 未选月份不加载
+  const [year, month] = selectedMonth.value.split('-')      // 解析年月
+  loading.value = true                                      // 开启loading
   try {
     // 不传 type 参数，同时获取支出和收入的汇总数据
-    const data = await getCategorySummary({ year: parseInt(year), month: parseInt(month) })
-    summaryData.value = data || []
+    const data = await getCategorySummary({ year: parseInt(year), month: parseInt(month) }) // 调用汇总API
+    summaryData.value = data || []                           // 设置汇总数据
   } catch (e) {
-    if (import.meta.env.DEV) console.warn('加载汇总数据失败:', e)
-    ElMessage.warning('加载汇总数据失败')
-    summaryData.value = []
+    if (import.meta.env.DEV) console.warn('加载汇总数据失败:', e) // 开发环境日志
+    ElMessage.warning('加载汇总数据失败')                     // 降级提示
+    summaryData.value = []                                   // 清空汇总数据
   } finally {
-    loading.value = false
+    loading.value = false                                    // 关闭loading
   }
 }
 
-// 页面挂载时加载分类列表 + 本月汇总
-onMounted(() => {
+// 页面挂载时加载分类列表 + 本月汇总（async+Promise.all 并行加载，await保证异常可追踪）
+onMounted(async () => {
   // 初始化默认当月
-  const now = new Date()
-  selectedMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  loadCategories()
-  loadSummary()
+  const now = new Date()                                     // 获取当前日期
+  selectedMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}` // 格式化为YYYY-MM
+  await Promise.all([                                        // 并行加载分类列表+汇总数据
+    loadCategories(),                                        // 加载分类列表
+    loadSummary()                                            // 加载汇总数据
+  ])
 })
 </script>
 

@@ -93,7 +93,10 @@
         <!-- 转账标识：有 transferId 的记录标记为「转账」 -->
         <el-table-column label="转账标识" width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.transferId" type="warning" size="small">转账</el-tag>
+            <el-tag v-if="row.transferId &amp;&amp; row.type === TRANSACTION_TYPE_EXPENSE" type="warning" size="small">(转出)</el-tag>
+            <el-tag v-if="row.transferId &amp;&amp; row.type === TRANSACTION_TYPE_INCOME" type="success" size="small">(转入)</el-tag>
+            <!-- 兜底条件：type 只能是 1(收入) 或 2(支出)，此分支理论上不会触发，保留以防御未来枚举扩展 -->
+            <el-tag v-if="row.transferId &amp;&amp; row.type !== TRANSACTION_TYPE_EXPENSE &amp;&amp; row.type !== TRANSACTION_TYPE_INCOME" type="warning" size="small">转账</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="140" fixed="right">
@@ -164,35 +167,38 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive, computed, onMounted, watch } from 'vue' // 导入Vue组合式API
+import { useRoute, useRouter } from 'vue-router'            // 导入路由
+import { ElMessage, ElMessageBox } from 'element-plus'      // 导入消息和确认框
 // → 调用 api/transaction.js 的 4 个接口
-import { getTransactionList, createTransaction, updateTransaction, deleteTransaction } from '../api/transaction'
+import { getTransactionList, createTransaction, updateTransaction, deleteTransaction } from '../api/transaction' // 导入交易API
 // → 调用 api/account.js 的 getAccountList()（下拉选项）
-import { getAccountList } from '../api/account'
+import { getAccountList } from '../api/account'              // 导入账户API
 // → 调用 api/category.js 的 getCategoryList()（下拉选项）
-import { getCategoryList } from '../api/category'
-import { formatTime, formatDateTime, formatAmount } from '../utils/format'
-import { TRANSACTION_TYPE_MAP, TRANSACTION_TYPE_INCOME, TRANSACTION_TYPE_EXPENSE, CATEGORY_TYPE_EXPENSE, CATEGORY_TYPE_INCOME } from '../constants/finance'
+import { getCategoryList } from '../api/category'             // 导入分类API
+import { formatTime, formatDateTime, formatAmount } from '../utils/format' // 导入格式化工具
+import { TRANSACTION_TYPE_MAP, TRANSACTION_TYPE_INCOME, TRANSACTION_TYPE_EXPENSE, CATEGORY_TYPE_EXPENSE, CATEGORY_TYPE_INCOME } from '../constants/finance' // 导入常量
 
-const route = useRoute()
-const router = useRouter()
+const route = useRoute()                                    // 当前路由信息
+const router = useRouter()                                  // 路由实例
 
-const loading = ref(false)
-const submitting = ref(false)
-const deletingId = ref(null)
-const dialogVisible = ref(false)
+const loading = ref(false)                                  // 页面loading
+const submitting = ref(false)                               // 提交loading
+const deletingId = ref(null)                                // 正在删除的记录ID
+const dialogVisible = ref(false)                            // 弹窗显隐
 const isEdit = ref(false)           // 是否编辑模式
 const editId = ref(null)            // 编辑的记录 ID
 const isTransfer = ref(false)       // 当前编辑的记录是否为转账记录（转账记录禁用部分字段修改）
-const formRef = ref(null)
+const formRef = ref(null)                                    // 表单引用
 
 const transactionList = ref([])     // 交易记录列表
 const accountList = ref([])         // 账户下拉选项
 const categoryList = ref([])        // 分类下拉选项
 
 // 筛选条件（PRD P1-1 多条件筛选）
+const TIME_START_OF_DAY = ' 00:00:00'
+const TIME_END_OF_DAY = ' 23:59:59'
+
 const filters = reactive({
   dateRange: null,      // 日期范围 [startDate, endDate]
   accountId: null,      // 按账户筛选
@@ -202,32 +208,32 @@ const filters = reactive({
 
 // 分页参数
 const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
+  pageNum: 1,                                               // 当前页码
+  pageSize: 10,                                             // 每页条数
+  total: 0                                                  // 总条数
 })
 
 // 新增/编辑表单数据
 const formData = reactive({
-  accountId: null,
-  categoryId: null,
-  type: 2,        // 1=收入, 2=支出（默认支出）
-  amount: null,
-  note: '',
-  time: ''
+  accountId: null,                                          // 账户ID
+  categoryId: null,                                         // 分类ID
+  type: TRANSACTION_TYPE_EXPENSE,        // 默认支出
+  amount: null,                                             // 金额
+  note: '',                                                 // 备注
+  time: ''                                                  // 时间
 })
 
 // 表单校验规则
 const formRules = {
-  accountId: [{ required: true, message: '请选择账户', trigger: 'change' }],
-  categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }],
-  type: [{ required: true, message: '请选择类型', trigger: 'change' }],
-  amount: [
-    { required: true, message: '请输入金额', trigger: 'blur' },
-    { type: 'number', min: 0.01, message: '金额必须大于0', trigger: 'blur' }
+  accountId: [{ required: true, message: '请选择账户', trigger: 'change' }], // 账户必选
+  categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }], // 分类必选
+  type: [{ required: true, message: '请选择类型', trigger: 'change' }], // 类型必选
+  amount: [                                                 // 金额校验
+    { required: true, message: '请输入金额', trigger: 'blur' }, // 必填
+    { type: 'number', min: 0.01, message: '金额必须大于0', trigger: 'blur' } // 最小值
   ],
-  time: [{ required: true, message: '请选择时间', trigger: 'change' }],
-  note: [{ max: 200, message: '备注长度不能超过200', trigger: 'blur' }]
+  time: [{ required: true, message: '请选择时间', trigger: 'change' }], // 时间必选
+  note: [{ max: 200, message: '备注长度不能超过200', trigger: 'blur' }] // 备注长度
 }
 
 /**
@@ -239,26 +245,26 @@ const formRules = {
  *   选收入(1) → 显示 category.type=2 的分类
  */
 const filteredCategories = computed(() => {
-  const categoryType = formData.type === TRANSACTION_TYPE_EXPENSE ? CATEGORY_TYPE_EXPENSE : CATEGORY_TYPE_INCOME
-  return categoryList.value.filter(item => item.type === categoryType)
+  const categoryType = formData.type === TRANSACTION_TYPE_EXPENSE ? CATEGORY_TYPE_EXPENSE : CATEGORY_TYPE_INCOME // 反转映射类型值
+  return categoryList.value.filter(item => item.type === categoryType) // 筛选匹配分类
 })
 
-// 切换类型时重置分类选择，避免选中不匹配的分类
+// 切换类型时重置分类选择→ 避免选中不匹配的分类
 watch(() => formData.type, () => {
-  formData.categoryId = null
+  formData.categoryId = null                                // 重置分类选择
 })
 
 /** 分页 pageSize 变化处理（重置到第1页并加载） */
 function handleSizeChange(size) {
-  pagination.pageSize = size
-  pagination.pageNum = 1
-  loadTransactions()
+  pagination.pageSize = size                                // 更新每页条数
+  pagination.pageNum = 1                                    // 重置到第1页
+  loadTransactions()                                        // 重新加载列表
 }
 
 /** 分页页码变化处理 */
 function handlePageChange(page) {
-  pagination.pageNum = page
-  loadTransactions()
+  pagination.pageNum = page                                 // 更新页码
+  loadTransactions()                                        // 重新加载列表
 }
 
 /**
@@ -266,28 +272,28 @@ function handlePageChange(page) {
  * → 调用 api/transaction.js 的 getTransactionList(params)
  */
 async function loadTransactions() {
-  loading.value = true
+  loading.value = true                                      // 开启loading
   try {
-    const params = {
-      pageNum: pagination.pageNum,
-      pageSize: pagination.pageSize
+    const params = {                                        // 构建请求参数
+      pageNum: pagination.pageNum,                          // 页码参数
+      pageSize: pagination.pageSize                         // 每页条数参数
     }
     // 拼接筛选参数
-    if (filters.dateRange) {
-      params.startTime = filters.dateRange[0] + ' 00:00:00'
-      params.endTime = filters.dateRange[1] + ' 23:59:59'
+    if (filters.dateRange) {                                // 有日期范围筛选
+      params.startTime = filters.dateRange[0] + TIME_START_OF_DAY // 开始时间
+      params.endTime = filters.dateRange[1] + TIME_END_OF_DAY   // 结束时间
     }
-    if (filters.accountId != null) params.accountId = filters.accountId
-    if (filters.categoryId != null) params.categoryId = filters.categoryId
-    if (filters.keyword) params.keyword = filters.keyword
+    if (filters.accountId != null) params.accountId = filters.accountId // 账户筛选
+    if (filters.categoryId != null) params.categoryId = filters.categoryId // 分类筛选
+    if (filters.keyword) params.keyword = filters.keyword  // 关键词筛选
 
     // → 调用 api/transaction.js 的 getTransactionList(params)
-    const data = await getTransactionList(params)
+    const data = await getTransactionList(params)            // 调用列表API
     // 兼容后端分页返回结构（records/list/直接数组）
-    transactionList.value = data?.records || data?.list || data || []
-    pagination.total = data?.total || 0
+    transactionList.value = data?.records || data?.list || data || [] // 兼容多种返回结构
+    pagination.total = data?.total || 0                     // 更新总条数
   } finally {
-    loading.value = false
+    loading.value = false                                   // 关闭loading
   }
 }
 
@@ -296,14 +302,15 @@ async function loadTransactions() {
  * → 调用 api/account.js 的 getAccountList() + api/category.js 的 getCategoryList()
  * 并行请求提高加载速度
  */
+// → 调用 api/account.js 的 getAccountList() + api/category.js 的 getCategoryList()
 async function loadOptions() {
   try {
-    const [accounts, categories] = await Promise.all([getAccountList(), getCategoryList()])
-    accountList.value = accounts || []
-    categoryList.value = categories || []
+    const [accounts, categories] = await Promise.all([getAccountList(), getCategoryList()]) // 并行加载
+    accountList.value = accounts || []                       // 设置账户选项
+    categoryList.value = categories || []                    // 设置分类选项
   } catch (e) {
-    if (import.meta.env.DEV) console.warn('加载选项数据失败:', e)
-    ElMessage.warning('加载选项数据失败，请刷新重试')
+    if (import.meta.env.DEV) console.warn('加载选项数据失败:', e) // 开发环境日志
+    ElMessage.error('账户/分类选项加载失败，下拉框可能为空，请刷新页面重试') // 明确错误提示（含影响说明）
   }
 }
 
@@ -312,40 +319,40 @@ async function loadOptions() {
  * 支持浏览器前进后退保留筛选状态
  */
 function syncFiltersToUrl() {
-  const q = {}
-  if (filters.dateRange) { q.startDate = filters.dateRange[0]; q.endDate = filters.dateRange[1] }
-  if (filters.accountId) q.accountId = filters.accountId
-  if (filters.categoryId) q.categoryId = filters.categoryId
-  if (filters.keyword) q.keyword = filters.keyword
-  if (pagination.pageNum > 1) q.page = pagination.pageNum
-  router.replace({ query: q })
+  const q = {}                                              // 构建query对象
+  if (filters.dateRange) { q.startDate = filters.dateRange[0]; q.endDate = filters.dateRange[1] } // 日期范围
+  if (filters.accountId) q.accountId = filters.accountId   // 账户筛选
+  if (filters.categoryId) q.categoryId = filters.categoryId // 分类筛选
+  if (filters.keyword) q.keyword = filters.keyword         // 关键词
+  if (pagination.pageNum > 1) q.page = pagination.pageNum  // 页码
+  router.replace({ query: q })                              // 替换URL query参数
 }
 
 /** 从 URL query params 读取筛选条件（页面初始化时调用） */
 function readFiltersFromUrl() {
-  const q = route.query
-  if (q.startDate && q.endDate) filters.dateRange = [q.startDate, q.endDate]
-  if (q.accountId) filters.accountId = Number(q.accountId)
-  if (q.categoryId) filters.categoryId = Number(q.categoryId)
-  if (q.keyword) filters.keyword = q.keyword
-  if (q.page) pagination.pageNum = Number(q.page)
+  const q = route.query                                     // 获取URL query参数
+  if (q.startDate && q.endDate) filters.dateRange = [q.startDate, q.endDate] // 读取日期范围
+  if (q.accountId) filters.accountId = Number(q.accountId) // 读取账户筛选
+  if (q.categoryId) filters.categoryId = Number(q.categoryId) // 读取分类筛选
+  if (q.keyword) filters.keyword = q.keyword               // 读取关键词
+  if (q.page) pagination.pageNum = Number(q.page)          // 读取页码
 }
 
 /** 搜索：重置页码到第 1 页 + 同步 URL + 重新加载 */
 function handleSearch() {
-  pagination.pageNum = 1
-  syncFiltersToUrl()
-  loadTransactions()
+  pagination.pageNum = 1                                    // 重置页码
+  syncFiltersToUrl()                                        // 同步到URL
+  loadTransactions()                                        // 重新加载
 }
 
 /** 重置筛选条件 + 清空 URL query params */
 function resetFilters() {
-  filters.dateRange = null
-  filters.accountId = null
-  filters.categoryId = null
-  filters.keyword = ''
-  router.replace({ query: {} })
-  handleSearch()
+  filters.dateRange = null                                  // 清空日期范围
+  filters.accountId = null                                  // 清空账户筛选
+  filters.categoryId = null                                 // 清空分类筛选
+  filters.keyword = ''                                      // 清空关键词
+  router.replace({ query: {} })                             // 清空URL参数
+  handleSearch()                                            // 重置后搜索
 }
 
 /**
@@ -353,27 +360,27 @@ function resetFilters() {
  * @param {Object|null} row - 传入行数据为编辑模式，不传为「记一笔」新增模式
  */
 function openDialog(row) {
-  isEdit.value = !!row
-  editId.value = row?.id || null
+  isEdit.value = !!row                                      // 判断是否编辑模式
+  editId.value = row?.id || null                            // 获取编辑记录ID
   isTransfer.value = !!row?.transferId    // 判断是否为转账记录
   if (row) {
     // 编辑模式：回填表单
-    formData.accountId = row.accountId
-    formData.categoryId = row.categoryId
-    formData.type = row.type
-    formData.amount = Number(row.amount || 0)
-    formData.note = row.note || ''
-    formData.time = row.time || ''
+    formData.accountId = row.accountId                      // 回填账户ID
+    formData.categoryId = row.categoryId                    // 回填分类ID
+    formData.type = row.type                                // 回填类型
+    formData.amount = Number(row.amount || 0)               // 回填金额
+    formData.note = row.note || ''                           // 回填备注
+    formData.time = row.time || ''                           // 回填时间
   } else {
     // 新增模式：重置表单，默认时间设为当前
-    formData.accountId = null
-    formData.categoryId = null
-    formData.type = TRANSACTION_TYPE_EXPENSE
-    formData.amount = null
-    formData.note = ''
-    formData.time = formatDateTime(new Date())
+    formData.accountId = null                               // 清空账户
+    formData.categoryId = null                              // 清空分类
+    formData.type = TRANSACTION_TYPE_EXPENSE                 // 默认支出
+    formData.amount = null                                  // 清空金额
+    formData.note = ''                                      // 清空备注
+    formData.time = formatDateTime(new Date())              // 默认当前时间
   }
-  dialogVisible.value = true
+  dialogVisible.value = true                                // 显示弹窗
 }
 
 /**
@@ -383,54 +390,56 @@ function openDialog(row) {
  */
 async function handleDelete(row) {
   try {
-    await ElMessageBox.confirm(`确定删除这条${TRANSACTION_TYPE_MAP[row.type]?.label || '未知'}记录吗？`, '确认删除', {
-      type: 'warning'
+    await ElMessageBox.confirm(`确定删除这条${TRANSACTION_TYPE_MAP[row.type]?.label || '未知'}记录吗？`, '确认删除', { // 删除确认
+      type: 'warning'                                       // 警告类型
     })
-    deletingId.value = row.id
-    await deleteTransaction(row.id)
-    ElMessage.success('记录已删除')
-    loadTransactions()
+    deletingId.value = row.id                               // 标记正在删除
+    await deleteTransaction(row.id)                          // 调用删除API
+    ElMessage.success('记录已删除')                          // 成功提示
+    await loadTransactions()                                 // 刷新列表（添加await确保列表更新完成）
   } catch (e) {
     if (e !== 'cancel') {
       // axios 拦截器已统一处理业务错误，此处记录日志便于排查非业务异常
-      console.error('删除记录失败:', e)
+      if (import.meta.env.DEV) console.error('删除记录失败:', e)                    // 记录错误日志
     }
   } finally {
-    deletingId.value = null
+    deletingId.value = null                                 // 重置删除标记
   }
 }
 
 /**
  * 提交表单（记一笔或编辑）
- * → 调用 api/transaction.js 的 createTransaction() 或 updateTransaction()
+ * →  调用 api/transaction.js 的 createTransaction() 或 updateTransaction()
  */
 async function handleSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  const valid = await formRef.value.validate().catch(() => false) // 触发校验
+  if (!valid) return                                        // 校验不通过不提交
 
-  submitting.value = true
+  submitting.value = true                                   // 开启提交loading
   try {
     if (isEdit.value) {
       // → 调用 api/transaction.js 的 updateTransaction(id, data)
-      await updateTransaction(editId.value, formData)
-      ElMessage.success('更新成功')
+      await updateTransaction(editId.value, formData)       // 调用更新API
+      ElMessage.success('更新成功')                          // 成功提示
     } else {
       // → 调用 api/transaction.js 的 createTransaction(data)
-      await createTransaction(formData)
-      ElMessage.success('记账成功')
+      await createTransaction(formData)                     // 调用创建API
+      ElMessage.success('记账成功')                          // 成功提示
     }
-    dialogVisible.value = false
-    loadTransactions()
+    dialogVisible.value = false                             // 关闭弹窗
+    await loadTransactions()                                // 刷新列表（添加await确保列表更新完成）
   } finally {
-    submitting.value = false
+    submitting.value = false                                // 关闭提交loading
   }
 }
 
 // 页面挂载时：从 URL 读取筛选条件 → 加载下拉选项 → 加载交易列表
-onMounted(() => {
-  readFiltersFromUrl();
-  loadOptions()
-  loadTransactions()
+onMounted(async () => {                                     // 改为async以支持await
+  readFiltersFromUrl();                                     // 从URL读取筛选条件（同步函数无需await）
+  await Promise.all([                                       // 并行加载下拉选项+交易列表（Promise.all更高效）
+    loadOptions(),                                          // 加载下拉选项
+    loadTransactions()                                      // 加载交易列表
+  ])
 })
 </script>
 

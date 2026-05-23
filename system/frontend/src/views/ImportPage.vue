@@ -87,17 +87,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, onMounted } from 'vue'              // 导入Vue组合式API
+import { ElMessage } from 'element-plus'                    // 导入消息提示
 // → 调用 api/transaction.js 的 importCsv()（CSV 导入接口）
-import { importCsv } from '../api/transaction'
+import { importCsv } from '../api/transaction'               // 导入CSV导入API
 // → 调用 api/account.js 的 getAccountList()（加载账户选项）
-import { getAccountList } from '../api/account'
-import { MAX_CSV_FILE_SIZE } from '../constants/finance'
+import { getAccountList } from '../api/account'              // 导入账户列表API
+import { MAX_CSV_FILE_SIZE } from '../constants/finance'    // 导入文件大小上限常量
 
 const importing = ref(false)        // 导入中 loading
 const loading = ref(false)          // 初始加载状态
-const uploadRef = ref(null)
+const uploadRef = ref(null)         // 上传组件引用
 const formRef = ref(null)           // 表单引用
 const accountList = ref([])         // 账户列表
 const importResult = ref(null)      // 导入结果（成功/失败数 + 失败详情）
@@ -110,37 +110,37 @@ const importForm = reactive({
 
 // 表单校验规则
 const formRules = {
-  accountId: [{ required: true, message: '请选择目标账户', trigger: 'change' }],
-  file: [{
-    validator: (rule, value, callback) => {
-      if (!importForm.file) {
-        callback(new Error('请选择 CSV 文件'))
-      } else if (importForm.file.size > MAX_CSV_FILE_SIZE) {
+  accountId: [{ required: true, message: '请选择目标账户', trigger: 'change' }], // 账户必选
+  file: [{                                                  // 文件校验规则
+    validator: (rule, value, callback) => {                 // 自定义文件校验器
+      if (!importForm.file) {                               // 未选文件
+        callback(new Error('请选择 CSV 文件'))              // 校验失败
+      } else if (importForm.file.size > MAX_CSV_FILE_SIZE) { // 文件超过5MB
         // PRD P2-3 业务规则①: 文件大小 ≤ 5MB，前端预检避免浪费上传时间
-        callback(new Error('文件大小不能超过 5MB'))
+        callback(new Error('文件大小不能超过 5MB'))          // 校验失败
       } else {
-        callback()
+        callback()                                          // 校验通过
       }
     },
-    trigger: 'change'
+    trigger: 'change'                                       // 文件变化触发
   }]
 }
 
 // CSV 文件格式说明数据（对齐后端 TransactionServiceImpl.importCsv() 解析的 5 列格式）
 // 后端解析顺序：日期,分类ID,类型(1=收入/2=支出),金额,备注
-const formatData = [
-  { col: 'time', desc: '交易时间（yyyy-MM-dd HH:mm:ss）', required: '是', example: '2026-05-16 10:30:00' },
-  { col: 'categoryId', desc: '分类ID（数字，对应系统分类列表）', required: '是', example: '1' },
-  { col: 'type', desc: '类型（1=收入, 2=支出）', required: '是', example: '2' },
-  { col: 'amount', desc: '金额（正数，两位小数）', required: '是', example: '50.00' },
-  { col: 'note', desc: '备注', required: '否', example: '午餐' }
+const formatData = [                                         // CSV格式说明数据
+  { col: 'time', desc: '交易时间（yyyy-MM-dd HH:mm:ss）', required: '是', example: '2026-05-16 10:30:00' }, // 时间列
+  { col: 'categoryId', desc: '分类ID（数字，对应系统分类列表）', required: '是', example: '1' },              // 分类ID列
+  { col: 'type', desc: '类型（1=收入, 2=支出）', required: '是', example: '2' },                            // 类型列
+  { col: 'amount', desc: '金额（正数，两位小数）', required: '是', example: '50.00' },                      // 金额列
+  { col: 'note', desc: '备注', required: '否', example: '午餐' }                                          // 备注列
 ]
 
 /** el-upload 文件选择回调：保存原始文件对象 + 手动触发表单校验 */
 function handleFileChange(file) {
-  importForm.file = file.raw
+  importForm.file = file.raw                                 // 保存原始File对象
   // el-upload 的 on-change 不会自动触发 el-form 的校验，需手动调用
-  formRef.value?.validateField('file')
+  formRef.value?.validateField('file')                       // 手动触发文件字段校验
 }
 
 /**
@@ -148,12 +148,12 @@ function handleFileChange(file) {
  * → 调用 api/account.js 的 getAccountList()
  */
 async function loadAccounts() {
-  loading.value = true
+  loading.value = true                                      // 开启loading
   try {
-    const data = await getAccountList()
-    accountList.value = data || []
+    const data = await getAccountList()                      // 调用API获取账户列表
+    accountList.value = data || []                           // 设置账户数据
   } finally {
-    loading.value = false
+    loading.value = false                                    // 关闭loading
   }
 }
 
@@ -163,31 +163,31 @@ async function loadAccounts() {
  * 使用 FormData 格式上传文件 + accountId 参数
  */
 async function handleImport() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  const valid = await formRef.value.validate().catch(() => false) // 触发全表单校验
+  if (!valid) return                                        // 校验不通过不提交
 
-  importing.value = true
-  importResult.value = null
+  importing.value = true                                    // 开启导入loading
+  importResult.value = null                                 // 清空上次导入结果
   try {
     // 构建 FormData（multipart/form-data 格式上传文件）
-    const formData = new FormData()
-    formData.append('file', importForm.file)
-    formData.append('accountId', importForm.accountId)
+    const formData = new FormData()                          // 创建FormData对象
+    formData.append('file', importForm.file)                 // 添加CSV文件
+    formData.append('accountId', importForm.accountId)       // 添加目标账户ID
     // → 调用 api/transaction.js 的 importCsv(formData)
-    const data = await importCsv(formData)
-    importResult.value = data
-    ElMessage.success('导入完成')
+    const data = await importCsv(formData)                   // 调用CSV导入API
+    importResult.value = data                                // 保存导入结果
+    ElMessage.success('导入完成')                             // 成功提示
   } catch (e) {
-    // axios 拦截器已统一处理业务错误消息（如文件超限、格式错误等），此处仅记录非业务异常
-    if (e && e.message && !e.message.includes('业务')) console.error('CSV导入异常:', e)
+    // axios 拦截器已统一处理业务错误消息（如文件超限、格式错误等），此处仅记录异常到控制台
+    if (import.meta.env.DEV) console.error('CSV导入异常:', e)                         // 记录异常日志
   } finally {
-    importing.value = false
+    importing.value = false                                  // 关闭导入loading
   }
 }
 
-// 页面挂载时加载账户列表
-onMounted(() => {
-  loadAccounts()
+// 页面挂载时加载账户列表（async+await 确保未捕获异常不会变成 unhandled rejection）
+onMounted(async () => {
+  await loadAccounts()                                      // 挂载时加载账户（await保证异常可追踪）
 })
 </script>
 

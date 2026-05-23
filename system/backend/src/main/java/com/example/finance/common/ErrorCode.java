@@ -25,10 +25,11 @@ public enum ErrorCode {
 
   // ========== 账户模块 2001-2099（每个码值唯一，不重复） ==========
   ACCOUNT_NAME_EMPTY(2001, "账户名称不能为空"),
-  ACCOUNT_HAS_TRANSACTIONS(2002, "该账户下有收支记录，请先处理后再禁用"), // 实际消息含动态数量
-  ACCOUNT_HAS_RECURRING_BILLS(2003, "该账户下有活跃周期性账单，请先停用后再禁用"), // 实际消息含动态数量
+  ACCOUNT_HAS_TRANSACTIONS(2002, "该账户下有收支记录，请先处理后再禁用"), // 实际抛出时动态拼接记录数量: "该账户下有 N 条收支记录..."
+  ACCOUNT_HAS_RECURRING_BILLS(2003, "该账户下有活跃周期性账单，请先停用后再禁用"), // 实际抛出时动态拼接账单数量: "该账户下有 N 个活跃周期性账单..."
   ACCOUNT_NOT_FOUND(2004, "账户不存在"),
   ACCOUNT_DISABLED(2005, "关联账户已禁用"),
+  ACCOUNT_NAME_DUPLICATE(2006, "账户名称已存在"),
 
   // ========== 交易模块 3001-3099（每个码值唯一，不重复） ==========
   AMOUNT_INVALID(3001, "金额必须大于 0"),
@@ -66,7 +67,18 @@ public enum ErrorCode {
   ADMIN_CANNOT_DELETE_SELF(6001, "管理员不能删除自己"),
   ADMIN_CANNOT_MODIFY_SELF(6002, "管理员不能修改自己的角色"),
   ADMIN_USER_NOT_FOUND(6003, "用户不存在"),
-  ADMIN_ACCESS_DENIED(6004, "无管理员权限");
+  ADMIN_ACCESS_DENIED(6004, "无管理员权限"),
+
+  // ========== 参数校验模块 7001-7099（通用参数校验错误） ==========
+  SORT_PARAM_INVALID(7001, "排序参数只能是time/amount_asc/amount_desc"),
+  TIME_RANGE_TOO_LARGE(7002, "时间范围最大跨度1年"),
+  TIME_FORMAT_INVALID(7003, "时间格式须为yyyy-MM-dd HH:mm:ss"),
+  DATE_FORMAT_INVALID(7004, "日期格式错误，应为 YYYY-MM-DD"),
+  YEAR_OUT_OF_RANGE(7005, "year需在2000-2100之间"),
+  MONTH_OUT_OF_RANGE(7006, "month需在1-12之间"),
+  TRANSFER_CATEGORY_MISSING(7007, "分类不存在：未找到「其他」分类，请检查种子数据"),
+  BUDGET_SAVE_CONFLICT(7008, "预算保存冲突，请重试"),
+  UNAUTHORIZED(401, "未登录或 token 已过期");
 
   private final int code;
   private final String msg;

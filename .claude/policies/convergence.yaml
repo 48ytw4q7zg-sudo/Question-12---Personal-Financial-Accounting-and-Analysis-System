@@ -1,4 +1,5 @@
-﻿# Author: qxw · Author-ID: 2501060122
+# Author: qxw · Author-ID: 2501060122
+# v1.0: stability convergence gates
 convergence_conditions:
   stable_loops_required: 5
   max_objective_distance: 0.02
@@ -13,6 +14,12 @@ convergence_conditions:
   consensus_rate: 0.85
   require_deterministic_replay: true
   require_meta_verification: true
+  require_zero_increasing_patch_size: true
+  require_zero_recurring_failures: true
+  require_zero_tech_debt_growth: true
+  require_repo_memory_green: true
+  require_context_freshness: true
+  require_predictive_replay: true
 terminal_freeze:
   deny_code_changes: true
   allow_docs_and_release: true

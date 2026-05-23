@@ -44,14 +44,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { listUsers, deleteUser, toggleRole } from '../api/admin'
-import { useUserStore } from '../stores/user'
-import { formatTime } from '../utils/format'
-import { ROLE_ADMIN, ROLE_LABELS } from '../constants/role'
+import { ref, onMounted } from 'vue'                        // 导入Vue组合式API
+import { useRouter } from 'vue-router'                      // 导入路由（用于权限不足时跳转）
+import { ElMessage, ElMessageBox } from 'element-plus'      // 导入消息提示和确认框
+import { listUsers, deleteUser, toggleRole } from '../api/admin' // 导入管理员API
+import { useUserStore } from '../stores/user'               // 导入用户状态store
+import { formatTime } from '../utils/format'                // 导入时间格式化工具
+import { ROLE_ADMIN, ROLE_LABELS } from '../constants/role' // 导入角色常量
 
-const userStore = useUserStore()
+const router = useRouter()                                  // 路由实例（用于权限不足时跳转首页）
+const userStore = useUserStore()                            // 初始化用户store
 const users = ref([])           // 用户列表数据
 const loading = ref(true)       // 页面 loading 状态
 const operating = ref(false)    // 操作防重复提交 loading
@@ -63,9 +65,9 @@ const operating = ref(false)    // 操作防重复提交 loading
  */
 async function loadUsers() {
   try {
-    users.value = await listUsers()
+    users.value = await listUsers()                         // 调用API获取用户列表
   } finally {
-    loading.value = false
+    loading.value = false                                   // 无论成功失败都关闭loading
   }
 }
 
@@ -76,20 +78,22 @@ async function loadUsers() {
  */
 async function handleToggleRole(row) {
   try {
-    await ElMessageBox.confirm(
-      `确认将用户「${row.username}」${row.role === ROLE_ADMIN ? '降为普通用户' : '提升为管理员'}？角色变更后该用户需重新登录才生效。`,
-      '角色变更确认',
-      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' }
+    await ElMessageBox.confirm(                             // 二次确认弹窗
+      `确认将用户「${row.username}」${row.role === ROLE_ADMIN ? '降为普通用户' : '提升为管理员'}？角色变更后该用户需重新登录才生效。`, // 确认提示文案
+      '角色变更确认',                                        // 确认框标题
+      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' } // 确认框选项
     )
-    operating.value = true
-    await toggleRole(row.id)
-    ElMessage.success(`${row.username} 角色已切换`)
-    await loadUsers()
+    operating.value = true                                  // 设置操作中状态
+    await toggleRole(row.id)                                // 调用切换角色API
+    ElMessage.success(`${row.username} 角色已切换`)          // 成功提示
+    await loadUsers()                                       // 刷新用户列表
   } catch (e) {
-    // 用户取消 ElMessageBox 时 e === 'cancel'，无需处理；其他错误由 axios 拦截器统一处理
-    if (e !== 'cancel') console.error('切换角色失败:', e)
+    if (e !== 'cancel') {                                    // 非取消操作才记录错误
+      if (import.meta.env.DEV) console.error('切换角色失败:', e) // 开发环境日志
+      ElMessage.error('角色切换失败，请重试')                 // 用户可见错误提示
+    }
   } finally {
-    operating.value = false
+    operating.value = false                                 // 重置操作状态
   }
 }
 
@@ -100,25 +104,34 @@ async function handleToggleRole(row) {
  */
 async function handleDelete(row) {
   try {
-    await ElMessageBox.confirm(`确认删除用户「${row.username}」？该操作不可恢复。`, '警告', {
-      confirmButtonText: '确认删除',
-      cancelButtonText: '取消',
-      type: 'warning'
+    await ElMessageBox.confirm(`确认删除用户「${row.username}」？该操作不可恢复。`, '警告', { // 删除确认弹窗
+      confirmButtonText: '确认删除',                         // 确认按钮文字
+      cancelButtonText: '取消',                              // 取消按钮文字
+      type: 'warning'                                        // 警告类型
     })
-    operating.value = true
-    await deleteUser(row.id)
-    ElMessage.success('用户已删除')
-    await loadUsers()
+    operating.value = true                                  // 设置操作中状态
+    await deleteUser(row.id)                                // 调用删除用户API
+    ElMessage.success('用户已删除')                          // 成功提示
+    await loadUsers()                                       // 刷新用户列表
   } catch (e) {
-    // 用户取消 ElMessageBox 时 e === 'cancel'，无需处理；其他错误由 axios 拦截器统一处理
-    if (e !== 'cancel') console.error('删除用户失败:', e)
+    if (e !== 'cancel') {                                    // 非取消操作才记录错误
+      if (import.meta.env.DEV) console.error('删除用户失败:', e) // 开发环境日志
+      ElMessage.error('用户删除失败，请重试')                 // 用户可见错误提示
+    }
   } finally {
-    operating.value = false
+    operating.value = false                                 // 重置操作状态
   }
 }
 
-// 页面挂载时加载用户列表
-onMounted(loadUsers)
+// 页面挂载时先做组件级权限二次验证（防JWT篡改绕过路由守卫），再加载用户列表
+onMounted(async () => {
+  if (userStore.role !== ROLE_ADMIN) {                       // 组件级权限二次验证
+    ElMessage.error('无权限访问管理员页面')                   // 权限不足提示
+    router.replace('/')                                      // 跳转首页
+    return                                                    // 不加载数据
+  }
+  await loadUsers()                                          // 挂载时加载用户列表（await保证异常可追踪）
+})
 </script>
 
 <style scoped>

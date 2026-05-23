@@ -29,7 +29,7 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
   /** 反向汇率精度（4 位小数） */
   private static final int INVERSE_SCALE = 4;
 
-  /** 正向汇率：1 CNY → X 外币（手工维护的参考值） */
+  /** 正向汇率：1 CNY → X 外币（手工维护的参考值 · 近似市场中间价 · 最后更新 2025-01-15 · 后续优化方向：接入实时汇率 API） */
   private static final Map<String, BigDecimal> RATES = Map.of(
       "USD", new BigDecimal("0.1370"),
       "EUR", new BigDecimal("0.1260"),

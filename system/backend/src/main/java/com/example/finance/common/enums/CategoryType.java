@@ -5,6 +5,7 @@ package com.example.finance.common.enums;
  *
  * 对应 PRD P0-3：type 取值 {1: 支出, 2: 收入}
  */
+/** WARNING: 1=EXPENSE/2=INCOME。TransactionType 映射相反(1=INCOME/2=EXPENSE)。前端 RecurringBillPage 的 type翻转基于此差异。 */
 public enum CategoryType {
   EXPENSE(1, "支出"),
   INCOME(2, "收入");

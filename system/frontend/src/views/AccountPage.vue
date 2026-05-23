@@ -47,7 +47,7 @@
         <!-- 状态标签：1=启用(success绿色), 0=停用(info灰色) -->
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'">
+            <el-tag :type="row.status === STATUS_ACTIVE ? 'success' : 'info'">
               {{ statusMap[row.status] || '未知' }}
             </el-tag>
           </template>
@@ -116,21 +116,21 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive, onMounted } from 'vue'              // 导入Vue组合式API
+import { ElMessage, ElMessageBox } from 'element-plus'      // 导入消息和确认框
 // → 调用 api/account.js 的 5 个接口函数
-import { getAccountList, createAccount, updateAccount, deleteAccount, getAccountBalance } from '../api/account'
+import { getAccountList, createAccount, updateAccount, deleteAccount, getAccountBalance } from '../api/account' // 导入账户API
 // → P2-4 多币种：调用 api/exchange-rate.js 的 getExchangeRates()（汇率数据）
-import { getExchangeRates } from '../api/exchange-rate'
-import { formatTime, formatAmount } from '../utils/format'
-import { ACCOUNT_TYPE_MAP, CURRENCY_LIST, STATUS_MAP } from '../constants/finance'
+import { getExchangeRates } from '../api/exchange-rate'      // 导入汇率API
+import { formatTime, formatAmount } from '../utils/format'  // 导入格式化工具
+import { ACCOUNT_TYPE_MAP, CURRENCY_LIST, STATUS_MAP } from '../constants/finance' // 导入常量
 
 /** P2-4: 汇率数据缓存（1外币→CNY），例 { USD: 7.3, EUR: 7.94, ... } */
-const exchangeRates = ref({})
+const exchangeRates = ref({})                               // 汇率缓存对象
 
 // 账户类型映射（从常量文件统一管理，避免硬编码散布各页面）
-const accountTypeMap = ACCOUNT_TYPE_MAP
-const statusMap = STATUS_MAP
+const accountTypeMap = ACCOUNT_TYPE_MAP                     // 账户类型映射
+const statusMap = STATUS_MAP                                // 状态映射
 
 const loading = ref(false)          // 列表 loading
 const submitting = ref(false)       // 表单提交 loading
@@ -145,21 +145,21 @@ const balanceList = ref([])         // 余额汇总数据
 
 // 新增/编辑表单数据
 const formData = reactive({
-  name: '',
-  type: null,
-  initialBalance: 0,
-  currency: 'CNY'
+  name: '',                                                // 账户名称
+  type: null,                                              // 账户类型
+  initialBalance: 0,                                       // 初始余额
+  currency: 'CNY'                                          // 币种（默认人民币）
 })
 
 // 表单校验规则
 const formRules = {
-  name: [{ required: true, message: '请输入账户名称', trigger: 'blur' }, { max: 20, message: '账户名称不超过20个字符', trigger: 'blur' }],
-  type: [{ required: true, message: '请选择账户类型', trigger: 'change' }],
-  initialBalance: [
-    { required: true, message: '请输入初始余额', trigger: 'blur' },
-    { type: 'number', min: 0, message: '初始余额不能为负数', trigger: 'blur' }
+  name: [{ required: true, message: '请输入账户名称', trigger: 'blur' }, { max: 20, message: '账户名称不超过20个字符', trigger: 'blur' }], // 名称校验
+  type: [{ required: true, message: '请选择账户类型', trigger: 'change' }], // 类型必选
+  initialBalance: [                                        // 余额校验
+    { required: true, message: '请输入初始余额', trigger: 'blur' }, // 必填
+    { type: 'number', min: 0, message: '初始余额不能为负数', trigger: 'blur' } // 最小值0
   ],
-  currency: [{ required: true, message: '请选择币种', trigger: 'change' }]
+  currency: [{ required: true, message: '请选择币种', trigger: 'change' }] // 币种必选
 }
 
 /**
@@ -168,8 +168,8 @@ const formRules = {
  * @returns {String} 币种代码（如 CNY/USD/EUR）
  */
 function accountCurrency(accountId) {
-  const acct = accountList.value.find(a => a.id === accountId)
-  return acct ? acct.currency : 'CNY'
+  const acct = accountList.value.find(a => a.id === accountId) // 查找账户
+  return acct ? acct.currency : 'CNY'                       // 返回币种或默认CNY
 }
 
 /**
@@ -178,11 +178,11 @@ function accountCurrency(accountId) {
  * @returns {String} 格式化后的 CNY 等值金额
  */
 function formatCnyEquivalent(balanceItem) {
-  const currency = accountCurrency(balanceItem.accountId)
-  if (currency === 'CNY') return formatAmount(balanceItem.currentBalance)
-  const rate = exchangeRates.value[currency]
-  if (!rate) return 'N/A'
-  return formatAmount(Number(balanceItem.currentBalance) * Number(rate))
+  const currency = accountCurrency(balanceItem.accountId)   // 获取账户币种
+  if (currency === 'CNY') return formatAmount(balanceItem.currentBalance) // CNY直接格式化
+  const rate = exchangeRates.value[currency]                // 获取汇率
+  if (!rate) return 'N/A'                                   // 无汇率返回N/A
+  return formatAmount(Number(balanceItem.currentBalance) * Number(rate)) // 汇率换算
 }
 
 /**
@@ -191,14 +191,14 @@ function formatCnyEquivalent(balanceItem) {
  */
 async function loadExchangeRates() {
   try {
-    const data = await getExchangeRates()
+    const data = await getExchangeRates()                    // 调用汇率API
     if (data && data.ratesInverse) {
       // ratesInverse 是 1外币→CNY 的汇率（如 USD: 7.3 表示 1美元=7.3人民币）
-      exchangeRates.value = data.ratesInverse
+      exchangeRates.value = data.ratesInverse               // 缓存汇率数据
     }
   } catch (e) {
-    if (import.meta.env.DEV) console.warn('加载汇率数据失败:', e)
-    ElMessage.warning('汇率数据加载失败，CNY换算暂不可用')
+    if (import.meta.env.DEV) console.warn('加载汇率数据失败:', e) // 开发环境日志
+    ElMessage.warning('汇率数据加载失败，CNY换算暂不可用')    // 降级提示
     // exchangeRates 保持空，换算显示 N/A
   }
 }
@@ -208,12 +208,12 @@ async function loadExchangeRates() {
  * → 调用 api/account.js 的 getAccountList()
  */
 async function loadAccounts() {
-  loading.value = true
+  loading.value = true                                      // 开启loading
   try {
-    const data = await getAccountList()
-    accountList.value = data || []
+    const data = await getAccountList()                      // 调用账户列表API
+    accountList.value = data || []                           // 设置账户数据
   } finally {
-    loading.value = false
+    loading.value = false                                    // 关闭loading
   }
 }
 
@@ -223,12 +223,12 @@ async function loadAccounts() {
  */
 async function loadBalance() {
   try {
-    const data = await getAccountBalance()
-    balanceList.value = data || []
+    const data = await getAccountBalance()                   // 调用余额汇总API
+    balanceList.value = data || []                           // 设置余额数据
   } catch (e) {
-    if (import.meta.env.DEV) console.warn('加载账户余额失败:', e)
-    ElMessage.warning('余额汇总加载失败')
-    balanceList.value = []
+    if (import.meta.env.DEV) console.warn('加载账户余额失败:', e) // 开发环境日志
+    ElMessage.warning('余额汇总加载失败')                     // 降级提示
+    balanceList.value = []                                   // 清空余额数据
   }
 }
 
@@ -237,22 +237,22 @@ async function loadBalance() {
  * @param {Object|null} row - 传入行数据为编辑模式，不传为新增模式
  */
 function openDialog(row) {
-  isEdit.value = !!row
-  editId.value = row?.id || null
+  isEdit.value = !!row                                      // 判断是否编辑模式
+  editId.value = row?.id || null                            // 获取编辑ID
   if (row) {
     // 编辑模式：回填表单数据
-    formData.name = row.name
-    formData.type = row.type
-    formData.initialBalance = Number(row.initialBalance || 0)
-    formData.currency = row.currency || 'CNY'
+    formData.name = row.name                                // 回填名称
+    formData.type = row.type                                // 回填类型
+    formData.initialBalance = Number(row.initialBalance || 0) // 回填余额
+    formData.currency = row.currency || 'CNY'               // 回填币种
   } else {
     // 新增模式：重置表单
-    formData.name = ''
-    formData.type = null
-    formData.initialBalance = 0
-    formData.currency = 'CNY'
+    formData.name = ''                                      // 清空名称
+    formData.type = null                                    // 清空类型
+    formData.initialBalance = 0                             // 重置余额
+    formData.currency = 'CNY'                               // 默认人民币
   }
-  dialogVisible.value = true
+  dialogVisible.value = true                                // 显示弹窗
 }
 
 /**
@@ -260,26 +260,26 @@ function openDialog(row) {
  * → 调用 api/account.js 的 createAccount() 或 updateAccount()
  */
 async function handleSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  const valid = await formRef.value.validate().catch(() => false) // 触发校验
+  if (!valid) return                                        // 校验不通过不提交
 
-  submitting.value = true
+  submitting.value = true                                   // 开启提交loading
   try {
     if (isEdit.value) {
       // 编辑模式 → 调用 updateAccount(id, data)
-      await updateAccount(editId.value, formData)
-      ElMessage.success('更新成功')
+      await updateAccount(editId.value, formData)           // 调用更新API
+      ElMessage.success('更新成功')                          // 成功提示
     } else {
       // 新增模式 → 调用 createAccount(data)
-      await createAccount(formData)
-      ElMessage.success('新增成功')
+      await createAccount(formData)                         // 调用创建API
+      ElMessage.success('新增成功')                          // 成功提示
     }
-    dialogVisible.value = false
+    dialogVisible.value = false                             // 关闭弹窗
     // 操作成功后刷新列表和余额
-    loadAccounts()
-    loadBalance()
+    loadAccounts()                                          // 刷新账户列表
+    loadBalance()                                           // 刷新余额汇总
   } finally {
-    submitting.value = false
+    submitting.value = false                                // 关闭提交loading
   }
 }
 
@@ -289,29 +289,31 @@ async function handleSubmit() {
  */
 async function handleDelete(row) {
   try {
-    await ElMessageBox.confirm('确定删除该账户吗？', '提示', { type: 'warning' })
-    deletingId.value = row.id
-    await deleteAccount(row.id)
-    ElMessage.success('删除成功')
-    loadAccounts()
-    loadBalance()
+    await ElMessageBox.confirm('确定删除该账户吗？', '提示', { type: 'warning' }) // 删除确认
+    deletingId.value = row.id                               // 标记正在删除的行
+    await deleteAccount(row.id)                              // 调用删除API
+    ElMessage.success('删除成功')                            // 成功提示
+    loadAccounts()                                          // 刷新账户列表
+    loadBalance()                                           // 刷新余额汇总
   } catch (e) {
     if (e === 'cancel') {
       // 用户取消删除，无需处理
     } else {
       // 其他错误（网络异常等）由 axios 拦截器统一处理，此处记录日志便于排查
-      console.error('删除账户失败:', e)
+      if (import.meta.env.DEV) console.error('删除账户失败:', e)                     // 记录错误日志
     }
   } finally {
-    deletingId.value = null
+    deletingId.value = null                                 // 重置删除标记
   }
 }
 
-// 页面挂载时加载账户列表和余额汇总 + 汇率（P2-4）
-onMounted(() => {
-  loadAccounts()
-  loadBalance()
-  loadExchangeRates()
+// 页面挂载时加载账户列表和余额汇总 + 汇率（P2-4 · async+Promise.all 并行加载，await保证异常可追踪）
+onMounted(async () => {
+  await Promise.all([                                        // 并行加载三项数据（互不依赖）
+    loadAccounts(),                                          // 加载账户列表
+    loadBalance(),                                           // 加载余额汇总
+    loadExchangeRates()                                      // 加载汇率数据
+  ])
 })
 </script>
 

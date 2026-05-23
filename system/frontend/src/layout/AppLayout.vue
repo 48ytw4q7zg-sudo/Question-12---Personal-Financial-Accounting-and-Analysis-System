@@ -66,6 +66,13 @@
 
       <!-- 内容区：渲染子路由对应的页面组件 -->
       <el-main class="app-main">
+        <!-- 面包屑导航：显示当前页面路径（对齐 PRD 页面路由规范） -->
+        <el-breadcrumb separator="/" class="app-breadcrumb">
+          <el-breadcrumb-item :to="{ path: '/' }">
+            <el-icon><HomeFilled /></el-icon> 首页
+          </el-breadcrumb-item>
+          <el-breadcrumb-item v-if="breadcrumbTitle">{{ breadcrumbTitle }}</el-breadcrumb-item>
+        </el-breadcrumb>
         <router-view />
       </el-main>
     </el-container>
@@ -73,29 +80,34 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
-import { useUserStore } from '../stores/user'
-import { ROLE_ADMIN, ROLE_LABELS } from '../constants/role'
-import SidebarMenu from '../components/SidebarMenu.vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'  // 导入Vue组合式API
+import { useRoute, useRouter } from 'vue-router'            // 导入路由组合式函数
+import { ElMessageBox } from 'element-plus'                 // 导入确认框组件
+import { useUserStore } from '../stores/user'                // 导入用户状态store
+import { ROLE_ADMIN, ROLE_LABELS } from '../constants/role' // 导入角色常量
+import SidebarMenu from '../components/SidebarMenu.vue'      // 导入侧栏菜单组件
 
-const route = useRoute()
-const router = useRouter()
+const route = useRoute()                                    // 当前路由信息
+const router = useRouter()                                  // 路由实例
 // → 调用 stores/user.js：读取用户名、清除用户信息
-const userStore = useUserStore()
+const userStore = useUserStore()                            // 用户状态store
 const isCollapsed = ref(false)        // 侧栏折叠状态
 const drawerVisible = ref(false)      // 移动端抽屉显隐
+// 面包屑标题（从路由 meta.title 读取，路由表中已定义各页面中文名，对齐 PRD §5 页面层级）
+const breadcrumbTitle = computed(() => {
+  const matched = route.matched.filter(r => r.meta && r.meta.title)
+  return matched.length > 1 ? matched[matched.length - 1].meta.title : null  // 仅显示当前页面名（首页除外）
+})
 
 // 当前激活菜单项 = 当前路由 path（自动高亮对应菜单）
-const activeMenu = computed(() => route.path)
+const activeMenu = computed(() => route.path)               // 当前路径作为激活菜单
 
 // 响应式：窗口宽度 < 768px 时为移动端模式 — 初始化时检测避免首次渲染闪烁
-const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 768)
+const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 768) // 初始检测是否移动端
 
 /** 切换侧栏折叠/展开状态 */
 function toggleSidebar() {
-  isCollapsed.value = !isCollapsed.value
+  isCollapsed.value = !isCollapsed.value                    // 切换折叠状态
 }
 
 /**
@@ -104,10 +116,10 @@ function toggleSidebar() {
  * → 调用 stores/user.js 的 clearUser()
  */
 function handleLogout() {
-  ElMessageBox.confirm('确定退出登录吗？', '提示', { type: 'warning' })
+  ElMessageBox.confirm('确定退出登录吗？', '提示', { type: 'warning' }) // 确认退出
     .then(() => {
       userStore.clearUser() // clearUser() 内部已清除 localStorage token
-      router.replace('/login')
+      router.replace('/login')                              // 跳转到登录页
     })
     .catch(() => { /* 用户取消退出，静默处理 */ })
 }
@@ -121,31 +133,39 @@ function handleLogout() {
  */
 let resizeTimer = null // 防抖计时器引用
 function handleResize() {
-  const w = window.innerWidth
-  isMobile.value = w < 768
+  const w = window.innerWidth                               // 获取窗口宽度
+  isMobile.value = w < 768                                  // 小于768为移动端
   if (w >= 768 && w < 992) {
-    isCollapsed.value = true
+    isCollapsed.value = true                                // 中等宽度自动折叠
   } else if (w >= 992) {
-    isCollapsed.value = false
+    isCollapsed.value = false                               // 大屏自动展开
   }
 }
 
+// 挂载标志：卸载后防抖回调不再执行，防止操作已销毁的响应式变量
+let isLayoutMounted = true                                   // 组件挂载状态标志
+
 // 防抖包装的 resize 处理函数（200ms 防抖，避免 resize 事件高频触发）
 function debouncedResize() {
-  if (resizeTimer) clearTimeout(resizeTimer)
-  resizeTimer = setTimeout(handleResize, 200)
+  if (resizeTimer) clearTimeout(resizeTimer)                // 清除上次计时
+  resizeTimer = setTimeout(() => {
+    if (!isLayoutMounted) return                            // 已卸载则跳过，防止操作已销毁的响应式变量
+    handleResize()                                          // 执行resize处理
+  }, 200)                                                   // 200ms后执行resize
 }
 
 // 组件挂载时初始化响应式状态 + 监听窗口 resize（使用防抖版本）
 onMounted(() => {
-  handleResize()
-  window.addEventListener('resize', debouncedResize)
+  isLayoutMounted = true                                    // 设置挂载标志
+  handleResize()                                            // 初始化响应式状态
+  window.addEventListener('resize', debouncedResize)        // 监听窗口resize
 })
 
-// 组件卸载时移除 resize 监听 + 清除防抖计时器，防止内存泄漏
+// 组件卸载时移除 resize 监听 + 清除防抖计时器 + 重置挂载标志，防止内存泄漏
 onUnmounted(() => {
-  window.removeEventListener('resize', debouncedResize)
-  if (resizeTimer) clearTimeout(resizeTimer)
+  isLayoutMounted = false                                   // 重置挂载标志（阻止进行中的防抖回调）
+  window.removeEventListener('resize', debouncedResize)     // 移除resize监听
+  if (resizeTimer) clearTimeout(resizeTimer)                // 清除防抖计时器
 })
 </script>
 
@@ -212,4 +232,5 @@ onUnmounted(() => {
 .mobile-drawer :deep(.el-drawer__body) {
   padding: 0;
 }
+.app-breadcrumb { margin-bottom: 16px; }
 </style>

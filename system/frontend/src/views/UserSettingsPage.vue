@@ -46,58 +46,58 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive } from 'vue'                         // 导入Vue组合式API
+import { useRouter } from 'vue-router'                      // 导入路由
+import { ElMessage, ElMessageBox } from 'element-plus'      // 导入消息提示和确认框
 // → 调用 api/user.js 的 changePassword()（修改密码接口）
-import { changePassword } from '../api/user'
+import { changePassword } from '../api/user'                 // 导入修改密码API
 // → 调用 stores/user.js 的 username（显示当前用户名）
-import { useUserStore } from '../stores/user'
+import { useUserStore } from '../stores/user'                // 导入用户store
 
-const router = useRouter()
+const router = useRouter()                                  // 路由实例
 
-const userStore = useUserStore()
+const userStore = useUserStore()                            // 用户状态store
 const submitting = ref(false)    // 提交 loading
 const formRef = ref(null)        // 表单引用
 
 // 修改密码表单数据
 const formData = reactive({
-  oldPassword: '',
-  newPassword: '',
-  confirmPassword: ''
+  oldPassword: '',                                          // 原密码
+  newPassword: '',                                          // 新密码
+  confirmPassword: ''                                       // 确认新密码
 })
 
 // 表单校验规则
 const formRules = {
-  oldPassword: [
-    { required: true, message: '请输入原密码', trigger: 'blur' }
+  oldPassword: [                                            // 原密码校验
+    { required: true, message: '请输入原密码', trigger: 'blur' } // 必填校验
   ],
-  newPassword: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度为 6-20 个字符', trigger: 'blur' },
+  newPassword: [                                            // 新密码校验
+    { required: true, message: '请输入新密码', trigger: 'blur' },  // 必填校验
+    { min: 6, max: 20, message: '密码长度为 6-20 个字符', trigger: 'blur' }, // 长度校验
     {
-      validator: (rule, value, callback) => {
-        if (value === formData.oldPassword) {
-          callback(new Error('新密码不能与原密码相同'))
+      validator: (rule, value, callback) => {               // 自定义校验器
+        if (value === formData.oldPassword) {               // 与原密码相同
+          callback(new Error('新密码不能与原密码相同'))      // 校验失败
         } else {
-          callback()
+          callback()                                        // 校验通过
         }
       },
-      trigger: 'blur'
+      trigger: 'blur'                                       // 失焦触发
     }
   ],
-  confirmPassword: [
-    { required: true, message: '请确认新密码', trigger: 'blur' },
+  confirmPassword: [                                        // 确认密码校验
+    { required: true, message: '请确认新密码', trigger: 'blur' },  // 必填校验
     {
       // 自定义校验器：确认密码必须与新密码一致
-      validator: (rule, value, callback) => {
-        if (value !== formData.newPassword) {
-          callback(new Error('两次输入的密码不一致'))
+      validator: (rule, value, callback) => {               // 自定义校验器
+        if (value !== formData.newPassword) {               // 与新密码不一致
+          callback(new Error('两次输入的密码不一致'))        // 校验失败
         } else {
-          callback()
+          callback()                                        // 校验通过
         }
       },
-      trigger: 'blur'
+      trigger: 'blur'                                       // 失焦触发
     }
   ]
 }
@@ -108,24 +108,28 @@ const formRules = {
  * 成功后清空表单
  */
 async function handleSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  const valid = await formRef.value.validate().catch(() => false) // 触发表单校验
+  if (!valid) return                                        // 校验不通过不提交
 
-  submitting.value = true
+  submitting.value = true                                   // 开启提交loading
   try {
-    await changePassword({
-      oldPassword: formData.oldPassword,
-      newPassword: formData.newPassword
+    await changePassword({                                  // 调用修改密码API
+      oldPassword: formData.oldPassword,                    // 原密码参数
+      newPassword: formData.newPassword                     // 新密码参数
     })
-    ElMessage.success('密码修改成功，请重新登录')
-    // 清空表单后强制重新登录（安全最佳实践）— clearUser() 已包含 removeItem('token')
-    formData.oldPassword = ''
-    formData.newPassword = ''
-    formData.confirmPassword = ''
-    userStore.clearUser()
-    router.push('/login')
+    ElMessage.success('密码修改成功，请重新登录')             // 成功提示
+    // 仅在成功后清空表单（修复：之前 finally 中清空导致失败时也清空表单的 bug）
+    formData.oldPassword = ''                                // 清空原密码
+    formData.newPassword = ''                                // 清空新密码
+    formData.confirmPassword = ''                            // 清空确认密码
+    userStore.clearUser()                                    // 清除用户状态
+    router.push('/login')                                    // 跳转到登录页
+  } catch (e) {
+    // axios 拦截器已统一处理业务错误消息（如旧密码错误、新旧密码相同等）
+    // 此处仅记录非业务异常（网络错误等）
+    if (import.meta.env.DEV) console.warn('修改密码失败:', e) // 开发环境记录日志
   } finally {
-    submitting.value = false
+    submitting.value = false                                 // 关闭提交loading
   }
 }
 </script>

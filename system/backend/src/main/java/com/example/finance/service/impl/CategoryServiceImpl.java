@@ -31,7 +31,6 @@ public class CategoryServiceImpl implements CategoryService {
    * @return 分类列表（按 id 升序，含 id/name/type）
    */
   @Override
-  @Transactional(readOnly = true)
   public List<CategoryDTO> list() {
     List<Category> categories = categoryMapper.selectList(
         new LambdaQueryWrapper<Category>().orderByAsc(Category::getId)

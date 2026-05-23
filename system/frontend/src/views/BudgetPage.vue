@@ -106,40 +106,40 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive, onMounted, computed } from 'vue'    // 导入Vue组合式API
+import { ElMessage, ElMessageBox } from 'element-plus'      // 导入消息和确认框
 // → 调用 api/budget.js 的 getBudgetProgress()、getBudgetAlert()、saveBudget()、deleteBudget()
-import { getBudgetProgress, getBudgetAlert, saveBudget, deleteBudget } from '../api/budget'
-import { formatAmount } from '../utils/format'
-import { getCategoryList } from '../api/category'
-import { ALERT_LEVEL_OVERSPENT, ALERT_LEVEL_MONTHLY_WARN, ALERT_LEVEL_DAILY_WARN, CATEGORY_TYPE_EXPENSE } from '../constants/finance'
+import { getBudgetProgress, getBudgetAlert, saveBudget, deleteBudget } from '../api/budget' // 导入预算API
+import { formatAmount } from '../utils/format'               // 导入金额格式化
+import { getCategoryList } from '../api/category'             // 导入分类列表API
+import { ALERT_LEVEL_OVERSPENT, ALERT_LEVEL_MONTHLY_WARN, ALERT_LEVEL_DAILY_WARN, CATEGORY_TYPE_EXPENSE } from '../constants/finance' // 导入常量
 
-const loading = ref(false)
-const submitting = ref(false)
-const deletingId = ref(null)
-const dialogVisible = ref(false)
-const isEdit = ref(false)
-const formRef = ref(null)
+const loading = ref(false)                                  // 页面loading
+const submitting = ref(false)                               // 提交loading
+const deletingId = ref(null)                                // 正在删除的预算ID
+const dialogVisible = ref(false)                            // 弹窗显隐
+const isEdit = ref(false)                                   // 是否编辑模式
+const formRef = ref(null)                                   // 表单引用
 
-// 当前选中月份（默认当前月，格式 "YYYY-MM" · 使用本地时间而非 UTC）
-const now = new Date()
-const selectedMonth = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+// 当前选中月份（默认当前月，格式 "YYYY-MM" · 使用本地时间而非非 UTC）
+const now = new Date()                                      // 获取当前时间
+const selectedMonth = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`) // 默认当前月
 const budgetProgress = ref([])       // 预算进度列表
 const cssVarsCache = ref(null)      // CSS 变量缓存（避免每行 getComputedStyle）
 const expenseCategories = ref([])    // 支出分类列表（下拉选项）
 
 // 新增/编辑表单数据
 const formData = reactive({
-  categoryId: null,
-  amount: null
+  categoryId: null,                                         // 分类ID
+  amount: null                                              // 预算金额
 })
 
 // 表单校验规则
 const formRules = {
-  categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }],
-  amount: [
-    { required: true, message: '请输入预算金额', trigger: 'blur' },
-    { type: 'number', min: 0.01, message: '预算金额必须大于0', trigger: 'blur' }
+  categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }], // 分类必选
+  amount: [                                                 // 金额校验
+    { required: true, message: '请输入预算金额', trigger: 'blur' },  // 必填
+    { type: 'number', min: 0.01, message: '预算金额必须大于0', trigger: 'blur' } // 最小值
   ]
 }
 
@@ -148,8 +148,8 @@ const formRules = {
  * @returns {Number} 0-100 的整数
  */
 function getProgress(row) {
-  if (!row.budgetAmount || row.budgetAmount <= 0) return 0
-  const pct = Math.round((row.spentAmount / row.budgetAmount) * 100)
+  if (!row.budgetAmount || row.budgetAmount <= 0) return 0  // 无预算返回0
+  const pct = Math.round((row.spentAmount / row.budgetAmount) * 100) // 计算百分比
   return pct  // 允许超过100%显示超支程度，el-progress会自动渲染
 }
 
@@ -160,20 +160,20 @@ function getProgress(row) {
  *   <80%   → 绿色（正常）
  */
 function getProgressColor(row) {
-  const pct = getProgress(row)
+  const pct = getProgress(row)                              // 获取进度百分比
   // 缓存 CSS 变量值（避免每行渲染都调用 getComputedStyle 强制样式重算）
-  if (!cssVarsCache.value) {
-    const rootStyles = getComputedStyle(document.documentElement)
-    cssVarsCache.value = {
-      expense: rootStyles.getPropertyValue('--color-expense').trim(),
-      warning: rootStyles.getPropertyValue('--color-warning').trim(),
-      income: rootStyles.getPropertyValue('--color-income').trim()
+  if (!cssVarsCache.value) {                                // 首次获取CSS变量
+    const rootStyles = getComputedStyle(document.documentElement) // 获取根元素样式
+    cssVarsCache.value = {                                  // 缓存颜色变量
+      expense: rootStyles.getPropertyValue('--color-expense').trim(), // 红色
+      warning: rootStyles.getPropertyValue('--color-warning').trim(), // 橙色
+      income: rootStyles.getPropertyValue('--color-income').trim()    // 绿色
     }
   }
-  const colors = cssVarsCache.value
-  if (pct >= 100) return colors.expense
-  if (pct >= 80) return colors.warning
-  return colors.income
+  const colors = cssVarsCache.value                         // 使用缓存的颜色
+  if (pct >= 100) return colors.expense                     // 超支红色
+  if (pct >= 80) return colors.warning                      // 接近超支橙色
+  return colors.income                                      // 正常绿色
 }
 
 /**
@@ -183,30 +183,30 @@ function getProgressColor(row) {
  * 合并逻辑：按 categoryId 匹配，将 alertLevel 注入到进度行中
  */
 async function loadData() {
-  loading.value = true
+  loading.value = true                                      // 开启loading
   try {
-    const [year, month] = selectedMonth.value.split('-')
-    const params = { year: Number(year), month: Number(month) }
+    const [year, month] = selectedMonth.value.split('-')    // 解析年月
+    const params = { year: Number(year), month: Number(month) } // 构建请求参数
 
     // 并行加载进度和预警数据
-    const [progress, alerts] = await Promise.all([
-      getBudgetProgress(params),
-      getBudgetAlert(params)
+    const [progress, alerts] = await Promise.all([          // 并行请求
+      getBudgetProgress(params),                            // 获取进度数据
+      getBudgetAlert(params)                                // 获取预警数据
     ])
 
     // 构建 categoryId → alertLevel 映射
-    const alertMap = {}
+    const alertMap = {}                                     // 预警映射对象
     if (alerts) {
-      alerts.forEach(a => { alertMap[a.categoryId] = a.alertLevel })
+      alerts.forEach(a => { alertMap[a.categoryId] = a.alertLevel }) // 遍历构建映射
     }
 
     // 将 alertLevel 注入到进度数据中
-    budgetProgress.value = (progress || []).map(item => ({
-      ...item,
-      alertLevel: alertMap[item.categoryId] || null
+    budgetProgress.value = (progress || []).map(item => ({  // 合并进度和预警
+      ...item,                                              // 保留原字段
+      alertLevel: alertMap[item.categoryId] || null         // 注入预警级别
     }))
   } finally {
-    loading.value = false
+    loading.value = false                                   // 关闭loading
   }
 }
 
@@ -216,11 +216,11 @@ async function loadData() {
  */
 async function loadCategories() {
   try {
-    const data = await getCategoryList()
-    expenseCategories.value = (data || []).filter(item => item.type === CATEGORY_TYPE_EXPENSE)
+    const data = await getCategoryList()                     // 调用分类列表API
+    expenseCategories.value = (data || []).filter(item => item.type === CATEGORY_TYPE_EXPENSE) // 筛选支出分类
   } catch (e) {
-    if (import.meta.env.DEV) console.warn('加载分类列表失败:', e)
-    ElMessage.warning('分类选项加载失败，请刷新重试')
+    if (import.meta.env.DEV) console.warn('加载分类列表失败:', e) // 开发环境日志
+    ElMessage.warning('分类选项加载失败，请刷新重试')          // 降级提示
     // axios 拦截器已统一处理业务错误消息
   }
 }
@@ -230,15 +230,15 @@ async function loadCategories() {
  * @param {Object|null} row - 传入行数据为编辑模式，不传为新增
  */
 function openDialog(row) {
-  isEdit.value = !!row
+  isEdit.value = !!row                                      // 判断是否编辑模式
   if (row) {
-    formData.categoryId = row.categoryId
-    formData.amount = Number(row.budgetAmount || 0)
+    formData.categoryId = row.categoryId                    // 回填分类ID
+    formData.amount = Number(row.budgetAmount || 0)         // 回填预算金额
   } else {
-    formData.categoryId = null
-    formData.amount = null
+    formData.categoryId = null                              // 新增时清空分类
+    formData.amount = null                                  // 新增时清空金额
   }
-  dialogVisible.value = true
+  dialogVisible.value = true                                // 显示弹窗
 }
 
 /**
@@ -246,21 +246,21 @@ function openDialog(row) {
  * → 调用 api/budget.js 的 saveBudget({ categoryId, amount, month })
  */
 async function handleSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  const valid = await formRef.value.validate().catch(() => false) // 触发校验
+  if (!valid) return                                        // 校验不通过不提交
 
-  submitting.value = true
+  submitting.value = true                                   // 开启提交loading
   try {
-    await saveBudget({
-      categoryId: formData.categoryId,
-      amount: formData.amount,
+    await saveBudget({                                      // 调用保存预算API
+      categoryId: formData.categoryId,                      // 分类ID参数
+      amount: formData.amount,                              // 预算金额参数
       month: selectedMonth.value  // "YYYY-MM" 格式，对齐后端 BudgetRequest @Pattern 校验
     })
-    ElMessage.success(isEdit.value ? '更新成功' : '设置成功')
-    dialogVisible.value = false
-    loadData()
+    ElMessage.success(isEdit.value ? '更新成功' : '设置成功') // 成功提示
+    dialogVisible.value = false                             // 关闭弹窗
+    await loadData()                                        // 刷新进度数据（await 确保异常可追踪）
   } finally {
-    submitting.value = false
+    submitting.value = false                                // 关闭提交loading
   }
 }
 
@@ -270,29 +270,31 @@ async function handleSubmit() {
  */
 async function handleDeleteBudget(row) {
   try {
-    await ElMessageBox.confirm(`确定删除「${row.categoryName}」的预算吗？`, '确认删除', {
-      type: 'warning'
+    await ElMessageBox.confirm(`确定删除「${row.categoryName}」的预算吗？`, '确认删除', { // 删除确认
+      type: 'warning'                                       // 警告类型
     })
-    deletingId.value = row.id
-    await deleteBudget(row.id)
-    ElMessage.success('预算已删除')
-    loadData()
+    deletingId.value = row.id                               // 标记正在删除的行
+    await deleteBudget(row.id)                              // 调用删除API
+    ElMessage.success('预算已删除')                          // 成功提示
+    await loadData()                                        // 刷新进度数据（await 确保异常可追踪）
   } catch (e) {
     if (e === 'cancel') {
       // 用户取消，无需处理
     } else {
       // 其他错误由 axios 拦截器统一处理，此处记录日志便于排查
-      console.error('删除预算失败:', e)
+      if (import.meta.env.DEV) console.error('删除预算失败:', e)                     // 记录错误日志
     }
   } finally {
-    deletingId.value = null
+    deletingId.value = null                                 // 重置删除标记
   }
 }
 
-// 页面挂载时加载分类选项和预算进度
-onMounted(() => {
-  loadCategories()
-  loadData()
+// 页面挂载时加载分类选项和预算进度（async+Promise.all 并行加载，await保证异常可追踪）
+onMounted(async () => {
+  await Promise.all([                                        // 并行加载分类选项+预算进度
+    loadCategories(),                                        // 加载分类选项
+    loadData()                                               // 加载预算进度
+  ])
 })
 </script>
 

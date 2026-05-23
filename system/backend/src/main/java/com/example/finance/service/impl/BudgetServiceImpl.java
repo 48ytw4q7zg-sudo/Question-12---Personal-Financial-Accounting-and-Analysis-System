@@ -80,35 +80,35 @@ public class BudgetServiceImpl implements BudgetService {
   @Override
   @Transactional(readOnly = true)
   public List<BudgetDTO> list(Long userId, String year, String month) {
-    String monthStr = EntityValidator.defaultAndFormatYearMonth(year, month);
+    String monthStr = EntityValidator.defaultAndFormatYearMonth(year, month);  // 格式化年月(空值默认当前)
     // 使用 EntityValidator 安全解析方法替代脆弱的 substring+indexOf
-    year = String.valueOf(EntityValidator.extractYear(monthStr));
-    month = String.valueOf(EntityValidator.extractMonth(monthStr));
+    year = String.valueOf(EntityValidator.extractYear(monthStr));  // 从格式化字符串提取年份
+    month = String.valueOf(EntityValidator.extractMonth(monthStr));  // 从格式化字符串提取月份
 
-    List<Budget> budgets = budgetMapper.selectList(
+    List<Budget> budgets = budgetMapper.selectList(  // 查询用户该月预算列表
         new LambdaQueryWrapper<Budget>()
-            .eq(Budget::getUserId, userId)
-            .eq(Budget::getMonth, monthStr)
+            .eq(Budget::getUserId, userId)  // 筛选当前用户
+            .eq(Budget::getMonth, monthStr)  // 筛选指定月份
     );
 
     // 批量加载分类名称，避免 N+1 查询
-    Set<Long> categoryIds = budgets.stream().map(Budget::getCategoryId).filter(Objects::nonNull).collect(Collectors.toSet());
-    Map<Long, String> categoryNameMap = categoryIds.isEmpty()
-        ? Map.of()
-        : categoryMapper.selectByIds(categoryIds).stream()
-            .collect(Collectors.toMap(Category::getId, Category::getName));
+    Set<Long> categoryIds = budgets.stream().map(Budget::getCategoryId).filter(Objects::nonNull).collect(Collectors.toSet());  // 收集分类ID集合
+    Map<Long, String> categoryNameMap = categoryIds.isEmpty()  // 批量查询分类名称
+        ? Map.of()  // 无分类ID则返回空Map
+        : categoryMapper.selectByIds(categoryIds).stream()  // 一次性查询所有分类
+            .collect(Collectors.toMap(Category::getId, Category::getName));  // 分类ID→名称映射
 
-    return budgets.stream().map(b -> {
-      BudgetDTO dto = new BudgetDTO();
-      dto.setId(b.getId());
-      dto.setCategoryId(b.getCategoryId());
-      dto.setMonth(b.getMonth());
-      dto.setAmount(b.getAmount());
-      dto.setCreateTime(b.getCreateTime());
-      dto.setUpdateTime(b.getUpdateTime());
-      dto.setCategoryName(categoryNameMap.getOrDefault(b.getCategoryId(), ""));
-      return dto;
-    }).toList();
+    return budgets.stream().map(b -> {  // 遍历预算列表转DTO
+      BudgetDTO dto = new BudgetDTO();  // 创建DTO对象
+      dto.setId(b.getId());  // 设置预算ID
+      dto.setCategoryId(b.getCategoryId());  // 设置分类ID
+      dto.setMonth(b.getMonth());  // 设置月份
+      dto.setAmount(b.getAmount());  // 设置预算金额
+      dto.setCreateTime(b.getCreateTime());  // 设置创建时间
+      dto.setUpdateTime(b.getUpdateTime());  // 设置更新时间
+      dto.setCategoryName(categoryNameMap.getOrDefault(b.getCategoryId(), ""));  // 设置分类名称(空则默认空字符串)
+      return dto;  // 返回DTO
+    }).toList();  // 转为不可变列表
   }
 
   /**
@@ -129,95 +129,66 @@ public class BudgetServiceImpl implements BudgetService {
   @Transactional
   public BudgetDTO save(Long userId, BudgetRequest request) {
     // 校验分类存在
-    Category category = categoryMapper.selectById(request.getCategoryId());
-    if (category == null) {
-      throw new BusinessException(ErrorCode.CATEGORY_NOT_FOUND_FOR_BUDGET.getCode(), ErrorCode.CATEGORY_NOT_FOUND_FOR_BUDGET.getMsg());
+    Category category = categoryMapper.selectById(request.getCategoryId());  // 根据ID查询分类
+    if (category == null) {  // 分类不存在
+      throw new BusinessException(ErrorCode.CATEGORY_NOT_FOUND_FOR_BUDGET.getCode(), ErrorCode.CATEGORY_NOT_FOUND_FOR_BUDGET.getMsg());  // 抛出业务异常
     }
-    // 预算仅针对支出分类（category.type=1 为支出）
-    if (category.getType() != CategoryType.EXPENSE.getValue()) {
-      throw new BusinessException(ErrorCode.BUDGET_EXPENSE_ONLY.getCode(), ErrorCode.BUDGET_EXPENSE_ONLY.getMsg());
+    // 预算仅针对支出分类（category.type=1 为支出）· Objects.equals 避免 Integer 自动拆箱 NPE
+    if (!Objects.equals(category.getType(), CategoryType.EXPENSE.getValue())) {  // 非支出分类
+      throw new BusinessException(ErrorCode.BUDGET_EXPENSE_ONLY.getCode(), ErrorCode.BUDGET_EXPENSE_ONLY.getMsg());  // 抛出业务异常
     }
 
     // R-05-issue-6: 已修复 - 捕获DuplicateKeyException并发兜底
+    // 两层并发处理策略：第一层先查询→不存在则insert；并发时唯一索引拦截→捕获DuplicateKeyException→
+    // 重新查询已存在记录并update。极端场景（记录被并发删除）直接抛异常让用户重试。
     // 查询是否已存在该月该分类的预算
-    Budget existing = budgetMapper.selectOne(
+    Budget existing = budgetMapper.selectOne(  // 查询同用户同分类同月的预算
         new LambdaQueryWrapper<Budget>()
-            .eq(Budget::getUserId, userId)
-            .eq(Budget::getCategoryId, request.getCategoryId())
-            .eq(Budget::getMonth, request.getMonth())
+            .eq(Budget::getUserId, userId)  // 筛选当前用户
+            .eq(Budget::getCategoryId, request.getCategoryId())  // 筛选分类
+            .eq(Budget::getMonth, request.getMonth())  // 筛选月份
     );
 
-    Budget budget;
-    if (existing != null) {
+    Budget budget;  // 最终预算实体
+    if (existing != null) {  // 预算已存在
       // 更新
-      budget = existing;
-      budget.setAmount(request.getAmount());
-      budget.setUpdateTime(LocalDateTime.now());
-      budgetMapper.updateById(budget);
-    } else {
+      budget = existing;  // 复用已有实体
+      budget.setAmount(request.getAmount());  // 更新金额
+      budget.setUpdateTime(LocalDateTime.now());  // 更新修改时间
+      budgetMapper.updateById(budget);  // 写入数据库
+    } else {  // 预算不存在，新增
       // 新增
-      budget = new Budget();
-      budget.setUserId(userId);
-      budget.setCategoryId(request.getCategoryId());
-      budget.setMonth(request.getMonth());
-      budget.setAmount(request.getAmount());
-      budget.setCreateTime(LocalDateTime.now());
-      budget.setUpdateTime(LocalDateTime.now());
+      budget = buildBudgetEntity(userId, request);  // 创建预算实体（提取公共方法）
       try {
-        budgetMapper.insert(budget);
-      } catch (DuplicateKeyException e) {
+        budgetMapper.insert(budget);  // 插入数据库
+      } catch (DuplicateKeyException e) {  // 并发插入冲突
         // 并发插入冲突: 唯一索引拦截，重新查询已存在记录并更新
-        log.warn("预算并发插入冲突，回退更新: userId={}, categoryId={}, month={}", userId, request.getCategoryId(), request.getMonth());
-        budget = budgetMapper.selectOne(
+        log.warn("预算并发插入冲突，回退更新: userId={}, categoryId={}, month={}", userId, request.getCategoryId(), request.getMonth());  // 记录并发冲突日志
+        budget = budgetMapper.selectOne(  // 重新查询已存在记录
             new LambdaQueryWrapper<Budget>()
-                .eq(Budget::getUserId, userId)
-                .eq(Budget::getCategoryId, request.getCategoryId())
-                .eq(Budget::getMonth, request.getMonth())
+                .eq(Budget::getUserId, userId)  // 筛选用户
+                .eq(Budget::getCategoryId, request.getCategoryId())  // 筛选分类
+                .eq(Budget::getMonth, request.getMonth())  // 筛选月份
         );
-        // null 保护：极端场景（记录被并发删除）重新插入（最多重试1次）
-        if (budget == null) {
-          budget = new Budget();
-          budget.setUserId(userId);
-          budget.setCategoryId(request.getCategoryId());
-          budget.setMonth(request.getMonth());
-          budget.setCreateTime(LocalDateTime.now());
-          budget.setUpdateTime(LocalDateTime.now());
-          budget.setAmount(request.getAmount());
-          try {
-            budgetMapper.insert(budget);
-          } catch (DuplicateKeyException ex2) {
-            // 二次并发冲突：再次查询并更新
-            log.warn("预算二次并发插入冲突，再次回退更新: userId={}, categoryId={}, month={}", userId, request.getCategoryId(), request.getMonth());
-            budget = budgetMapper.selectOne(
-                new LambdaQueryWrapper<Budget>()
-                    .eq(Budget::getUserId, userId)
-                    .eq(Budget::getCategoryId, request.getCategoryId())
-                    .eq(Budget::getMonth, request.getMonth())
-            );
-            if (budget == null) {
-              throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "预算保存失败，请重试");
-            }
-            budget.setAmount(request.getAmount());
-            budget.setUpdateTime(LocalDateTime.now());
-            budgetMapper.updateById(budget);
-          }
-        } else {
-          budget.setAmount(request.getAmount());
-          budget.setUpdateTime(LocalDateTime.now());
-          budgetMapper.updateById(budget);
+        if (budget == null) {  // 极端场景：记录被并发删除，直接抛异常让用户重试
+          throw new BusinessException(ErrorCode.BUDGET_SAVE_CONFLICT.getCode(), ErrorCode.BUDGET_SAVE_CONFLICT.getMsg());  // 并发冲突抛异常
         }
+        // 查到了已存在记录，更新金额
+        budget.setAmount(request.getAmount());  // 更新金额
+        budget.setUpdateTime(LocalDateTime.now());  // 更新修改时间
+        budgetMapper.updateById(budget);  // 写入数据库
       }
     }
 
-    BudgetDTO dto = new BudgetDTO();
-    dto.setId(budget.getId());
-    dto.setCategoryId(budget.getCategoryId());
-    dto.setCategoryName(category.getName());
-    dto.setMonth(budget.getMonth());
-    dto.setAmount(budget.getAmount());
-    dto.setCreateTime(budget.getCreateTime());
-    dto.setUpdateTime(budget.getUpdateTime());
-    return dto;
+    BudgetDTO dto = new BudgetDTO();  // 创建返回DTO
+    dto.setId(budget.getId());  // 设置预算ID
+    dto.setCategoryId(budget.getCategoryId());  // 设置分类ID
+    dto.setCategoryName(category.getName());  // 设置分类名称(复用已加载的category)
+    dto.setMonth(budget.getMonth());  // 设置月份
+    dto.setAmount(budget.getAmount());  // 设置金额
+    dto.setCreateTime(budget.getCreateTime());  // 设置创建时间
+    dto.setUpdateTime(budget.getUpdateTime());  // 设置更新时间
+    return dto;  // 返回DTO
   }
 
   /**
@@ -232,12 +203,13 @@ public class BudgetServiceImpl implements BudgetService {
    */
   @Override
   @Transactional
-  public void delete(Long userId, Long budgetId) {
-    Budget budget = budgetMapper.selectById(budgetId);
-    if (budget == null || !budget.getUserId().equals(userId)) {
-      throw new BusinessException(ErrorCode.BUDGET_NOT_FOUND.getCode(), ErrorCode.BUDGET_NOT_FOUND.getMsg());
+  public void delete(Long userId, Long budgetId) {  // 删除预算
+    Budget budget = budgetMapper.selectById(budgetId);  // 根据ID查询预算
+    // 校验：预算存在 + 归属当前用户（Integer用Objects.equals比较值，避免引用比较bug和null userId NPE）
+    if (budget == null || !Objects.equals(budget.getUserId(), userId)) {
+      throw new BusinessException(ErrorCode.BUDGET_NOT_FOUND.getCode(), ErrorCode.BUDGET_NOT_FOUND.getMsg());  // 抛出业务异常
     }
-    budgetMapper.deleteById(budgetId);
+    budgetMapper.deleteById(budgetId);  // 物理删除预算
   }
 
   /**
@@ -257,61 +229,80 @@ public class BudgetServiceImpl implements BudgetService {
   @Transactional(readOnly = true)
   public List<BudgetProgressDTO> getProgress(Long userId, String year, String month) {
     // 统一通过 EntityValidator null-defaulting + 格式验证
-    String monthStr = EntityValidator.defaultAndFormatYearMonth(year, month);
+    String monthStr = EntityValidator.defaultAndFormatYearMonth(year, month);  // 格式化年月(空值默认当前)
     // 使用 EntityValidator 安全解析方法替代脆弱的 substring+indexOf
-    int yearInt = EntityValidator.extractYear(monthStr);
-    int monthInt = EntityValidator.extractMonth(monthStr);
+    int yearInt = EntityValidator.extractYear(monthStr);  // 提取年份整数
+    int monthInt = EntityValidator.extractMonth(monthStr);  // 提取月份整数
 
     // 直接查询Budget实体（避免调用list()产生的冗余category批量查询）
-    List<Budget> budgets = budgetMapper.selectList(
+    List<Budget> budgets = budgetMapper.selectList(  // 查询用户该月预算列表
         new LambdaQueryWrapper<Budget>()
-            .eq(Budget::getUserId, userId)
-            .eq(Budget::getMonth, monthStr)
+            .eq(Budget::getUserId, userId)  // 筛选当前用户
+            .eq(Budget::getMonth, monthStr)  // 筛选指定月份
     );
 
     // 批量加载分类名称（仅一次DB查询）
-    Set<Long> categoryIds = budgets.stream().map(Budget::getCategoryId).filter(Objects::nonNull).collect(Collectors.toSet());
-    Map<Long, String> categoryNameMap = categoryIds.isEmpty()
-        ? Map.of()
-        : categoryMapper.selectByIds(categoryIds).stream()
-            .collect(Collectors.toMap(Category::getId, Category::getName));
+    Set<Long> categoryIds = budgets.stream().map(Budget::getCategoryId).filter(Objects::nonNull).collect(Collectors.toSet());  // 收集分类ID集合
+    Map<Long, String> categoryNameMap = categoryIds.isEmpty()  // 批量查询分类名称
+        ? Map.of()  // 无分类ID则返回空Map
+        : categoryMapper.selectByIds(categoryIds).stream()  // 一次性查询所有分类
+            .collect(Collectors.toMap(Category::getId, Category::getName));  // 分类ID→名称映射
 
-    // R-05-issue-2: 已修复 - selectCategorySummary提到循环外消除N+1查询 · 范围查询利用 idx_user_date 索引
-    String startOfMonth = String.format("%04d-%02d-01 00:00:00", yearInt, monthInt);
-    String startOfNextMonth = (monthInt == 12)
-        ? String.format("%04d-01-01 00:00:00", yearInt + 1)
-        : String.format("%04d-%02d-01 00:00:00", yearInt, monthInt + 1);
-    List<CategorySummaryDTO> summaryList = transactionMapper.selectCategorySummary(userId, startOfMonth, startOfNextMonth, TransactionType.EXPENSE.getValue());
-    Map<Long, BigDecimal> spentMap = summaryList.stream()
+    // R-05-issue-2: 已修复 - selectCategorySummary提到循环外消除N+1查询 · 范围查询利用 idx_transaction_user_time 索引
+    // 复用 EntityValidator.buildMonthRange() 消除重复代码
+    String[] monthRange = EntityValidator.buildMonthRange(yearInt, monthInt);  // 构建月份范围时间字符串（复用EntityValidator公共方法）
+    List<CategorySummaryDTO> summaryList = transactionMapper.selectCategorySummary(userId, monthRange[0], monthRange[1], TransactionType.EXPENSE.getValue());  // 批量查询各分类支出汇总
+    Map<Long, BigDecimal> spentMap = summaryList.stream()  // 分类支出汇总转Map
         .collect(Collectors.toMap(
-            CategorySummaryDTO::getCategoryId,
-            CategorySummaryDTO::getTotalAmount,
-            (a, b) -> a
+            CategorySummaryDTO::getCategoryId,  // 分类ID作key
+            CategorySummaryDTO::getTotalAmount,  // 总支出作value
+            (a, b) -> a  // 重复key取第一个
         ));
 
-    List<BudgetProgressDTO> result = new ArrayList<>();
-    for (Budget budget : budgets) {
-      BudgetProgressDTO dto = new BudgetProgressDTO();
-      dto.setCategoryId(budget.getCategoryId());
-      dto.setCategoryName(categoryNameMap.getOrDefault(budget.getCategoryId(), ""));
-      dto.setBudgetAmount(budget.getAmount());
+    List<BudgetProgressDTO> result = new ArrayList<>();  // 预算进度结果列表
+    for (Budget budget : budgets) {  // 遍历每条预算
+      BudgetProgressDTO dto = new BudgetProgressDTO();  // 创建进度DTO
+      dto.setCategoryId(budget.getCategoryId());  // 设置分类ID
+      dto.setCategoryName(categoryNameMap.getOrDefault(budget.getCategoryId(), ""));  // 设置分类名称
+      dto.setBudgetAmount(budget.getAmount());  // 设置预算金额
 
-      BigDecimal spent = spentMap.getOrDefault(budget.getCategoryId(), BigDecimal.ZERO);
-      dto.setSpentAmount(spent);
+      BigDecimal spent = spentMap.getOrDefault(budget.getCategoryId(), BigDecimal.ZERO);  // 获取该分类实际支出(默认0)
+      dto.setSpentAmount(spent);  // 设置已用金额
 
-      // 计算百分比
-      if (budget.getAmount().compareTo(BigDecimal.ZERO) > 0) {
-        dto.setPercentage(spent.divide(budget.getAmount(), 4, RoundingMode.HALF_UP).multiply(PERCENTAGE_FACTOR));
-      } else {
-        dto.setPercentage(BigDecimal.ZERO);
+      // 计算百分比 · setScale(2) 限制小数位数避免无限小数
+      if (budget.getAmount().compareTo(BigDecimal.ZERO) > 0) {  // 预算金额大于0
+        // 提取中间变量提升可读性，便于调试时查看每步计算结果
+        BigDecimal ratio = spent.divide(budget.getAmount(), 4, RoundingMode.HALF_UP);  // 已用/预算比例（保留4位防精度丢失）
+        BigDecimal percentage = ratio.multiply(PERCENTAGE_FACTOR).setScale(2, RoundingMode.HALF_UP);  // 比例×100=百分比
+        dto.setPercentage(percentage);  // 设置百分比
+      } else {  // 预算金额为0
+        dto.setPercentage(BigDecimal.ZERO);  // 百分比设为0
       }
 
       // 是否超支
-      dto.setOverspent(spent.compareTo(budget.getAmount()) > 0);
+      dto.setOverspent(spent.compareTo(budget.getAmount()) > 0);  // 已用>预算则超支
 
-      result.add(dto);
+      result.add(dto);  // 加入结果列表
     }
-    return result;
+    return result;  // 返回所有预算进度
+  }
+
+  /**
+   * 构建预算实体（提取公共方法，消除save()中重复创建逻辑）
+   *
+   * @param userId  当前用户ID
+   * @param request 预算请求参数
+   * @return 新建的预算实体（未插入数据库）
+   */
+  private Budget buildBudgetEntity(Long userId, BudgetRequest request) {  // 构建预算实体
+    Budget budget = new Budget();  // 创建预算实体
+    budget.setUserId(userId);  // 设置用户ID
+    budget.setCategoryId(request.getCategoryId());  // 设置分类ID
+    budget.setMonth(request.getMonth());  // 设置月份
+    budget.setAmount(request.getAmount());  // 设置金额
+    budget.setCreateTime(LocalDateTime.now());  // 设置创建时间
+    budget.setUpdateTime(LocalDateTime.now());  // 设置更新时间
+    return budget;  // 返回预算实体
   }
 
   /**
@@ -327,11 +318,10 @@ public class BudgetServiceImpl implements BudgetService {
    * @return 超支的分类预算列表(空集合表示无预警)
    */
   @Override
-  @Transactional(readOnly = true)
-  public List<BudgetProgressDTO> getAlert(Long userId, String year, String month) {
-    List<BudgetProgressDTO> all = getProgress(userId, year, month);
-    return all.stream()
-        .filter(BudgetProgressDTO::isOverspent)
-        .toList();
+  public List<BudgetProgressDTO> getAlert(Long userId, String year, String month) {  // 获取超支预警（无需@Transactional：getProgress()已内部事务管理，本方法仅做内存过滤）
+    List<BudgetProgressDTO> all = getProgress(userId, year, month);  // 获取全部预算进度（内部已含@Transactional(readOnly=true)）
+    return all.stream()  // 过滤超支项
+        .filter(BudgetProgressDTO::isOverspent)  // 仅保留超支项
+        .toList();  // 转为不可变列表
   }
 }

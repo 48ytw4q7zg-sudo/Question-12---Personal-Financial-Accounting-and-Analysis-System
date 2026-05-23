@@ -34,13 +34,13 @@ public class WebMvcConfig implements WebMvcConfigurer {
    * </ul>
    */
   @Override
-  public void addInterceptors(InterceptorRegistry registry) {
-    registry.addInterceptor(loginInterceptor)
-        .addPathPatterns("/api/**")
-        .excludePathPatterns(
-            "/api/user/login",
-            "/api/user/register",
-            "/api/health"
+  public void addInterceptors(InterceptorRegistry registry) {  // 注册拦截器
+    registry.addInterceptor(loginInterceptor)  // 添加登录拦截器
+        .addPathPatterns("/api/**")  // 拦截所有/api路径
+        .excludePathPatterns(  // 白名单路径免鉴权
+            "/api/user/login",  // 登录接口
+            "/api/user/register",  // 注册接口
+            "/api/health"  // 健康检查接口
         );
   }
 }

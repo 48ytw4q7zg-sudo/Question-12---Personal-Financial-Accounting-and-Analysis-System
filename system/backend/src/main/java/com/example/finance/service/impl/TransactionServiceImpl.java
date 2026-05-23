@@ -18,6 +18,7 @@ import com.example.finance.entity.dto.TransactionRequest;
 import com.example.finance.entity.dto.TransferDTO;
 import com.example.finance.entity.dto.TransferRequest;
 import com.example.finance.mapper.AccountMapper;
+import java.util.Objects;
 import com.example.finance.mapper.CategoryMapper;
 import com.example.finance.mapper.TransactionMapper;
 import com.example.finance.service.TransactionService;
@@ -66,10 +67,21 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
 
-  /** sortBy 参数白名单：只允许 time/amount_asc/amount_desc，防止非法排序注入 */
+  /** sortBy 参数白名单：只允许 time/amount_asc/amount_desc（与前端筛选下拉选项对齐），防止非法排序注入 */
   private static final Set<String> ALLOWED_SORT_BY = Set.of("time", "amount_asc", "amount_desc");
   /** 转账默认分类名称（"其他"，运行时查询 category 表获取 ID，不依赖种子数据顺序） */
   private static final String TRANSFER_CATEGORY_NAME = "其他";
+  private static final String TRANSFER_OUT_SUFFIX = "(转出)";
+  private static final String TRANSFER_IN_SUFFIX = "(转入)";
+  private static final String TRANSFER_ARROW = " → ";
+
+  // CSV 列索引常量（列顺序：日期,分类ID,类型,金额,备注 —— 与前端导入模板对齐）
+  private static final int CSV_COL_TIME = 0;         // 第1列：日期(yyyy-MM-dd HH:mm:ss)
+  private static final int CSV_COL_CATEGORY_ID = 1;  // 第2列：分类ID
+  private static final int CSV_COL_TYPE = 2;         // 第3列：交易类型(1=收入/2=支出)
+  private static final int CSV_COL_AMOUNT = 3;       // 第4列：金额
+  private static final int CSV_COL_NOTE = 4;         // 第5列：备注(可选)
+  private static final int CSV_MIN_COLUMNS = 4;
   /** 时间格式化常量（复用避免重复创建 DateTimeFormatter） */
   private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
   // PRD P2-3: 文件大小上限 5MB
@@ -85,7 +97,7 @@ public class TransactionServiceImpl implements TransactionService {
   private final AccountMapper accountMapper;
   /** -> CategoryMapper：转账分类名查询 + CSV导入分类缓存 + toDTO 关联名称填充 */
   private final CategoryMapper categoryMapper;
-  /** -> EntityValidator：跨 Service 共享的 validateAccount/validateAccount 校验 */
+  /** -> EntityValidator：跨 Service 共享的 validateAccount/validateCategory 校验 */
   private final EntityValidator entityValidator;
 
   /**
@@ -112,37 +124,37 @@ public class TransactionServiceImpl implements TransactionService {
       String startTime, String endTime, String keyword, String sortBy,
       int pageNum, int pageSize) {
     // pageSize 上限保护：防止一次查询海量数据导致 OOM（业务逻辑，应由 Service 层处理）
-    pageSize = Math.min(pageSize, MAX_PAGE_SIZE);
+    pageSize = Math.min(pageSize, MAX_PAGE_SIZE);  // 限制每页最大条数防OOM
     // sortBy 白名单校验：防止非法排序字段注入（业务逻辑，应由 Service 层处理）
-    if (!ALLOWED_SORT_BY.contains(sortBy)) {
-      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), String.format("%s: 排序参数只能是time/amount_asc/amount_desc", ErrorCode.PARAM_INVALID.getMsg()));
+    if (!ALLOWED_SORT_BY.contains(sortBy)) {  // 排序参数不在白名单内
+      throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), String.format("%s: 排序参数只能是time/amount_asc/amount_desc", ErrorCode.PARAM_INVALID.getMsg()));  // 抛出参数非法异常
     }
     // PRD P1-1: 时间范围最大跨度1年（防止全表扫描）
-    if (startTime != null && endTime != null) {
+    if (startTime != null && endTime != null) {  // 两个时间都传了才校验跨度
       try {
-        LocalDateTime start = LocalDateTime.parse(startTime, DTF);
-        LocalDateTime end = LocalDateTime.parse(endTime, DTF);
-        if (end.minusYears(1).isAfter(start)) {
-          throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "时间范围最大跨度1年");
+        LocalDateTime start = LocalDateTime.parse(startTime, DTF);  // 解析起始时间
+        LocalDateTime end = LocalDateTime.parse(endTime, DTF);  // 解析结束时间
+        if (end.minusYears(1).isAfter(start)) {  // 时间跨度超过1年
+          throw new BusinessException(ErrorCode.TIME_RANGE_TOO_LARGE.getCode(), ErrorCode.TIME_RANGE_TOO_LARGE.getMsg());  // 拒绝超大时间范围
         }
-      } catch (java.time.format.DateTimeParseException e) {
-        throw new BusinessException(ErrorCode.PARAM_INVALID.getCode(), "时间格式须为yyyy-MM-dd HH:mm:ss");
+      } catch (java.time.format.DateTimeParseException e) {  // 时间格式解析失败
+        throw new BusinessException(ErrorCode.TIME_FORMAT_INVALID.getCode(), ErrorCode.TIME_FORMAT_INVALID.getMsg());  // 提示格式错误
       }
     }
     // R-05-issue-4: 已修复 - RowBounds+独立count是XML动态ORDER BY的标准MyBatis分页模式,Page对象正确封装total/records
     // LIKE 通配符转义：防止用户输入的 % 和 _ 被解释为 LIKE 通配符
-    String escapedKeyword = escapeLikeKeyword(keyword);
-    Page<TransactionDTO> page = new Page<>(pageNum, pageSize);
-    List<TransactionDTO> records = transactionMapper.selectTransactionList(
-        userId, accountId, categoryId, startTime, endTime, escapedKeyword, sortBy,
-        new org.apache.ibatis.session.RowBounds((pageNum - 1) * pageSize, pageSize)
+    String escapedKeyword = escapeLikeKeyword(keyword);  // 转义LIKE通配符
+    Page<TransactionDTO> page = new Page<>(pageNum, pageSize);  // 创建分页对象
+    List<TransactionDTO> records = transactionMapper.selectTransactionList(  // 查询交易列表(含分页)
+        userId, accountId, categoryId, startTime, endTime, escapedKeyword, sortBy,  // 查询参数
+        new org.apache.ibatis.session.RowBounds((pageNum - 1) * pageSize, pageSize)  // RowBounds物理分页
     );
-    Long total = transactionMapper.selectTransactionCount(
-        userId, accountId, categoryId, startTime, endTime, escapedKeyword
+    Long total = transactionMapper.selectTransactionCount(  // 查询总记录数(不含分页)
+        userId, accountId, categoryId, startTime, endTime, escapedKeyword  // 查询参数
     );
-    page.setRecords(records);
-    page.setTotal(total != null ? total : 0);
-    return page;
+    page.setRecords(records);  // 设置分页记录列表
+    page.setTotal(total != null ? total : 0);  // 设置总记录数(null保护)
+    return page;  // 返回分页结果
   }
 
   /**
@@ -164,19 +176,19 @@ public class TransactionServiceImpl implements TransactionService {
     // 校验分类存在并复用对象
     Category category = entityValidator.validateCategory(request.getCategoryId());
 
-    Transaction transaction = new Transaction();
-    transaction.setUserId(userId);
-    transaction.setAccountId(request.getAccountId());
-    transaction.setCategoryId(request.getCategoryId());
-    transaction.setType(request.getType());
-    transaction.setAmount(request.getAmount());
-    transaction.setNote(request.getNote());
-    transaction.setTime(request.getTime());
-    transaction.setCreateTime(LocalDateTime.now());
-    transaction.setUpdateTime(LocalDateTime.now());
+    Transaction transaction = new Transaction();  // 创建交易记录实体
+    transaction.setUserId(userId);  // 设置用户ID
+    transaction.setAccountId(request.getAccountId());  // 设置账户ID
+    transaction.setCategoryId(request.getCategoryId());  // 设置分类ID
+    transaction.setType(request.getType());  // 设置交易类型(1=收入/2=支出)
+    transaction.setAmount(request.getAmount());  // 设置金额
+    transaction.setNote(request.getNote());  // 设置备注
+    transaction.setTime(request.getTime());  // 设置交易时间
+    transaction.setCreateTime(LocalDateTime.now());  // 设置创建时间
+    transaction.setUpdateTime(LocalDateTime.now());  // 设置更新时间
 
-    transactionMapper.insert(transaction);
-    return toDTO(transaction, account, category);
+    transactionMapper.insert(transaction);  // 插入数据库
+    return toDTO(transaction, account, category);  // 转为DTO返回
   }
 
   /**
@@ -195,40 +207,41 @@ public class TransactionServiceImpl implements TransactionService {
   @Override
   @Transactional
   public TransactionDTO update(Long userId, Long transactionId, TransactionRequest request) {
-    Transaction transaction = getTransactionById(userId, transactionId);
+    Transaction transaction = getTransactionById(userId, transactionId);  // 查询并校验归属
 
     // 转账记录仅允许修改备注
-    if (transaction.getTransferId() != null) {
-      // 转账记录禁止修改金额
-      if (transaction.getAmount().compareTo(request.getAmount()) != 0) {
-        throw new BusinessException(ErrorCode.TRANSFER_RECORD_NOT_MODIFIABLE.getCode(), ErrorCode.TRANSFER_RECORD_NOT_MODIFIABLE.getMsg());
+    if (transaction.getTransferId() != null) {  // 是转账记录
+      // 转账记录禁止修改金额：仅当request.getAmount()非null且与原始金额不同时才抛异常
+      // 说明：request.getAmount()为null时表示前端只修改备注，金额不变，不应抛异常
+      if (request.getAmount() != null && transaction.getAmount().compareTo(request.getAmount()) != 0) {  // request金额非null且与原始金额不同
+        throw new BusinessException(ErrorCode.TRANSFER_RECORD_NOT_MODIFIABLE.getCode(), ErrorCode.TRANSFER_RECORD_NOT_MODIFIABLE.getMsg());  // 抛出业务异常
       }
-      String newNote = request.getNote() != null ? request.getNote() : "";
-      String oldNote = transaction.getNote() != null ? transaction.getNote() : "";
-      if (!oldNote.equals(newNote)) {
-        transaction.setNote(request.getNote());
-        transaction.setUpdateTime(LocalDateTime.now());
-        transactionMapper.updateById(transaction);
+      String newNote = request.getNote() != null ? request.getNote() : "";  // 新备注(null→空字符串)
+      String oldNote = transaction.getNote() != null ? transaction.getNote() : "";  // 旧备注(null→空字符串)
+      if (!oldNote.equals(newNote)) {  // 备注有变化才更新
+        transaction.setNote(request.getNote());  // 更新备注
+        transaction.setUpdateTime(LocalDateTime.now());  // 更新修改时间
+        transactionMapper.updateById(transaction);  // 写入数据库
       }
       // 预加载关联对象，避免toDTO单参数版的2次额外DB查询
-      Account transferAccount = accountMapper.selectById(transaction.getAccountId());
-      Category transferCategory = categoryMapper.selectById(transaction.getCategoryId());
-      return toDTO(transaction, transferAccount, transferCategory);
+      Account transferAccount = accountMapper.selectById(transaction.getAccountId());  // 查询关联账户
+      Category transferCategory = categoryMapper.selectById(transaction.getCategoryId());  // 查询关联分类
+      return toDTO(transaction, transferAccount, transferCategory);  // 转为DTO返回
     }
 
     // 普通交易记录允许更新全部字段，重新校验账户归属和分类存在，复用对象
-    Account account = entityValidator.validateAccount(userId, request.getAccountId());
-    Category category = entityValidator.validateCategory(request.getCategoryId());
-    transaction.setAccountId(request.getAccountId());
-    transaction.setCategoryId(request.getCategoryId());
-    transaction.setType(request.getType());
-    transaction.setAmount(request.getAmount());
-    transaction.setNote(request.getNote());
-    transaction.setTime(request.getTime());
-    transaction.setUpdateTime(LocalDateTime.now());
+    Account account = entityValidator.validateAccount(userId, request.getAccountId());  // 校验账户归属
+    Category category = entityValidator.validateCategory(request.getCategoryId());  // 校验分类存在
+    transaction.setAccountId(request.getAccountId());  // 更新账户ID
+    transaction.setCategoryId(request.getCategoryId());  // 更新分类ID
+    transaction.setType(request.getType());  // 更新交易类型
+    transaction.setAmount(request.getAmount());  // 更新金额
+    transaction.setNote(request.getNote());  // 更新备注
+    transaction.setTime(request.getTime());  // 更新交易时间
+    transaction.setUpdateTime(LocalDateTime.now());  // 更新修改时间
 
-    transactionMapper.updateById(transaction);
-    return toDTO(transaction, account, category);
+    transactionMapper.updateById(transaction);  // 写入数据库
+    return toDTO(transaction, account, category);  // 转为DTO返回
   }
 
   /**
@@ -245,14 +258,14 @@ public class TransactionServiceImpl implements TransactionService {
   @Override
   @Transactional
   public void delete(Long userId, Long transactionId) {
-    Transaction transaction = getTransactionById(userId, transactionId);
+    Transaction transaction = getTransactionById(userId, transactionId);  // 查询并校验归属
 
     // 转账记录禁止删除（破坏一出一进配对会导致余额统计错误）
-    if (transaction.getTransferId() != null) {
-      throw new BusinessException(ErrorCode.TRANSFER_RECORD_NOT_DELETABLE.getCode(), ErrorCode.TRANSFER_RECORD_NOT_DELETABLE.getMsg());
+    if (transaction.getTransferId() != null) {  // 是转账记录
+      throw new BusinessException(ErrorCode.TRANSFER_RECORD_NOT_DELETABLE.getCode(), ErrorCode.TRANSFER_RECORD_NOT_DELETABLE.getMsg());  // 抛出业务异常
     }
 
-    transactionMapper.deleteById(transactionId);
+    transactionMapper.deleteById(transactionId);  // 物理删除交易记录
   }
 
   /**
@@ -277,80 +290,82 @@ public class TransactionServiceImpl implements TransactionService {
   @Transactional
   public TransferDTO transfer(Long userId, TransferRequest request) {
     // 校验转出和转入账户归属（两账户均加悲观锁防并发透支/禁用 TOCTOU）
-    Account fromAccount = accountMapper.selectByIdForUpdate(request.getFromAccountId());
-    if (fromAccount == null || !fromAccount.getUserId().equals(userId) || fromAccount.getStatus() != Status.ACTIVE.getValue()) {
-      throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getCode(), ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getMsg());
+    Account fromAccount = accountMapper.selectByIdForUpdate(request.getFromAccountId());  // 悲观锁查询转出账户
+    // 校验：账户存在 + 归属当前用户 + 状态为活跃（Integer用Objects.equals比较值，避免引用比较bug）
+    if (fromAccount == null || !Objects.equals(fromAccount.getUserId(), userId) || !Objects.equals(fromAccount.getStatus(), Status.ACTIVE.getValue())) {
+      throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getCode(), ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getMsg());  // 抛出业务异常
     }
-    Account toAccount = accountMapper.selectByIdForUpdate(request.getToAccountId());
-    if (toAccount == null || !toAccount.getUserId().equals(userId) || toAccount.getStatus() != Status.ACTIVE.getValue()) {
-      throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getCode(), ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getMsg());
+    Account toAccount = accountMapper.selectByIdForUpdate(request.getToAccountId());  // 悲观锁查询转入账户
+    // 校验：账户存在 + 归属当前用户 + 状态为活跃（Integer用Objects.equals比较值，避免引用比较bug）
+    if (toAccount == null || !Objects.equals(toAccount.getUserId(), userId) || !Objects.equals(toAccount.getStatus(), Status.ACTIVE.getValue())) {
+      throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getCode(), ErrorCode.ACCOUNT_NOT_FOUND_OR_DISABLED.getMsg());  // 抛出业务异常
     }
 
     // 校验不能转给自己
-    if (request.getFromAccountId().equals(request.getToAccountId())) {
-      throw new BusinessException(ErrorCode.SAME_TRANSFER_ACCOUNT.getCode(), ErrorCode.SAME_TRANSFER_ACCOUNT.getMsg());
+    if (request.getFromAccountId().equals(request.getToAccountId())) {  // 转出和转入相同
+      throw new BusinessException(ErrorCode.SAME_TRANSFER_ACCOUNT.getCode(), ErrorCode.SAME_TRANSFER_ACCOUNT.getMsg());  // 抛出业务异常
     }
 
     // 校验转出账户余额充足
-    BigDecimal totalIncome = transactionMapper.selectAccountIncome(userId, fromAccount.getId());
-    BigDecimal totalExpense = transactionMapper.selectAccountExpense(userId, fromAccount.getId());
-    BigDecimal currentBalance = fromAccount.getInitialBalance().add(totalIncome).subtract(totalExpense);
-    if (currentBalance.compareTo(request.getAmount()) < 0) {
-      throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE.getCode(), ErrorCode.INSUFFICIENT_BALANCE.getMsg());
+    BigDecimal totalIncome = transactionMapper.selectAccountIncome(userId, fromAccount.getId());  // 查询转出账户总收入
+    BigDecimal totalExpense = transactionMapper.selectAccountExpense(userId, fromAccount.getId());  // 查询转出账户总支出
+    BigDecimal currentBalance = fromAccount.getInitialBalance().add(totalIncome).subtract(totalExpense);  // 计算当前余额
+    if (currentBalance.compareTo(request.getAmount()) < 0) {  // 余额不足
+      throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE.getCode(), ErrorCode.INSUFFICIENT_BALANCE.getMsg());  // 抛出业务异常
     }
 
     // 查询"其他"分类ID（运行时查询，不依赖种子数据顺序）
-    Category transferCategory = categoryMapper.selectOne(
-        new LambdaQueryWrapper<Category>().eq(Category::getName, TRANSFER_CATEGORY_NAME)
+    Category transferCategory = categoryMapper.selectOne(  // 查询"其他"分类
+        new LambdaQueryWrapper<Category>().eq(Category::getName, TRANSFER_CATEGORY_NAME)  // 按名称查询
     );
-    if (transferCategory == null) {
-      throw new BusinessException(ErrorCode.CATEGORY_NOT_FOUND.getCode(), ErrorCode.CATEGORY_NOT_FOUND.getMsg() + "：未找到「其他」分类，请检查种子数据");
+    if (transferCategory == null) {  // "其他"分类不存在
+      throw new BusinessException(ErrorCode.CATEGORY_NOT_FOUND.getCode(), ErrorCode.CATEGORY_NOT_FOUND.getMsg() + "：未找到「其他」分类，请检查种子数据");  // 抛出业务异常
     }
-    Long transferCategoryId = transferCategory.getId();
+    Long transferCategoryId = transferCategory.getId();  // 获取"其他"分类ID
 
     // 生成转账关联ID（UUID）
-    String transferId = UUID.randomUUID().toString();
+    String transferId = UUID.randomUUID().toString();  // 生成UUID作为转账关联ID
 
-    LocalDateTime now = LocalDateTime.now();
-    String note = request.getNote() != null ? request.getNote() : "";
+    LocalDateTime now = LocalDateTime.now();  // 当前时间
+    String note = request.getNote() != null ? request.getNote() : "";  // 备注(null→空字符串)
     // R-05-issue-1: 已修复 - outNote方向修正为fromAccount→toAccount(转出)
-    String outNote = fromAccount.getName() + "→" + toAccount.getName() + "(转出)" + (note.isEmpty() ? "" : ": " + note);
-    String inNote = fromAccount.getName() + "→" + toAccount.getName() + "(转入)" + (note.isEmpty() ? "" : ": " + note);
+    String outNote = fromAccount.getName() + TRANSFER_ARROW + toAccount.getName() + TRANSFER_OUT_SUFFIX + (note.isEmpty() ? "" : ": " + note);
+    String inNote = fromAccount.getName() + TRANSFER_ARROW + toAccount.getName() + TRANSFER_IN_SUFFIX + (note.isEmpty() ? "" : ": " + note);
 
     // 创建转出记录（type=支出，category=其他）
-    Transaction outTransaction = new Transaction();
-    outTransaction.setUserId(userId);
-    outTransaction.setAccountId(request.getFromAccountId());
-    outTransaction.setCategoryId(transferCategoryId);
-    outTransaction.setType(TransactionType.EXPENSE.getValue());
-    outTransaction.setAmount(request.getAmount());
-    outTransaction.setNote(outNote);
-    outTransaction.setTime(now);
-    outTransaction.setTransferId(transferId);
-    outTransaction.setCreateTime(now);
-    outTransaction.setUpdateTime(now);
-    transactionMapper.insert(outTransaction);
+    Transaction outTransaction = new Transaction();  // 创建转出交易实体
+    outTransaction.setUserId(userId);  // 设置用户ID
+    outTransaction.setAccountId(request.getFromAccountId());  // 设置转出账户ID
+    outTransaction.setCategoryId(transferCategoryId);  // 设置"其他"分类ID
+    outTransaction.setType(TransactionType.EXPENSE.getValue());  // 设置类型为支出
+    outTransaction.setAmount(request.getAmount());  // 设置金额
+    outTransaction.setNote(outNote);  // 设置转出备注
+    outTransaction.setTime(now);  // 设置交易时间
+    outTransaction.setTransferId(transferId);  // 设置转账关联ID
+    outTransaction.setCreateTime(now);  // 设置创建时间
+    outTransaction.setUpdateTime(now);  // 设置更新时间
+    transactionMapper.insert(outTransaction);  // 插入转出记录
 
     // 创建转入记录（type=收入，category=其他）
-    Transaction inTransaction = new Transaction();
-    inTransaction.setUserId(userId);
-    inTransaction.setAccountId(request.getToAccountId());
-    inTransaction.setCategoryId(transferCategoryId);
-    inTransaction.setType(TransactionType.INCOME.getValue());
-    inTransaction.setAmount(request.getAmount());
-    inTransaction.setNote(inNote);
-    inTransaction.setTime(now);
-    inTransaction.setTransferId(transferId);
-    inTransaction.setCreateTime(now);
-    inTransaction.setUpdateTime(now);
-    transactionMapper.insert(inTransaction);
+    Transaction inTransaction = new Transaction();  // 创建转入交易实体
+    inTransaction.setUserId(userId);  // 设置用户ID
+    inTransaction.setAccountId(request.getToAccountId());  // 设置转入账户ID
+    inTransaction.setCategoryId(transferCategoryId);  // 设置"其他"分类ID
+    inTransaction.setType(TransactionType.INCOME.getValue());  // 设置类型为收入
+    inTransaction.setAmount(request.getAmount());  // 设置金额
+    inTransaction.setNote(inNote);  // 设置转入备注
+    inTransaction.setTime(now);  // 设置交易时间
+    inTransaction.setTransferId(transferId);  // 设置转账关联ID
+    inTransaction.setCreateTime(now);  // 设置创建时间
+    inTransaction.setUpdateTime(now);  // 设置更新时间
+    transactionMapper.insert(inTransaction);  // 插入转入记录
 
     // 组装返回结果（复用已加载的 fromAccount/toAccount/transferCategory，消除4次额外DB查询）
-    TransferDTO dto = new TransferDTO();
-    dto.setTransferId(transferId);
-    dto.setOutRecord(toDTO(outTransaction, fromAccount, transferCategory));
-    dto.setInRecord(toDTO(inTransaction, toAccount, transferCategory));
-    return dto;
+    TransferDTO dto = new TransferDTO();  // 创建转账结果DTO
+    dto.setTransferId(transferId);  // 设置转账关联ID
+    dto.setOutRecord(toDTO(outTransaction, fromAccount, transferCategory));  // 设置转出记录DTO
+    dto.setInRecord(toDTO(inTransaction, toAccount, transferCategory));  // 设置转入记录DTO
+    return dto;  // 返回转账结果
   }
 
   /**
@@ -371,157 +386,158 @@ public class TransactionServiceImpl implements TransactionService {
   @Override
   @Transactional
   public ImportResultDTO importCsv(Long userId, MultipartFile file, Long accountId) {
-    entityValidator.validateAccount(userId, accountId);
+    entityValidator.validateAccount(userId, accountId);  // 校验账户归属
 
     // PRD P2-3 异常流程①: 文件大小超过 5MB → 拒绝
-    if (file.getSize() > CSV_MAX_FILE_SIZE) {
-      throw new BusinessException(ErrorCode.FILE_TOO_LARGE.getCode(), ErrorCode.FILE_TOO_LARGE.getMsg());
+    if (file.getSize() > CSV_MAX_FILE_SIZE) {  // 文件超过5MB
+      throw new BusinessException(ErrorCode.FILE_TOO_LARGE.getCode(), ErrorCode.FILE_TOO_LARGE.getMsg());  // 抛出文件过大异常
     }
     // PRD P2-3 异常流程①: 文件格式非 CSV → 拒绝
-    String filename = file.getOriginalFilename();
-    if (filename == null || !filename.toLowerCase().endsWith(".csv")) {
-      throw new BusinessException(ErrorCode.CSV_FORMAT_ONLY.getCode(), ErrorCode.CSV_FORMAT_ONLY.getMsg());
+    String filename = file.getOriginalFilename();  // 获取原始文件名
+    if (filename == null || !filename.toLowerCase().endsWith(".csv")) {  // 文件名非.csv结尾
+      throw new BusinessException(ErrorCode.CSV_FORMAT_ONLY.getCode(), ErrorCode.CSV_FORMAT_ONLY.getMsg());  // 抛出格式异常
     }
 
-    ImportResultDTO result = new ImportResultDTO();
+    ImportResultDTO result = new ImportResultDTO();  // 创建导入结果DTO
 
     // 预加载所有分类到 Map，避免循环内逐行 selectById（种子数据仅13条，1次查询覆盖全部）
-    Map<Long, Category> categoryCache = categoryMapper.selectList(new LambdaQueryWrapper<Category>()).stream()
-        .collect(Collectors.toMap(Category::getId, c -> c));
+    Map<Long, Category> categoryCache = categoryMapper.selectList(new LambdaQueryWrapper<Category>()).stream()  // 一次查询所有分类
+        .collect(Collectors.toMap(Category::getId, c -> c));  // 分类ID→分类对象映射
 
-    try (CSVReader reader = new CSVReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-      String[] line;
-      boolean firstLine = true;
+    try (CSVReader reader = new CSVReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {  // 创建CSV读取器
+      String[] line;  // 每行数据
+      boolean firstLine = true;  // 是否首行(表头)
       int rowNumber = 1; // 行号从1开始，表头是第1行
 
-      while ((line = reader.readNext()) != null) {
-        rowNumber++;
+      while ((line = reader.readNext()) != null) {  // 逐行读取
+        rowNumber++;  // 行号递增
         // 跳过表头
-        if (firstLine) {
-          firstLine = false;
-          continue;
+        if (firstLine) {  // 首行跳过
+          firstLine = false;  // 标记已跳过
+          continue;  // 继续下一行
         }
 
-        try {
+        try {  // 单行解析
           // CSV 格式: 日期,分类ID,类型,金额,备注
-          if (line.length < 4) {
-            ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();
-            failRow.setRow(rowNumber);
-            failRow.setReason("列数不足，至少需要4列（日期,分类ID,类型,金额）");
-            result.getFailRows().add(failRow);
-            continue;
+          if (line.length < CSV_MIN_COLUMNS) {  // 列数不足
+            ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();  // 创建失败行记录
+            failRow.setRow(rowNumber);  // 设置行号
+            failRow.setReason("列数不足，至少需要4列（日期,分类ID,类型,金额）");  // 设置失败原因
+            result.getFailRows().add(failRow);  // 加入失败列表
+            continue;  // 继续下一行
           }
 
-          Transaction transaction = new Transaction();
-          transaction.setUserId(userId);
-          transaction.setAccountId(accountId);
-          long categoryId = Long.parseLong(line[1].trim());
-          int type = Integer.parseInt(line[2].trim());
-          BigDecimal amount = new BigDecimal(line[3].trim()).setScale(2, RoundingMode.HALF_UP);
+          Transaction transaction = new Transaction();  // 创建交易实体
+          transaction.setUserId(userId);  // 设置用户ID
+          transaction.setAccountId(accountId);  // 设置账户ID
+          long categoryId = Long.parseLong(line[CSV_COL_CATEGORY_ID].trim());
+          int type = Integer.parseInt(line[CSV_COL_TYPE].trim());
+          BigDecimal amount = new BigDecimal(line[CSV_COL_AMOUNT].trim()).setScale(2, RoundingMode.HALF_UP);
 
           // 语义校验：分类必须存在（从预加载缓存查询，避免逐行DB查询）
-          Category category = categoryCache.get(categoryId);
-          if (category == null) {
-            ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();
-            failRow.setRow(rowNumber);
-            failRow.setReason("分类ID " + categoryId + " 不存在");
-            result.getFailRows().add(failRow);
-            continue;
+          Category category = categoryCache.get(categoryId);  // 从缓存查找分类
+          if (category == null) {  // 分类不存在
+            ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();  // 创建失败行记录
+            failRow.setRow(rowNumber);  // 设置行号
+            failRow.setReason("分类ID " + categoryId + " 不存在");  // 设置失败原因
+            result.getFailRows().add(failRow);  // 加入失败列表
+            continue;  // 继续下一行
           }
           // 语义校验：类型必须为 1(收入) 或 2(支出)
-          if (type != TransactionType.INCOME.getValue() && type != TransactionType.EXPENSE.getValue()) {
-            ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();
-            failRow.setRow(rowNumber);
-            failRow.setReason("交易类型必须为1(收入)或2(支出)，当前值: " + type);
-            result.getFailRows().add(failRow);
-            continue;
+          if (type != TransactionType.INCOME.getValue() && type != TransactionType.EXPENSE.getValue()) {  // 类型非法
+            ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();  // 创建失败行记录
+            failRow.setRow(rowNumber);  // 设置行号
+            failRow.setReason("交易类型必须为1(收入)或2(支出)，当前值: " + type);  // 设置失败原因
+            result.getFailRows().add(failRow);  // 加入失败列表
+            continue;  // 继续下一行
           }
           // 语义校验：金额必须大于 0
-          if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();
-            failRow.setRow(rowNumber);
-            failRow.setReason("金额必须大于0，当前值: " + amount);
-            result.getFailRows().add(failRow);
-            continue;
+          if (amount.compareTo(BigDecimal.ZERO) <= 0) {  // 金额<=0
+            ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();  // 创建失败行记录
+            failRow.setRow(rowNumber);  // 设置行号
+            failRow.setReason("金额必须大于0，当前值: " + amount);  // 设置失败原因
+            result.getFailRows().add(failRow);  // 加入失败列表
+            continue;  // 继续下一行
           }
 
-          transaction.setCategoryId(categoryId);
-          transaction.setType(type);
-          transaction.setAmount(amount);
-          transaction.setNote(line.length > 4 ? line[4].trim() : "");
-          transaction.setTime(LocalDateTime.parse(line[0].trim(), DTF));
-          transaction.setCreateTime(LocalDateTime.now());
-          transaction.setUpdateTime(LocalDateTime.now());
+          transaction.setCategoryId(categoryId);  // 设置分类ID
+          transaction.setType(type);  // 设置交易类型
+          transaction.setAmount(amount);  // 设置金额
+          transaction.setNote(line.length > CSV_COL_NOTE ? line[CSV_COL_NOTE].trim() : "");
+          transaction.setTime(LocalDateTime.parse(line[CSV_COL_TIME].trim(), DTF));
+          transaction.setCreateTime(LocalDateTime.now());  // 设置创建时间
+          transaction.setUpdateTime(LocalDateTime.now());  // 设置更新时间
 
-          // PRD P2-3 业务规则①: 单次导入上限 1000 条（超过上限的行记录为失败，不回滚已插入的记录）
-          if (result.getSuccessCount() >= CSV_MAX_RECORDS) {
-            ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();
-            failRow.setRow(rowNumber);
-            failRow.setReason("单次导入不能超过 " + CSV_MAX_RECORDS + " 条记录");
-            result.getFailRows().add(failRow);
-            continue;
+          // PRD P2-3 业务规则①: 单次导入上限 1000 条（超过上限的行记录为失败；单行解析错误不触发回滚，但 CSV 读取异常会回滚全部已插入记录）
+          if (result.getSuccessCount() >= CSV_MAX_RECORDS) {  // 已达上限
+            ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();  // 创建失败行记录
+            failRow.setRow(rowNumber);  // 设置行号
+            failRow.setReason("单次导入不能超过 " + CSV_MAX_RECORDS + " 条记录");  // 设置失败原因
+            result.getFailRows().add(failRow);  // 加入失败列表
+            continue;  // 继续下一行
           }
 
-          transactionMapper.insert(transaction);
-          result.setSuccessCount(result.getSuccessCount() + 1);
-        } catch (NumberFormatException e) {
-          ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();
-          failRow.setRow(rowNumber);
-          failRow.setReason("数据格式错误: " + e.getMessage());
-          result.getFailRows().add(failRow);
-        } catch (Exception e) {
-          ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();
-          failRow.setRow(rowNumber);
-          failRow.setReason("解析失败: " + e.getMessage());
-          result.getFailRows().add(failRow);
+          transactionMapper.insert(transaction);  // 插入交易记录到数据库
+          result.setSuccessCount(result.getSuccessCount() + 1);  // 成功计数+1
+        } catch (NumberFormatException e) {  // 数字格式解析错误
+          ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();  // 创建失败行记录
+          failRow.setRow(rowNumber);  // 设置行号
+          failRow.setReason("数据格式错误: " + e.getMessage());  // 设置失败原因
+          result.getFailRows().add(failRow);  // 加入失败列表
+        } catch (Exception e) {  // 其他解析错误
+          ImportResultDTO.FailRow failRow = new ImportResultDTO.FailRow();  // 创建失败行记录
+          failRow.setRow(rowNumber);  // 设置行号
+          failRow.setReason("解析失败: " + e.getMessage());  // 设置失败原因
+          result.getFailRows().add(failRow);  // 加入失败列表
         }
       }
-    } catch (Exception e) {
-      log.error("CSV 文件读取失败: {}", e.getMessage(), e);
-      throw new BusinessException(ErrorCode.CSV_READ_ERROR.getCode(), ErrorCode.CSV_READ_ERROR.getMsg());
+    } catch (Exception e) {  // CSV文件读取失败
+      log.error("CSV 文件读取失败: {}", e.getMessage(), e);  // 记录错误日志
+      throw new BusinessException(ErrorCode.CSV_READ_ERROR.getCode(), ErrorCode.CSV_READ_ERROR.getMsg());  // 抛出CSV读取异常
     }
 
-    result.setFailCount(result.getFailRows().size());
-    return result;
+    result.setFailCount(result.getFailRows().size());  // 统计失败总数
+    return result;  // 返回导入结果
   }
 
   /**
    * LIKE 通配符转义：将用户输入中的 %、_、\ 转义为 \%、\_、\\，
    * 防止这些字符被 MySQL LIKE 解释为通配符而非字面字符
    */
-  private String escapeLikeKeyword(String keyword) {
-    if (keyword == null || keyword.isEmpty()) return keyword;
-    return keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+  private String escapeLikeKeyword(String keyword) {  // LIKE通配符转义
+    if (keyword == null || keyword.isEmpty()) return keyword;  // null或空字符串直接返回
+    return keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");  // 转义反斜杠、百分号、下划线
   }
 
   /**
    * 根据ID查询交易记录（校验归属）
    */
-  private Transaction getTransactionById(Long userId, Long transactionId) {
-    Transaction transaction = transactionMapper.selectById(transactionId);
-    if (transaction == null || !transaction.getUserId().equals(userId)) {
-      throw new BusinessException(ErrorCode.RECORD_NOT_FOUND.getCode(), ErrorCode.RECORD_NOT_FOUND.getMsg());
+  private Transaction getTransactionById(Long userId, Long transactionId) {  // 查询交易记录并校验归属
+    Transaction transaction = transactionMapper.selectById(transactionId);  // 根据ID查询交易记录
+    // 校验：交易存在 + 归属当前用户（Integer用Objects.equals比较值，避免引用比较bug和null userId NPE）
+    if (transaction == null || !Objects.equals(transaction.getUserId(), userId)) {
+      throw new BusinessException(ErrorCode.RECORD_NOT_FOUND.getCode(), ErrorCode.RECORD_NOT_FOUND.getMsg());  // 抛出业务异常
     }
-    return transaction;
+    return transaction;  // 返回交易实体
   }
 
   /**
    * Entity → DTO 转换（传入预加载的关联对象，避免重复查询）
    */
-  private TransactionDTO toDTO(Transaction transaction, Account account, Category category) {
-    TransactionDTO dto = new TransactionDTO();
-    dto.setId(transaction.getId());
-    dto.setAccountId(transaction.getAccountId());
-    dto.setCategoryId(transaction.getCategoryId());
-    dto.setType(transaction.getType());
-    dto.setAmount(transaction.getAmount());
-    dto.setNote(transaction.getNote());
-    dto.setTime(transaction.getTime() != null ? transaction.getTime().format(DTF) : null);
-    dto.setTransferId(transaction.getTransferId());
-    dto.setCreateTime(transaction.getCreateTime());
-    dto.setUpdateTime(transaction.getUpdateTime());
-    if (account != null) dto.setAccountName(account.getName());
-    if (category != null) dto.setCategoryName(category.getName());
-    return dto;
+  private TransactionDTO toDTO(Transaction transaction, Account account, Category category) {  // Entity→DTO转换
+    TransactionDTO dto = new TransactionDTO();  // 创建DTO对象
+    dto.setId(transaction.getId());  // 设置ID
+    dto.setAccountId(transaction.getAccountId());  // 设置账户ID
+    dto.setCategoryId(transaction.getCategoryId());  // 设置分类ID
+    dto.setType(transaction.getType());  // 设置交易类型
+    dto.setAmount(transaction.getAmount());  // 设置金额
+    dto.setNote(transaction.getNote());  // 设置备注
+    dto.setTime(transaction.getTime() != null ? transaction.getTime().format(DTF) : null);  // 设置格式化时间(null保护)
+    dto.setTransferId(transaction.getTransferId());  // 设置转账关联ID
+    dto.setCreateTime(transaction.getCreateTime());  // 设置创建时间
+    dto.setUpdateTime(transaction.getUpdateTime());  // 设置更新时间
+    if (account != null) dto.setAccountName(account.getName());  // 设置账户名称(非空才设)
+    if (category != null) dto.setCategoryName(category.getName());  // 设置分类名称(非空才设)
+    return dto;  // 返回DTO
   }
 }

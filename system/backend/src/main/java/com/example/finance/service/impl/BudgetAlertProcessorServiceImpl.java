@@ -1,6 +1,7 @@
 package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.example.finance.common.EntityValidator;
 import com.example.finance.common.enums.TransactionType;
 import com.example.finance.entity.Budget;
 import com.example.finance.entity.BudgetAlert;
@@ -45,6 +46,8 @@ public class BudgetAlertProcessorServiceImpl implements BudgetAlertProcessorServ
   private static final BigDecimal DAILY_THRESHOLD_RATE = new BigDecimal("1.50");
   /** 月阈值：总消耗 ≥ 月预算 × 80% 触发月预警 */
   private static final BigDecimal MONTHLY_THRESHOLD_RATE = new BigDecimal("0.80");
+  /** 百分比转换因子：小数转百分比（×100） */
+  private static final BigDecimal PERCENTAGE_FACTOR = BigDecimal.valueOf(100);
 
   /** → BudgetAlertMapper：持久化预警记录（先删旧再写新，幂等） */
   private final BudgetAlertMapper budgetAlertMapper;
@@ -74,68 +77,66 @@ public class BudgetAlertProcessorServiceImpl implements BudgetAlertProcessorServ
   public int processUserBudgetAlerts(Long userId, List<Budget> userBudgets,
       String monthStr, LocalDateTime now, int dayOfMonth, int daysInMonth) {
     // 先删除该用户本月的旧预警记录（幂等：同一天多次执行覆盖）
-    budgetAlertMapper.delete(
+    budgetAlertMapper.delete(  // 删除旧预警记录(幂等)
         new LambdaQueryWrapper<BudgetAlert>()
-            .eq(BudgetAlert::getUserId, userId)
-            .eq(BudgetAlert::getMonth, monthStr)
+            .eq(BudgetAlert::getUserId, userId)  // 筛选当前用户
+            .eq(BudgetAlert::getMonth, monthStr)  // 筛选指定月份
     );
 
-    // 查询该用户本月各分类支出汇总（一次性查询，消除 N+1 · 范围查询利用 idx_user_date 索引）
-    int yearVal = now.getYear();
-    int monthVal = now.getMonthValue();
-    String startOfMonth = String.format("%04d-%02d-01 00:00:00", yearVal, monthVal);
-    String startOfNextMonth = (monthVal == 12)
-        ? String.format("%04d-01-01 00:00:00", yearVal + 1)
-        : String.format("%04d-%02d-01 00:00:00", yearVal, monthVal + 1);
-    List<CategorySummaryDTO> summaryList = transactionMapper.selectCategorySummary(
-        userId, startOfMonth, startOfNextMonth, TransactionType.EXPENSE.getValue() // 支出类型
+    // 查询该用户本月各分类支出汇总（一次性查询，消除 N+1 · 范围查询利用 idx_transaction_user_time 索引）
+    // 复用 EntityValidator.buildMonthRange() 消除重复代码
+    int yearVal = now.getYear();  // 从当前时间提取年份
+    int monthVal = now.getMonthValue();  // 从当前时间提取月份
+    String[] monthRange = EntityValidator.buildMonthRange(yearVal, monthVal);  // 构建月份范围时间字符串（复用EntityValidator公共方法）
+    List<CategorySummaryDTO> summaryList = transactionMapper.selectCategorySummary(  // 批量查询各分类支出汇总
+        userId, monthRange[0], monthRange[1], TransactionType.EXPENSE.getValue() // 支出类型
     );
 
     // 构建 categoryId → totalAmount 映射
-    Map<Long, BigDecimal> spentMap = new java.util.HashMap<>();
-    if (summaryList != null) {
-      for (CategorySummaryDTO summary : summaryList) {
-        spentMap.put(summary.getCategoryId(), summary.getTotalAmount());
+    Map<Long, BigDecimal> spentMap = new java.util.HashMap<>();  // 分类ID→支出金额映射
+    if (summaryList != null) {  // null保护
+      for (CategorySummaryDTO summary : summaryList) {  // 遍历汇总结果
+        spentMap.put(summary.getCategoryId(), summary.getTotalAmount());  // 填充映射
       }
     }
 
-    int alertCount = 0;
+    int alertCount = 0;  // 预警计数器
     // 对每条预算计算预警级别并持久化
-    for (Budget budget : userBudgets) {
-      BigDecimal spent = spentMap.getOrDefault(budget.getCategoryId(), BigDecimal.ZERO);
-      String alertLevel = calculateAlertLevel(budget, spent, dayOfMonth, daysInMonth);
+    for (Budget budget : userBudgets) {  // 遍历用户所有预算
+      BigDecimal spent = spentMap.getOrDefault(budget.getCategoryId(), BigDecimal.ZERO);  // 获取该分类实际支出(默认0)
+      String alertLevel = calculateAlertLevel(budget, spent, dayOfMonth, daysInMonth);  // 计算预警级别
 
       // 计算百分比
-      BigDecimal percentage = BigDecimal.ZERO;
-      if (budget.getAmount().compareTo(BigDecimal.ZERO) > 0) {
-        percentage = spent.divide(budget.getAmount(), 4, RoundingMode.HALF_UP)
-            .multiply(BigDecimal.valueOf(100));
+      BigDecimal percentage = BigDecimal.ZERO;  // 百分比默认0
+      if (budget.getAmount().compareTo(BigDecimal.ZERO) > 0) {  // 预算金额>0才计算
+        percentage = spent.divide(budget.getAmount(), 4, RoundingMode.HALF_UP)  // 已用/预算(保留4位)
+            .multiply(PERCENTAGE_FACTOR);  // ×100转为百分比（使用常量消除魔法数字）
       }
 
       // 持久化预警记录到数据库
-      BudgetAlert alert = new BudgetAlert();
-      alert.setUserId(userId);
-      alert.setCategoryId(budget.getCategoryId());
-      alert.setMonth(monthStr);
-      alert.setAlertLevel(alertLevel);
-      alert.setBudgetAmount(budget.getAmount());
-      alert.setSpentAmount(spent);
-      alert.setPercentage(percentage);
-      alert.setCreateTime(now);
-      budgetAlertMapper.insert(alert);
+      BudgetAlert alert = new BudgetAlert();  // 创建预警记录实体
+      alert.setUserId(userId);  // 设置用户ID
+      alert.setCategoryId(budget.getCategoryId());  // 设置分类ID
+      alert.setMonth(monthStr);  // 设置月份
+      alert.setAlertLevel(alertLevel);  // 设置预警级别
+      alert.setBudgetAmount(budget.getAmount());  // 设置预算金额
+      alert.setSpentAmount(spent);  // 设置已用金额
+      alert.setPercentage(percentage);  // 设置百分比
+      alert.setCreateTime(now);  // 设置创建时间
+      budgetAlertMapper.insert(alert);  // 插入数据库
 
-      if (!ALERT_NORMAL.equals(alertLevel)) {
-        alertCount++;
-        if (ALERT_OVERSPENT.equals(alertLevel)) {
-          log.error("BudgetScheduler [已超支]: userId={}, categoryId={}, budget={}, spent={}",
+      if (!ALERT_NORMAL.equals(alertLevel)) {  // 非正常级别则计入预警
+        alertCount++;  // 预警计数+1
+        if (ALERT_OVERSPENT.equals(alertLevel)) {  // 超支级别
+          log.error("BudgetScheduler [已超支]: userId={}, categoryId={}, budget={}, spent={}",  // 超支用error级别
               userId, budget.getCategoryId(), budget.getAmount(), spent);
-        } else {
-          log.warn("BudgetScheduler [{}]: userId={}, categoryId={}, budget={}, spent={}",
+        } else {  // 日预警或月预警
+          log.warn("BudgetScheduler [{}]: userId={}, categoryId={}, budget={}, spent={}",  // 其他预警用warn级别
               alertLevel, userId, budget.getCategoryId(), budget.getAmount(), spent);
         }
       }
     }
-    return alertCount;
+    return alertCount;  // 返回预警数量
   }
 
   /**
@@ -155,28 +156,28 @@ public class BudgetAlertProcessorServiceImpl implements BudgetAlertProcessorServ
    * @param daysInMonth 本月总天数
    * @return 预警级别字符串
    */
-  private String calculateAlertLevel(Budget budget, BigDecimal spent, int dayOfMonth, int daysInMonth) {
+  private String calculateAlertLevel(Budget budget, BigDecimal spent, int dayOfMonth, int daysInMonth) {  // 计算预警级别
     // 已超支：已消耗 > 预算
-    if (spent.compareTo(budget.getAmount()) > 0) {
-      return ALERT_OVERSPENT;
+    if (spent.compareTo(budget.getAmount()) > 0) {  // 支出超过预算金额
+      return ALERT_OVERSPENT;  // 返回超支级别
     }
 
     // 月预警：已消耗 ≥ 预算 × 80%
-    BigDecimal monthlyThreshold = budget.getAmount().multiply(MONTHLY_THRESHOLD_RATE);
-    if (spent.compareTo(monthlyThreshold) >= 0) {
-      return ALERT_MONTHLY_WARN;
+    BigDecimal monthlyThreshold = budget.getAmount().multiply(MONTHLY_THRESHOLD_RATE);  // 计算月预警阈值(预算×0.8)
+    if (spent.compareTo(monthlyThreshold) >= 0) {  // 支出达到月预警阈值
+      return ALERT_MONTHLY_WARN;  // 返回月预警级别
     }
 
     // 日预警：日均消耗 ≥ 日均预算 × 150%
-    if (daysInMonth > 0 && dayOfMonth > 0 && budget.getAmount().compareTo(BigDecimal.ZERO) > 0) {
-      BigDecimal dailyBudget = budget.getAmount().divide(BigDecimal.valueOf(daysInMonth), 2, RoundingMode.HALF_UP);
-      BigDecimal dailyThreshold = dailyBudget.multiply(DAILY_THRESHOLD_RATE);
-      BigDecimal dailySpent = spent.divide(BigDecimal.valueOf(dayOfMonth), 2, RoundingMode.HALF_UP);
-      if (dailySpent.compareTo(dailyThreshold) >= 0) {
-        return ALERT_DAILY_WARN;
+    if (daysInMonth > 0 && dayOfMonth > 0 && budget.getAmount().compareTo(BigDecimal.ZERO) > 0) {  // 前置条件满足
+      BigDecimal dailyBudget = budget.getAmount().divide(BigDecimal.valueOf(daysInMonth), 2, RoundingMode.HALF_UP);  // 计算日均预算
+      BigDecimal dailyThreshold = dailyBudget.multiply(DAILY_THRESHOLD_RATE);  // 计算日预警阈值(日均×1.5)
+      BigDecimal dailySpent = spent.divide(BigDecimal.valueOf(dayOfMonth), 2, RoundingMode.HALF_UP);  // 计算日均消耗
+      if (dailySpent.compareTo(dailyThreshold) >= 0) {  // 日均消耗达到日预警阈值
+        return ALERT_DAILY_WARN;  // 返回日预警级别
       }
     }
 
-    return ALERT_NORMAL;
+    return ALERT_NORMAL;  // 返回正常级别
   }
 }

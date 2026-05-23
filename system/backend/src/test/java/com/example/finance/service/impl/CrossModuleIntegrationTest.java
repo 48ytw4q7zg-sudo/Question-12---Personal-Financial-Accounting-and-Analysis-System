@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.example.finance.common.BusinessException;
 import com.example.finance.common.EntityValidator;
+import com.example.finance.service.ExchangeRateService;
 import com.example.finance.entity.*;
 import com.example.finance.entity.dto.*;
 import com.example.finance.mapper.*;
@@ -76,6 +77,7 @@ class CrossModuleIntegrationTest {
     @Mock RecurringBillMapper recurringBillMapper;
     @Mock CategoryMapper categoryMapper;
     @Mock EntityValidator entityValidator;
+    @Mock ExchangeRateService exchangeRateService;
     @InjectMocks AccountServiceImpl accountService;
     @InjectMocks TransactionServiceImpl transactionService;
 
@@ -274,6 +276,7 @@ class CrossModuleIntegrationTest {
     @Mock TransactionMapper transactionMapper;
     @Mock AccountMapper accountMapper;
     @Mock CategoryMapper categoryMapper;
+    @Mock EntityValidator entityValidator;
     @InjectMocks RecurringBillServiceImpl recurringBillService;
 
     RecurringBill bill; Account acct; Category cat;

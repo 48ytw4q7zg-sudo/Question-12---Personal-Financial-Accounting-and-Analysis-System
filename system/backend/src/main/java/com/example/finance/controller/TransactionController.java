@@ -11,6 +11,7 @@ import com.example.finance.interceptor.LoginInterceptor;
 import com.example.finance.service.TransactionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -66,14 +67,14 @@ public class TransactionController {
    */
   @GetMapping
   public Result<IPage<TransactionDTO>> list(
-      @RequestParam(required = false) Long accountId,
-      @RequestParam(required = false) Long categoryId,
+      @RequestParam(required = false) @Min(1) Long accountId,  // 账户ID校验（>=1）
+      @RequestParam(required = false) @Min(1) Long categoryId,  // 分类ID校验（>=1）
       @RequestParam(required = false) String startTime,
       @RequestParam(required = false) String endTime,
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false, defaultValue = "time") String sortBy,
-      @RequestParam(defaultValue = "1") int pageNum,
-      @RequestParam(defaultValue = "10") int pageSize,
+      @RequestParam(defaultValue = "1") @Min(1) int pageNum,  // 页码校验（>=1）
+      @RequestParam(defaultValue = "10") @Min(1) @Max(100) int pageSize,  // 每页条数校验（1-100）
       HttpServletRequest request) {
     Long userId = LoginInterceptor.getUserId(request);
     // → TransactionService.list()：sortBy 白名单校验 + pageSize 上限保护 + 时间范围校验 + 分页

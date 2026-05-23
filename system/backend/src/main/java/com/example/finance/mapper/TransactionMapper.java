@@ -23,7 +23,7 @@ import java.util.List;
  * 属于 MyBatis-Plus「复杂查询有限例外」（对齐 CLAUDE.md §二·四）。</p>
  *
  * <p>性能优化：所有统计方法使用范围查询（startOfMonth < time < startOfNextMonth）替代 YEAR()/MONTH() 函数，
- * 利用 idx_user_date 索引加速查询（对齐 BudgetServiceImpl/StatisticsServiceImpl 中的范围查询模式）。</p>
+ * 利用 idx_transaction_user_time 索引加速查询（对齐 BudgetServiceImpl/StatisticsServiceImpl 中的范围查询模式）。</p>
  *
  * <p>调用方:</p>
  * <ul>
@@ -44,7 +44,7 @@ public interface TransactionMapper extends BaseMapper<Transaction> {
    * 为空时不过滤该维度；sortBy 白名单校验由 Service 层处理。</p>
    *
    * @param userId     当前用户 ID（JWT 解码，强制过滤确保数据隔离）
-   * @param accountId  账户 ID 篛选条件（null = 不过滤）
+   * @param accountId  账户 ID 筛选条件（null = 不过滤）
    * @param categoryId 分类 ID 篛选条件（null = 不过滤）
    * @param startTime  起始时间（yyyy-MM-dd HH:mm:ss，null = 不过滤）
    * @param endTime    结束时间（yyyy-MM-dd HH:mm:ss，null = 不过滤）
@@ -72,7 +72,7 @@ public interface TransactionMapper extends BaseMapper<Transaction> {
    * 替代 MyBatis-Plus IPage 自动 count（因 XML 动态 ORDER BY 不兼容 Page 对象）。</p>
    *
    * @param userId     当前用户 ID
-   * @param accountId  账户 ID 篛选条件（null = 不过滤）
+   * @param accountId  账户 ID 筛选条件（null = 不过滤）
    * @param categoryId 分类 ID 篛选条件（null = 不过滤）
    * @param startTime  起始时间（null = 不过滤）
    * @param endTime    结束时间（null = 不过滤）
@@ -89,11 +89,11 @@ public interface TransactionMapper extends BaseMapper<Transaction> {
   );
 
   /**
-   * 月度收支汇总（范围查询利用 idx_user_date 索引）
+   * 月度收支汇总（范围查询利用 idx_transaction_user_time 索引）
    *
    * <p>对应 PRD P1-2 GET /api/statistics/monthly。</p>
    * <p>SQL: SELECT SUM(income), SUM(expense) FROM transaction WHERE userId=? AND time BETWEEN ? AND ?</p>
-   * <p>范围查询替代 YEAR()/MONTH() 函数，利用 idx_user_date(user_id, time) 索引加速。</p>
+   * <p>范围查询替代 YEAR()/MONTH() 函数，利用 idx_transaction_user_time(user_id, time) 索引加速。</p>
    *
    * @param userId            当前用户 ID
    * @param startOfMonth      月起始时间（如 "2026-05-01 00:00:00"）
@@ -107,7 +107,7 @@ public interface TransactionMapper extends BaseMapper<Transaction> {
   );
 
   /**
-   * 年度收支汇总（范围查询利用 idx_user_date 索引）
+   * 年度收支汇总（范围查询利用 idx_transaction_user_time 索引）
    *
    * <p>对应 PRD P1-2 GET /api/statistics/yearly。</p>
    * <p>SQL 与 selectMonthlySummary 类似，时间范围扩展为整年。</p>
@@ -161,7 +161,7 @@ public interface TransactionMapper extends BaseMapper<Transaction> {
   );
 
   /**
-   * 计算单个账户的总收入金额（用于转账余额校验 · 范围: 该账户所有 type=2 的交易）
+   * 计算单个账户的总收入金额（用于转账余额校验 · 范围: 该账户所有 type=1（收入）的交易）
    *
    * @param userId     当前用户 ID（确保数据隔离）
    * @param accountId  账户 ID
@@ -170,7 +170,7 @@ public interface TransactionMapper extends BaseMapper<Transaction> {
   BigDecimal selectAccountIncome(@Param("userId") Long userId, @Param("accountId") Long accountId);
 
   /**
-   * 计算单个账户的总支出金额（用于转账余额校验 · 范围: 该账户所有 type=1 的交易）
+   * 计算单个账户的总支出金额（用于转账余额校验 · 范围: 该账户所有 type=2（支出）的交易）
    *
    * @param userId     当前用户 ID
    * @param accountId  账户 ID
@@ -182,7 +182,7 @@ public interface TransactionMapper extends BaseMapper<Transaction> {
    * 批量计算多账户的收入汇总（消除 N+1 · GROUP BY accountId 聚合）
    *
    * <p>AccountServiceImpl.getBalance() 使用，替代逐账户 selectAccountIncome 的 N+1 模式。</p>
-   * <p>SQL: SELECT account_id, SUM(amount) as totalIncome FROM transaction WHERE userId=? AND account_id IN (?) AND type=2 GROUP BY account_id</p>
+   * <p>SQL: SELECT account_id, SUM(amount) as totalIncome FROM transaction WHERE userId=? AND account_id IN (?) AND type=1(收入) GROUP BY account_id</p>
    * <p>返回类型化 DTO 替代 Map<String, Object>，提供编译期类型安全。</p>
    *
    * @param userId      当前用户 ID
@@ -195,7 +195,7 @@ public interface TransactionMapper extends BaseMapper<Transaction> {
    * 批量计算多账户的支出汇总（消除 N+1 · GROUP BY accountId 聚合）
    *
    * <p>AccountServiceImpl.getBalance() 使用，替代逐账户 selectAccountExpense 的 N+1 模式。</p>
-   * <p>SQL: SELECT account_id, SUM(amount) as totalExpense FROM transaction WHERE userId=? AND account_id IN (?) AND type=1 GROUP BY account_id</p>
+   * <p>SQL: SELECT account_id, SUM(amount) as totalExpense FROM transaction WHERE userId=? AND account_id IN (?) AND type=2(支出) GROUP BY account_id</p>
    * <p>返回类型化 DTO 替代 Map<String, Object>，提供编译期类型安全。</p>
    *
    * @param userId      当前用户 ID

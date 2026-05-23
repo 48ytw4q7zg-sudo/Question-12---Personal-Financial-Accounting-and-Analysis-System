@@ -51,7 +51,8 @@ class StatisticsServiceImplTest {
 
     MonthlySummaryDTO result = statisticsService.getMonthlySummary(1L, 2026, 5);
     assertEquals(new BigDecimal("8000.00"), result.getTotalIncome());
-    assertEquals(5330.00, result.getBalance().doubleValue(), 0.01);
+    // 使用 BigDecimal 精确比较（避免 doubleValue 浮点精度丢失）
+    assertEquals(new BigDecimal("5330.00"), result.getBalance());
     assertEquals(2026, result.getYear());
     assertEquals(5, result.getMonth());
   }

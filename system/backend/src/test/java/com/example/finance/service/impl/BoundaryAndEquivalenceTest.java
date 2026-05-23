@@ -395,6 +395,7 @@ class BoundaryAndEquivalenceTest {
     @Mock TransactionMapper transactionMapper;
     @Mock AccountMapper accountMapper;
     @Mock CategoryMapper categoryMapper;
+    @Mock EntityValidator entityValidator;
     @InjectMocks RecurringBillServiceImpl recurringBillService;
 
     Account acct; Category cat;
@@ -407,8 +408,8 @@ class BoundaryAndEquivalenceTest {
 
     @Test @DisplayName("等价类: period=monthly — 有效")
     void create_monthly() {
-      when(accountMapper.selectById(1L)).thenReturn(acct);
-      when(categoryMapper.selectById(4L)).thenReturn(cat);
+      when(entityValidator.validateAccount(1L, 1L)).thenReturn(acct);  // mock EntityValidator 校验账户
+      when(entityValidator.validateCategory(4L)).thenReturn(cat);  // mock EntityValidator 校验分类
       when(recurringBillMapper.insert(any(RecurringBill.class))).thenReturn(1);
       RecurringBillRequest req = buildBillReq("房租", new BigDecimal("2500.00"), 2, "monthly", "2026-06-01");
       RecurringBillDTO dto = recurringBillService.create(1L, req);
@@ -417,8 +418,8 @@ class BoundaryAndEquivalenceTest {
 
     @Test @DisplayName("等价类: period=weekly — 有效")
     void create_weekly() {
-      when(accountMapper.selectById(1L)).thenReturn(acct);
-      when(categoryMapper.selectById(4L)).thenReturn(cat);
+      when(entityValidator.validateAccount(1L, 1L)).thenReturn(acct);  // mock EntityValidator 校验账户
+      when(entityValidator.validateCategory(4L)).thenReturn(cat);  // mock EntityValidator 校验分类
       when(recurringBillMapper.insert(any(RecurringBill.class))).thenReturn(1);
       RecurringBillRequest req = buildBillReq("零花钱", new BigDecimal("200.00"), 2, "weekly", "2026-06-01");
       RecurringBillDTO dto = recurringBillService.create(1L, req);
@@ -447,8 +448,8 @@ class BoundaryAndEquivalenceTest {
 
     @Test @DisplayName("边界: 账单名称最大30字符 — 有效")
     void create_maxNameLength() {
-      when(accountMapper.selectById(1L)).thenReturn(acct);
-      when(categoryMapper.selectById(4L)).thenReturn(cat);
+      when(entityValidator.validateAccount(1L, 1L)).thenReturn(acct);  // mock EntityValidator 校验账户
+      when(entityValidator.validateCategory(4L)).thenReturn(cat);  // mock EntityValidator 校验分类
       when(recurringBillMapper.insert(any(RecurringBill.class))).thenReturn(1);
       RecurringBillRequest req = buildBillReq("123456789012345678901234567890", new BigDecimal("100.00"), 2, "monthly", "2026-06-01");
       RecurringBillDTO dto = recurringBillService.create(1L, req);

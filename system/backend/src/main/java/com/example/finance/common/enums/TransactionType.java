@@ -5,6 +5,7 @@ package com.example.finance.common.enums;
  *
  * 对应 PRD P0-4：type 取值 {1: 收入, 2: 支出}
  */
+/** WARNING: 1=INCOME/2=EXPENSE。CategoryType 映射相反(1=EXPENSE/2=INCOME)，两者有意相反。 */
 public enum TransactionType {
   INCOME(1, "收入"),
   EXPENSE(2, "支出");
