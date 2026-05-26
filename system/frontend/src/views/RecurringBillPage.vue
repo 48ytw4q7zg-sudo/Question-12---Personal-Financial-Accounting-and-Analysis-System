@@ -23,7 +23,7 @@
     <div class="page-header">
       <h2>周期账单</h2>
       <el-button type="primary" @click="openDialog()">
-        <el-icon><Plus /></el-icon>新增周期账单
+        <el-icon><Plus /></el-icon>新增周期账单  <!-- @element-plus/icons-vue Plus 图标 -->
       </el-button>
     </div>
 
@@ -37,50 +37,55 @@
         <!-- 金额：收入+/支出- -->
         <el-table-column prop="amount" label="金额" width="110">
           <template #default="{ row }">
+            <!-- class 动态绑定：收入绿色(amount-income) / 支出红色(amount-expense) -->
             <span :class="row.type === TRANSACTION_TYPE_INCOME ? 'amount-income' : 'amount-expense'">
               {{ typeMap[row.type]?.sign || '' }}¥ {{ formatAmount(row.amount) }}
             </span>
           </template>
         </el-table-column>
+        <!-- 类型标签：el-tag 显示收入(绿)或支出(红) -->
         <el-table-column prop="type" label="类型" width="80">
           <template #default="{ row }">
             <el-tag :type="row.type === TRANSACTION_TYPE_INCOME ? 'success' : 'danger'" size="small">
-              {{ typeMap[row.type]?.label || '未知' }}
+              {{ typeMap[row.type]?.label || '未知' }}  <!-- typeMap → constants/finance.js -->
             </el-tag>
           </template>
         </el-table-column>
         <!-- 周期：monthly=每月, weekly=每周 -->
         <el-table-column prop="period" label="周期" width="100">
           <template #default="{ row }">
-            {{ periodMap[row.period] || row.period }}
+            {{ periodMap[row.period] || row.period }}  <!-- periodMap → constants/finance.js -->
           </template>
         </el-table-column>
         <el-table-column prop="nextDueDate" label="下次到期" width="120">
           <template #default="{ row }">
-            {{ formatDate(row.nextDueDate) }}
+            {{ formatDate(row.nextDueDate) }}  <!-- formatDate → utils/format.js -->
           </template>
         </el-table-column>
+        <!-- 状态列：el-tag 显示启用(绿)或停用(灰) + 关联账户异常警告 -->
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === STATUS_ACTIVE ? 'success' : 'info'" size="small">
               {{ statusMap[row.status] || '未知' }}
             </el-tag>
-            <!-- PRD P1-4 业务规则③: 活跃账单关联账户被禁用 → 标记异常 -->
+            <!-- PRD P1-4 业务规则③: 活跃账单关联账户被禁用 → el-tag danger 红色标记异常 -->
             <el-tag v-if="row.accountDisabled" type="danger" size="small" style="margin-left: 4px">账户异常</el-tag>
           </template>
         </el-table-column>
         <!-- 操作列：编辑 / 停用 / 生成交易记录 -->
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="openDialog(row)">编辑</el-button>
+            <el-button type="primary" link @click="openDialog(row)">编辑</el-button>   <!-- 编辑回填表单 -->
+            <!-- el-button type="warning"：Element Plus 警告色按钮 -->
             <el-button type="warning" link @click="handleDeactivate(row)" :disabled="deactivatingId === row.id">停用</el-button>
+            <!-- el-button type="success"：Element Plus 成功色按钮 -->
             <el-button type="success" link @click="handleGenerate(row)" :disabled="generatingId === row.id">生成</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <!-- 新增/编辑弹窗 -->
+    <!-- el-dialog：Element Plus 弹窗，新增/编辑周期账单 -->
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑周期账单' : '新增周期账单'" width="520px" destroy-on-close>
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="90px">
         <el-form-item label="名称" prop="name">
@@ -92,6 +97,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="分类" prop="categoryId">
+          <!-- filteredCategories 计算属性：根据类型动态过滤分类列表 -->
           <el-select v-model="formData.categoryId" placeholder="请选择分类" style="width: 100%">
             <el-option v-for="cat in filteredCategories" :key="cat.id" :label="cat.name" :value="cat.id" />
           </el-select>
@@ -100,17 +106,20 @@
           <el-input-number v-model="formData.amount" :precision="2" :min="MIN_TRANSACTION_AMOUNT" :step="AMOUNT_STEP_ROUGH" style="width: 100%" />
         </el-form-item>
         <el-form-item label="类型" prop="type">
+          <!-- el-radio-group：Element Plus 单选按钮组，支出/收入切换 -->
           <el-radio-group v-model="formData.type">
-            <el-radio :value="TRANSACTION_TYPE_EXPENSE">支出</el-radio>
-            <el-radio :value="TRANSACTION_TYPE_INCOME">收入</el-radio>
+            <el-radio :value="TRANSACTION_TYPE_EXPENSE">支出</el-radio>    <!-- value=2 align with TransactionTypeEnum -->
+            <el-radio :value="TRANSACTION_TYPE_INCOME">收入</el-radio>    <!-- value=1 -->
           </el-radio-group>
         </el-form-item>
         <el-form-item label="周期" prop="period">
+          <!-- el-select：Element Plus 下拉选择，遍历 periodMap 对象 -->
           <el-select v-model="formData.period" placeholder="请选择周期" style="width: 100%">
             <el-option v-for="(label, key) in periodMap" :key="key" :label="label" :value="key" />
           </el-select>
         </el-form-item>
         <el-form-item label="下次到期" prop="nextDueDate">
+          <!-- el-date-picker type="date"：Element Plus 日期选择器 -->
           <el-date-picker v-model="formData.nextDueDate" type="date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width: 100%" />
         </el-form-item>
       </el-form>

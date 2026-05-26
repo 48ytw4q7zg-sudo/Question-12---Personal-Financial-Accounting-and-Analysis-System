@@ -11,13 +11,20 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 账户实体（对应 account 表，PRD P0-2 账户管理）
+ * 账户实体（对应数据库 account 表，PRD P0-2 账户管理）
  *
- * 多账户管理（现金/银行卡/支付宝/微信），软删除通过 status=0 实现
- * 用户只能操作自己的账户（通过 userId 隔离）
+ * <p>多账户管理（现金/银行卡/支付宝/微信），软删除通过 status=0 实现。</p>
+ * <p>用户只能操作自己的账户（通过 userId 隔离）。</p>
+ *
+ * <p>关联文件：</p>
+ * <ul>
+ *   <li>被调用方: AccountController.java / AccountServiceImpl.java</li>
+ *   <li>关联 DTO: AccountRequest.java / AccountDTO.java / AccountBalanceDTO.java</li>
+ *   <li>数据库 DDL: sql/01-init.sql CREATE TABLE account</li>
+ * </ul>
  */
-@Data
-@TableName("account")
+@Data                                      // Lombok: 自动生成 getter/setter/toString/equals/hashCode
+@TableName("account")                      // 映射数据库 account 表
 public class Account {
 
   /** 账户主键 ID（BIGINT AUTO_INCREMENT） */

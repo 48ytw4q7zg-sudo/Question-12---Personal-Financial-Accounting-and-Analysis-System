@@ -22,76 +22,91 @@
   <div class="account-page">
     <div class="page-header">
       <h2>账户管理</h2>
+      <!-- el-button：Element Plus 按钮，type="primary" 蓝色主按钮，@click 打开新增弹窗 -->
       <el-button type="primary" @click="openDialog()">
-        <el-icon><Plus /></el-icon>新增账户
+        <el-icon><Plus /></el-icon>新增账户  <!-- el-icon + @element-plus/icons-vue Plus 图标 -->
       </el-button>
     </div>
 
     <!-- 账户列表表格 -->
+    <!-- el-card：Element Plus 卡片容器，包裹 el-table -->
     <el-card shadow="hover">
+      <!-- el-table：Element Plus 表格，stripe 斑马纹，v-loading 绑定 loading 状态 -->
       <el-table :data="accountList" v-loading="loading" stripe>
+        <!-- el-empty：空数据占位组件（当 accountList 为空时显示） -->
         <template #empty><el-empty description="暂无账户" /></template>
+        <!-- el-table-column：表格列，prop 绑定数据字段名 -->
         <el-table-column prop="name" label="账户名称" min-width="120" />
         <!-- 账户类型：数字映射为中文显示（1=现金, 2=银行卡, 3=支付宝, 4=微信） -->
         <el-table-column prop="type" label="账户类型" width="100">
+          <!-- #default 插槽：自定义列内容，row 为当前行数据 -->
           <template #default="{ row }">
-            {{ accountTypeMap[row.type] || row.type }}
+            {{ accountTypeMap[row.type] || row.type }}  <!-- 从 ACCOUNT_TYPE_MAP 常量映射中文名 -->
           </template>
         </el-table-column>
         <el-table-column prop="initialBalance" label="初始余额" width="120">
           <template #default="{ row }">
-            ¥ {{ formatAmount(row.initialBalance) }}
+            ¥ {{ formatAmount(row.initialBalance) }}  <!-- formatAmount → utils/format.js -->
           </template>
         </el-table-column>
         <el-table-column prop="currency" label="币种" width="80" />
         <!-- 状态标签：1=启用(success绿色), 0=停用(info灰色) -->
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
+            <!-- el-tag：Element Plus 标签，动态 type：启用=success(绿)/停用=info(灰) -->
             <el-tag :type="row.status === STATUS_ACTIVE ? 'success' : 'info'">
-              {{ statusMap[row.status] || '未知' }}
+              {{ statusMap[row.status] || '未知' }}  <!-- 从 STATUS_MAP 常量映射中文名 -->
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180">
           <template #default="{ row }">
-            {{ formatTime(row.createTime) }}
+            {{ formatTime(row.createTime) }}  <!-- formatTime → utils/format.js -->
           </template>
         </el-table-column>
-        <!-- 操作列：编辑 + 删除 -->
+        <!-- 操作列：编辑 + 删除，fixed="right" 右固定列 -->
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
+            <!-- el-button link：无边框文本按钮 -->
             <el-button type="primary" link @click="openDialog(row)">编辑</el-button>
             <el-button type="danger" link @click="handleDelete(row)" :disabled="deletingId === row.id">删除</el-button>
+            <!-- :disabled 绑定：当前行正在删除中时禁用按钮防重复点击 -->
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
     <!-- 余额汇总卡片：每个账户显示当前余额 + 非CNY币种显示CNY等值换算（P2-4） -->
+    <!-- v-if：仅在有余额数据时渲染 -->
     <el-card shadow="hover" class="balance-card" v-if="balanceList.length > 0">
       <template #header>账户余额汇总</template>
-      <el-row :gutter="16">
+      <el-row :gutter="16">  <!-- 栅格间距 16px -->
         <el-col v-for="item in balanceList" :key="item.accountId" :xs="12" :sm="6">
+          <!-- xs=12 手机端每行2个，sm=6 宽屏每行4个 -->
           <div class="balance-item">
             <div class="balance-name">{{ item.accountName }}</div>
             <div class="balance-amount">¥ {{ formatAmount(item.currentBalance) }}</div>
             <!-- P2-4: 非CNY币种展示CNY等值换算 -->
             <div v-if="accountCurrency(item.accountId) !== 'CNY'" class="balance-cny-equivalent">
               折合 ≈ ¥ {{ formatCnyEquivalent(item) }}
+              <!-- formatCnyEquivalent() 通过汇率数据换算 */
             </div>
           </div>
         </el-col>
       </el-row>
     </el-card>
 
-    <!-- 新增/编辑弹窗 -->
+    <!-- el-dialog：Element Plus 弹窗对话框，新增/编辑账户 -->
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑账户' : '新增账户'" width="480px" destroy-on-close>
+      <!-- destroy-on-close：关闭弹窗时销毁DOM，防止下次回显残留 -->
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="80px">
         <el-form-item label="账户名称" prop="name">
           <el-input v-model="formData.name" placeholder="请输入账户名称" />
         </el-form-item>
         <el-form-item label="账户类型" prop="type">
+          <!-- el-select：Element Plus 下拉选择器 -->
           <el-select v-model="formData.type" placeholder="请选择账户类型" style="width: 100%">
+            <!-- el-option：下拉选项，:value 绑定数字类型值 -->
             <el-option label="现金" :value="1" />
             <el-option label="银行卡" :value="2" />
             <el-option label="支付宝" :value="3" />
@@ -99,15 +114,17 @@
           </el-select>
         </el-form-item>
         <el-form-item label="初始余额" prop="initialBalance">
+          <!-- el-input-number：Element Plus 数字输入框，:precision="2" 保留2位小数 -->
           <el-input-number v-model="formData.initialBalance" :precision="2" :step="AMOUNT_STEP_ROUGH" :min="0" :max="MAX_ACCOUNT_BALANCE" style="width: 100%" />
         </el-form-item>
         <el-form-item label="币种" prop="currency">
           <el-select v-model="formData.currency" placeholder="请选择币种" style="width: 100%">
+            <!-- v-for 遍历 CURRENCY_LIST 常量生成币种选项 -->
             <el-option v-for="c in CURRENCY_LIST" :key="c.value" :label="c.label" :value="c.value" />
           </el-select>
         </el-form-item>
       </el-form>
-      <template #footer>
+      <template #footer>  <!-- #footer 插槽：自定义弹窗底部按钮 -->
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
       </template>

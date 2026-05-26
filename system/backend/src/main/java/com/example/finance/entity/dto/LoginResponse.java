@@ -1,17 +1,20 @@
-package com.example.finance.entity.dto;
+package com.example.finance.entity.dto; // 声明该类属于 entity.dto 包（数据传输对象层，UserController 登录/注册成功 → 前端 LoginPage.vue 接收的 JSON 响应体）
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;                         // Lombok: 自动生成全参构造器
+import lombok.Data;                                       // Lombok: 自动生成 getter/setter/toString/equals/hashCode
+import lombok.NoArgsConstructor;                          // Lombok: 自动生成无参构造器（Jackson 反序列化需要）
 
 /**
- * 登录/注册响应（返回给前端 LoginPage.vue）
+ * 登录/注册响应 DTO（UserController → 前端 LoginPage.vue）
  *
- * 前端收到后：token → localStorage，userId + username → userStore.setUser()
+ * <p>前端收到后处理流程: token → localStorage('token') → userStore.setUser(userId, username, role)。</p>
+ * <p>含 @NoArgsConstructor 满足 Jackson 反序列化，@AllArgsConstructor 方便 Service 层一行构造。</p>
+ *
+ * <p>调用链路: UserServiceImpl.login()/register() → new LoginResponse(token, userId, username, role) → Result.success() → 前端。</p>
  */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
+@Data                                    // Lombok: 自动生成 getter/setter/toString/equals/hashCode
+@NoArgsConstructor                       // 无参构造器（Jackson 反序列化 JSON → 对象时需要）
+@AllArgsConstructor                      // 全参构造器（Service 层快捷构造: new LoginResponse(token, id, name, role)）
 public class LoginResponse {
 
   /** JWT token（Bearer 认证，7 天有效期，含 userId + role） */

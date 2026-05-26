@@ -65,17 +65,25 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
   /**
    * 获取汇率数据（正向 + 反向汇率 · P2-4 多币种换算）
    *
-   * 返回 ExchangeRateDTO（含 source/base/rates/ratesInverse/count/updateTime）
-   * rates: 1 CNY → X 外币（正向汇率，如 CNY→USD=0.1379）
-   * ratesInverse: 1 外币 → X CNY（反向汇率，如 USD→CNY=7.2504，AccountServiceImpl.getBalance() 余额换算使用）
-   * 调用方：→ ExchangeRateController.getExchangeRates() → 前端 AccountPage.vue 余额 CNY 等值换算
+   * <p>返回 ExchangeRateDTO（含 source/base/rates/ratesInverse/count/updateTime）。</p>
+   * <ul>
+   *   <li>rates: 1 CNY → X 外币（正向汇率，如 CNY→USD=0.1379）</li>
+   *   <li>ratesInverse: 1 外币 → X CNY（反向汇率，如 USD→CNY≈7.2504，AccountServiceImpl.getBalance() 余额 CNY 等值换算使用）</li>
+   * </ul>
+   * <p>反向汇率由 computeInverseRates() 自动从正向汇率计算（1÷rate），确保数学一致性。</p>
+   * <p>硬编码占位实现，后续可替换为外部 API 调用。</p>
    *
-   * @return ExchangeRateDTO 汇率数据对象（source="static-reference" 表示硬编码参考汇率）
+   * <p>调用链: ExchangeRateController.getExchangeRates() → ExchangeRateService.getExchangeRates()
+   *   → 前端 api/exchange-rate.js getExchangeRates() → AccountPage.vue 余额 CNY 等值换算</p>
+   * <p>间接调用: AccountServiceImpl.getBalance() 通过注入的 ExchangeRateService 获取汇率用于多币种余额换算</p>
+   *
+   * @return ExchangeRateDTO 汇率数据对象（source="static-reference" 表示硬编码参考汇率 · base="CNY" · count=6 种外币）
    */
   @Override
-  @Transactional(readOnly = true)  // Q-CR修复：与项目中其他10个ServiceImpl保持一致的事务注解规范
+  @Transactional(readOnly = true)                    // Q-CR修复：与项目中其他10个ServiceImpl保持一致的事务注解规范
   public ExchangeRateDTO getExchangeRates() {
-    // 构造 ExchangeRateDTO：source=static-reference, base=CNY, 正向+反向汇率, count=6, updateTime=static
+    // 构造 ExchangeRateDTO 返回 → ExchangeRateController → 前端 AccountPage.vue
+    // 参数: source=static-reference, base=CNY, 正向汇率 RATES(6种), 反向汇率 RATES_INVERSE(6种), count=6, updateTime=static
     return new ExchangeRateDTO(SOURCE, BASE_CURRENCY, RATES, RATES_INVERSE, CURRENCY_COUNT, "static");
   }
 }

@@ -13,26 +13,34 @@
     → 调用 api/admin.js 的 listUsers() / deleteUser() / toggleRole()
 -->
 <template>
+  <!-- v-loading：Element Plus 指令，页面加载中显示遮罩 -->
   <div class="admin-page" v-loading="loading">
     <h2>用户管理（管理员）</h2>
+    <!-- el-table stripe border：Element Plus 表格，斑马纹+边框 -->
     <el-table :data="users" stripe border aria-label="用户列表">
       <template #empty><el-empty description="暂无用户数据" /></template>
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="username" label="用户名" />
+      <!-- 角色列：el-tag 根据不同角色显示不同颜色 -->
       <el-table-column label="角色" width="120">
         <template #default="{ row }">
+          <!-- 管理员 danger 红色，普通用户 info 灰色 -->
           <el-tag :type="row.role === ROLE_ADMIN ? 'danger' : 'info'">{{ ROLE_LABELS[row.role] || '普通用户' }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="createTime" label="注册时间" width="180">
-        <template #default="{ row }">{{ formatTime(row.createTime) }}</template>
+        <template #default="{ row }">{{ formatTime(row.createTime) }}</template>  <!-- formatTime → utils/format.js -->
       </el-table-column>
+      <!-- 操作列：切换角色 + 删除用户 -->
       <el-table-column label="操作" width="250">
         <template #default="{ row }">
+          <!-- el-button type="warning"：Element Plus 警告色按钮，切换角色 -->
+          <!-- :disabled="row.id === userStore.userId || operating"：禁止操作自己 或 操作进行中 -->
           <el-button type="warning" size="small" @click="handleToggleRole(row)"
                      :disabled="row.id === userStore.userId || operating">
-            {{ row.role === ROLE_ADMIN ? '降为普通用户' : '提升为管理员' }}
+            {{ row.role === ROLE_ADMIN ? '降为普通用户' : '提升为管理员' }}  <!-- 按钮文字随角色动态变化 -->
           </el-button>
+          <!-- el-button type="danger"：Element Plus 危险色按钮，删除用户 -->
           <el-button type="danger" size="small" @click="handleDelete(row)"
                      :disabled="row.id === userStore.userId || operating">
             删除

@@ -1,22 +1,29 @@
 package com.example.finance.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.Data;
+import com.baomidou.mybatisplus.annotation.IdType;       // MP 主键策略（IdType.AUTO=数据库自增）
+import com.baomidou.mybatisplus.annotation.TableField;    // MP 字段映射（驼峰↔下划线转换）
+import com.baomidou.mybatisplus.annotation.TableId;       // MP 主键标识
+import com.baomidou.mybatisplus.annotation.TableName;      // MP 表名映射
+import lombok.Data;                                       // Lombok 自动生成 getter/setter/toString/equals/hashCode
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.math.BigDecimal;                              // 金额字段精度类型（DECIMAL(12,2) 映射）
+import java.time.LocalDateTime;                           // JDK 21 时间类型（对齐 DATETIME 数据库列）
 
 /**
- * 预算预警实体（对应 budget_alert 表 · P2-2）
+ * 预算预警实体（对应数据库 budget_alert 表，PRD P2-2 预算预警）
  *
  * <p>由 BudgetScheduler 每日凌晨 2:00 定时写入，记录各分类预算的预警状态。</p>
- * <p>预警级别: NORMAL(正常) / DAILY_WARN(日预警) / MONTHLY_WARN(月预警) / OVERSPENT(已超支)。</p>
+ * <p>预警级别枚举: NORMAL(正常) / DAILY_WARN(日预警) / MONTHLY_WARN(月预警) / OVERSPENT(已超支)。</p>
+ *
+ * <p>关联文件：</p>
+ * <ul>
+ *   <li>被调用方: BudgetController.java / BudgetServiceImpl.java / BudgetScheduler.java</li>
+ *   <li>关联 DTO: BudgetAlertDTO.java</li>
+ *   <li>数据库 DDL: sql/01-init.sql CREATE TABLE budget_alert</li>
+ * </ul>
  */
-@Data
-@TableName("budget_alert")
+@Data                                   // Lombok: 自动生成 getter/setter/toString/equals/hashCode
+@TableName("budget_alert")              // 映射数据库 budget_alert 表
 public class BudgetAlert {
 
   /** 预警记录主键 ID（BIGINT AUTO_INCREMENT） */

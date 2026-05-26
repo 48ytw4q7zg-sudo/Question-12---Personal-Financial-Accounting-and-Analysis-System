@@ -152,54 +152,82 @@ public class TransactionController {
   /**
    * 转账接口（PRD P1-5 账户间转账）
    *
-   * 流程：校验转出/转入账户不同 → 校验转出账户余额充足
-   *     → @Transactional 事务保护 → 生成两条关联记录（转出支出 + 转入收入）
-   *     → 共享 transferId（UUID）标识关联关系
+   * <p>流程：校验转出/转入账户不同 → 死锁预防按 ID 升序加锁 → 校验转出账户余额充足
+   *     → @Transactional 事务保护（InnoDB REPEATABLE READ）→ 生成两条关联记录（转出支出 + 转入收入）
+   *     → 共享 transferId（UUID）标识关联关系。</p>
    *
-   * @param request 转账请求体（fromAccountId/toAccountId/amount/note，含 @Valid 校验）
-   * @param httpRequest HTTP 请求
-   * @return Result<TransferDTO> 转账结果（含 transferId + 两条记录信息）
+   * <p>并发安全设计:</p>
+   * <ul>
+   *   <li>死锁预防：按账户 ID 升序加锁（先锁小 ID 后锁大 ID），消除 A→B 与 B→A 并发转账的循环等待</li>
+   *   <li>余额校验：FOR UPDATE 悲观锁 + 事务内快照一致性防 TOCTOU 并发透支</li>
+   *   <li>转账分类：统一使用"其他"支出分类（categoryId 从 category 表运行时查询 · 不依赖种子数据顺序）</li>
+   * </ul>
    *
-   * 被前端 TransferPage.vue 调用
-   * 业务异常码：3009 = 余额不足 / 3008 = 转出转入账户不可相同
+   * <p>调用链: 前端 TransferPage.vue → api/transaction.js transfer() → TransactionController.transfer() → TransactionService.transfer()
+   *   → AccountMapper.selectByIdForUpdate() + TransactionMapper.selectAccountIncome/Expense() + TransactionMapper.insert() × 2</p>
+   *
+   * @param request 转账请求体（fromAccountId/toAccountId/amount/note，含 @Valid 校验 · entity/dto/TransferRequest.java）
+   * @param httpRequest HTTP 请求（LoginInterceptor 已注入 userId 属性）
+   * @return Result&lt;TransferDTO&gt; 转账结果（含 transferId + 两条关联记录 outRecord/inRecord）
+   *
+   * 被前端 TransferPage.vue 调用 → api/transaction.js 的 transfer()
+   * 业务异常码：3009 = 余额不足（INSUFFICIENT_BALANCE）/ 3008 = 转出转入账户不可相同（SAME_TRANSFER_ACCOUNT）/ 3004 = 账户不存在或已禁用
    */
   @PostMapping("/transfer")
   public Result<TransferDTO> transfer(@Valid @RequestBody TransferRequest request,
       HttpServletRequest httpRequest) {
     Long userId = LoginInterceptor.getUserId(httpRequest);
-    // → TransactionService.transfer()：
-    //   1. 校验 fromAccountId != toAccountId
-    //   2. 校验转出账户余额 ≥ 转账金额
-    //   3. @Transactional：生成 transferId(UUID) → 插入转出记录(type=2) → 插入转入记录(type=1)
+    // → service/impl/TransactionServiceImpl.java transfer()：
+    //   1. 校验金额非空+正数 + fromAccountId != toAccountId
+    //   2. 死锁预防：按 ID 升序确定加锁顺序（先小后大）
+    //   3. AccountMapper.selectByIdForUpdate() FOR UPDATE 悲观锁
+    //   4. 校验账户归属+status=1 + 余额充足（初始+收入-支出 ≥ 金额）
+    //   5. 查询"其他"支出分类 ID（category 表 + type=1 过滤）
+    //   6. @Transactional：生成 transferId(UUID) → INSERT 转出(type=EXPENSE) → INSERT 转入(type=INCOME)
     TransferDTO transfer = transactionService.transfer(userId, request);
     return Result.success(transfer, "转账成功");
   }
 
   /**
-   * CSV 批量导入接口（PRD P2-3）
+   * CSV 批量导入接口（PRD P2-3 · 银行流水/外部数据批量导入）
    *
-   * 流程：校验文件大小（≤5MB）→ 校验文件类型（.csv）→ 解析 CSV 内容
-   *     → 校验记录数（≤1000 条）→ 逐条校验 + 插入 → 返回结构化导入结果
+   * <p>流程：校验文件大小（≤5MB）→ 校验文件类型（.csv）→ 校验账户归属 → OpenCSV 解析
+   *     → 分类缓存预加载 → 逐行校验（分类ID/类型/金额/时间格式）+ 逐行 INSERT
+   *     → 记录数上限拦截（≤1000 条）→ 返回结构化导入结果（成功条数 + 失败明细行号+原因）。</p>
    *
-   * @param file      CSV 文件（multipart/form-data）
-   * @param accountId 目标账户 ID（所有导入记录归属此账户）
-   * @param httpRequest HTTP 请求
-   * @return Result<ImportResultDTO> 结构化导入结果（成功/失败条数 + 失败明细行号+原因）
+   * <p>容错机制:</p>
+   * <ul>
+   *   <li>单行解析失败不影响其他行（failRows 收录行号+原因）</li>
+   *   <li>CSV 读取 I/O 异常 → 整个事务回滚</li>
+   *   <li>数据库异常（死锁/外键冲突/连接断开）→ 整个事务回滚</li>
+   *   <li>文件格式/大小/条数 → 提前拒绝，不进入解析</li>
+   * </ul>
    *
-   * 被前端 ImportPage.vue 调用，展示导入结果表格 + 失败详情
-   * CSV 格式：time,categoryId,type,amount,note
-   * 业务异常码：3001 = 文件过大 / 格式错误 / 记录数超限
+   * <p>调用链: 前端 ImportPage.vue → api/transaction.js importCsv() → TransactionController.importCsv()
+   *   → TransactionService.importCsv() → EntityValidator + CategoryMapper selectList + OpenCSV CSVReader + TransactionMapper.insert()</p>
+   *
+   * @param file      CSV 文件（multipart/form-data · UTF-8 编码 · 表头行: time,categoryId,type,amount,note）
+   * @param accountId 目标账户 ID（所有导入记录归属此账户 · @NotNull + @Min(1) 校验）
+   * @param httpRequest HTTP 请求（LoginInterceptor 已注入 userId 属性）
+   * @return Result&lt;ImportResultDTO&gt; 结构化导入结果（successCount + failCount + failRows 明细含行号+原因）
+   *
+   * 被前端 ImportPage.vue 调用 → api/transaction.js 的 importCsv()
+   * 业务异常码：3010 = 文件大小超过5MB（FILE_TOO_LARGE）/ 3002 = 仅支持CSV格式（CSV_FORMAT_ONLY）/ 3012 = 导入条数超限 / 3004 = 账户不存在
    */
   @PostMapping("/import")
   public Result<ImportResultDTO> importCsv(@RequestParam("file") MultipartFile file,
       @RequestParam("accountId") @NotNull @Min(1) Long accountId,
       HttpServletRequest httpRequest) {
     Long userId = LoginInterceptor.getUserId(httpRequest);
-    // → TransactionService.importCsv()：
-    //   1. 校验文件 ≤ 5MB + .csv 后缀
-    //   2. OpenCSV 解析 → 逐条校验（分类ID、金额、时间格式）
-    //   3. 批量插入 transaction 表（≤1000 条）
-    //   4. 返回 ImportResultDTO（successCount + failCount + failRows）
+    // → service/impl/TransactionServiceImpl.java importCsv()：
+    //   1. EntityValidator.validateAccount() 校验账户归属
+    //   2. 校验文件 ≤ 5MB + .csv 后缀
+    //   3. CategoryMapper.selectList() 全量分类缓存到 Map<Long, Category>
+    //   4. OpenCSV CSVReader 逐行读取 → 跳过表头 → 逐列解析（time/categoryId/type/amount/note）
+    //   5. 逐行语义校验：分类存在 + type=1/2 + amount>0 + 时间格式 yyyy-MM-dd HH:mm:ss + ≤1000条
+    //   6. 通过校验的行 → TransactionMapper.insert() 逐行写入 transaction 表
+    //   7. 失败行收录到 failRows（行号+原因）→ 不触发回滚（容错）
+    //   8. 返回 ImportResultDTO（successCount + failCount + failRows 明细）
     ImportResultDTO result = transactionService.importCsv(userId, file, accountId);
     return Result.success(result);
   }

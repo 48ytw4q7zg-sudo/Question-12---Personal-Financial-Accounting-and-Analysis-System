@@ -1,16 +1,17 @@
-package com.example.finance.entity.dto;
+package com.example.finance.entity.dto; // 声明该类属于 entity.dto 包（数据传输对象层，接收前端 LoginPage.vue 表单 JSON 请求体 → UserController 入参）
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
-import lombok.Data;
+import jakarta.validation.constraints.NotBlank;           // Jakarta Bean Validation: 字符串非空校验（含 trim）
+import jakarta.validation.constraints.Pattern;            // Jakarta Bean Validation: 正则表达式校验
+import jakarta.validation.constraints.Size;               // Jakarta Bean Validation: 字符串长度范围校验[min,max]
+import lombok.Data;                                       // Lombok 自动生成 getter/setter/toString/equals/hashCode
 
 /**
- * 用户登录/注册请求体（前端 LoginPage.vue → POST /api/user/login 或 /register）
+ * 用户登录/注册请求体（前端 LoginPage.vue → UserController.java POST /api/user/login 或 /register）
  *
- * 校验规则：用户名 3-20 字符（字母/数字/下划线），密码 6-20 字符
+ * <p>校验规则：用户名 3-20 字符（仅限字母/数字/下划线），密码 6-20 字符（任意字符）。</p>
+ * <p>调用链路: LoginPage.vue → api/user.js loginUser()/registerUser() → POST /api/user/* → UserController → UserServiceImpl。</p>
  */
-@Data
+@Data                             // Lombok: 自动生成 getter/setter/toString/equals/hashCode
 public class UserLoginRequest {
 
   /** 用户名（3-20 字符，字母/数字/下划线，@NotBlank + @Size + @Pattern 校验） */

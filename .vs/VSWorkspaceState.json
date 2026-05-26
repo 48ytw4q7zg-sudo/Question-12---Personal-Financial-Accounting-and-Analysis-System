@@ -1,6 +1,12 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\system",
+    "\\system\\frontend",
+    "\\system\\frontend\\src",
+    "\\system\\frontend\\src\\api",
+    "\\system\\frontend\\src\\router",
+    "\\system\\frontend\\src\\views"
   ],
   "PreviewInSolutionExplorer": false
 }

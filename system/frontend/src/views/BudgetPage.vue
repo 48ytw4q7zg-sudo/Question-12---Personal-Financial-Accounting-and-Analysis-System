@@ -22,16 +22,16 @@
     <div class="page-header">
       <h2>预算管理</h2>
       <div class="header-actions">
-        <!-- 月份选择器：切换月份后自动刷新预算进度 -->
+        <!-- el-date-picker type="month"：Element Plus 月份选择器，切换月份后 @change → loadData() -->
         <el-date-picker
-          v-model="selectedMonth"
-          type="month"
+          v-model="selectedMonth"          <!-- 绑定 YYYY-MM 格式字符串 -->
+          type="month"                     <!-- 月份选择模式 -->
           placeholder="选择月份"
-          value-format="YYYY-MM"
-          @change="loadData"
+          value-format="YYYY-MM"          <!-- 值格式 -->
+          @change="loadData"              <!-- 月份变更 → 加载预算进度 + 预警数据 -->
         />
         <el-button type="primary" @click="openDialog()">
-          <el-icon><Plus /></el-icon>设置预算
+          <el-icon><Plus /></el-icon>设置预算  <!-- @element-plus/icons-vue Plus 图标 -->
         </el-button>
       </div>
     </div>
@@ -43,7 +43,7 @@
         <el-table-column prop="categoryName" label="分类" min-width="120" />
         <el-table-column prop="budgetAmount" label="预算金额" width="120">
           <template #default="{ row }">
-            ¥ {{ formatAmount(row.budgetAmount) }}
+            ¥ {{ formatAmount(row.budgetAmount) }}  <!-- formatAmount → utils/format.js -->
           </template>
         </el-table-column>
         <el-table-column prop="spentAmount" label="已支出" width="120">
@@ -51,42 +51,43 @@
             ¥ {{ formatAmount(row.spentAmount) }}
           </template>
         </el-table-column>
-        <!-- 进度条：根据已支出/预算金额计算百分比，颜色随百分比变化 -->
+        <!-- 进度条：el-progress Element Plus 进度条组件，根据已支出/预算金额计算百分比，颜色随百分比变化 -->
         <el-table-column label="进度" min-width="200">
           <template #default="{ row }">
             <el-progress
-              :percentage="getProgress(row)"
-              :color="getProgressColor(row)"
-              :stroke-width="18"
+              :percentage="getProgress(row)"       <!-- 百分比：spentAmount / budgetAmount * 100 -->
+              :color="getProgressColor(row)"       <!-- 颜色：<80%绿 / 80-100%橙 / >=100%红 -->
+              :stroke-width="18"                   <!-- 进度条高度 18px -->
             />
           </template>
         </el-table-column>
         <!-- 状态标签：P2-2 四级预警颜色映射 -->
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            <el-tag v-if="row.alertLevel === ALERT_LEVEL_OVERSPENT" type="danger" size="small">已超支</el-tag>
-            <el-tag v-else-if="row.alertLevel === ALERT_LEVEL_MONTHLY_WARN" type="warning" size="small">月预警</el-tag>
-            <el-tag v-else-if="row.alertLevel === ALERT_LEVEL_DAILY_WARN" type="warning" size="small">日预警</el-tag>
-            <el-tag v-else type="success" size="small">正常</el-tag>
+            <!-- el-tag：Element Plus 标签，按 alertLevel 显示不同颜色 -->
+            <el-tag v-if="row.alertLevel === ALERT_LEVEL_OVERSPENT" type="danger" size="small">已超支</el-tag>      <!-- 红色 -->
+            <el-tag v-else-if="row.alertLevel === ALERT_LEVEL_MONTHLY_WARN" type="warning" size="small">月预警</el-tag> <!-- 橙色 -->
+            <el-tag v-else-if="row.alertLevel === ALERT_LEVEL_DAILY_WARN" type="warning" size="small">日预警</el-tag>  <!-- 橙色 -->
+            <el-tag v-else type="success" size="small">正常</el-tag>                                                  <!-- 绿色 -->
           </template>
         </el-table-column>
         <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="openDialog(row)">编辑</el-button>
+            <el-button type="primary" link @click="openDialog(row)">编辑</el-button>   <!-- openDialog(row) 回填表单 -->
             <el-button type="danger" link @click="handleDeleteBudget(row)" :disabled="deletingId === row.id">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <!-- 设置/编辑预算弹窗 -->
+    <!-- el-dialog：Element Plus 弹窗，设置/编辑预算 -->
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑预算' : '设置预算'" width="420px" destroy-on-close>
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="80px">
         <el-form-item label="分类" prop="categoryId">
-          <!-- 编辑时禁用分类选择（防止修改已有预算的分类） -->
+          <!-- el-select：Element Plus 下拉选择器，编辑时禁用分类选择（:disabled="isEdit"），防止修改已有预算的分类 -->
           <el-select v-model="formData.categoryId" placeholder="请选择支出分类" style="width: 100%" :disabled="isEdit">
             <el-option
-              v-for="cat in expenseCategories"
+              v-for="cat in expenseCategories"   <!-- 仅展示支出分类（category.type === 1） -->
               :key="cat.id"
               :label="cat.name"
               :value="cat.id"
@@ -94,6 +95,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="预算金额" prop="amount">
+          <!-- el-input-number：Element Plus 数字输入框 -->
           <el-input-number v-model="formData.amount" :precision="2" :min="MIN_TRANSACTION_AMOUNT" :step="AMOUNT_STEP_ROUGH" style="width: 100%" />
         </el-form-item>
       </el-form>

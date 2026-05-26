@@ -20,52 +20,56 @@
     <el-card shadow="hover">
       <!-- 月份选择（默认当月） -->
       <div class="month-selector">
+        <!-- el-date-picker：Element Plus 日期选择器，type="month" 月份选择模式 -->
         <el-date-picker
-          v-model="selectedMonth"
-          type="month"
+          v-model="selectedMonth"        <!-- 绑定选中月份（YYYY-MM 格式字符串） -->
+          type="month"                   <!-- 月选择器类型 -->
           placeholder="选择月份"
-          format="YYYY-MM"
-          value-format="YYYY-MM"
-          @change="loadSummary"
+          format="YYYY-MM"               <!-- 显示格式 -->
+          value-format="YYYY-MM"         <!-- 值格式（绑定到 v-model） -->
+          @change="loadSummary"          <!-- 月份变更 → 重新加载汇总数据（→ api/statistics.js） -->
         />
       </div>
 
-      <!-- 支出/收入 Tab 切换 -->
+      <!-- el-tabs：Element Plus 标签页，切换支出/收入分类 -->
       <el-tabs v-model="activeTab" aria-label="分类类型切换">
-        <!-- 支出分类 Tab（type=1 的分类） -->
+        <!-- 支出分类 Tab（展示 category.type === 1 的分类 + 本月消费金额） -->
         <el-tab-pane label="支出分类" name="expense">
+          <!-- el-table：Element Plus 表格，数据源=computed 属性 expenseCategoriesWithAmount -->
           <el-table :data="expenseCategoriesWithAmount" v-loading="loading" stripe>
             <template #empty><el-empty description="暂无支出分类" /></template>
             <el-table-column prop="name" label="分类名称" min-width="150" />
             <el-table-column prop="type" label="类型" width="100">
               <template #default>
+                <!-- el-tag：Element Plus 标签，type="danger" 红色支出标签 -->
                 <el-tag type="danger">支出</el-tag>
               </template>
             </el-table-column>
             <!-- P0-6: 各分类本月消费金额 -->
             <el-table-column prop="monthAmount" label="本月消费" width="150" align="right">
               <template #default="{ row }">
-                <span class="amount-text expense">
-                  ¥{{ formatAmount(row.monthAmount) }}
+                <span class="amount-text expense">  <!-- expense CSS 类显示红色金额 -->
+                  ¥{{ formatAmount(row.monthAmount) }}  <!-- formatAmount → utils/format.js -->
                 </span>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
-        <!-- 收入分类 Tab（type=2 的分类） -->
+        <!-- 收入分类 Tab（展示 category.type === 2 的分类 + 本月收入金额） -->
         <el-tab-pane label="收入分类" name="income">
           <el-table :data="incomeCategoriesWithAmount" v-loading="loading" stripe>
             <template #empty><el-empty description="暂无收入分类" /></template>
             <el-table-column prop="name" label="分类名称" min-width="150" />
             <el-table-column prop="type" label="类型" width="100">
               <template #default>
+                <!-- el-tag：Element Plus 标签，type="success" 绿色收入标签 -->
                 <el-tag type="success">收入</el-tag>
               </template>
             </el-table-column>
             <!-- P0-6: 各分类本月收入金额 -->
             <el-table-column prop="monthAmount" label="本月收入" width="150" align="right">
               <template #default="{ row }">
-                <span class="amount-text income">
+                <span class="amount-text income">  <!-- income CSS 类显示绿色金额 -->
                   ¥{{ formatAmount(row.monthAmount) }}
                 </span>
               </template>

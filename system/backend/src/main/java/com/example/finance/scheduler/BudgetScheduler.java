@@ -55,44 +55,68 @@ public class BudgetScheduler {
    *   <li>单用户失败不影响其他用户</li>
    * </ol>
    */
-  @Scheduled(cron = "0 0 2 * * ?")
+  /**
+   * 每日凌晨 2:00 执行预算预警检查（cron: 0 0 2 * * ?）
+   *
+   * <p>执行流程：</p>
+   * <ol>
+   *   <li>查询本月所有活跃预算（→ mapper/BudgetMapper.java selectList · budget 表按 month 筛选）</li>
+   *   <li>按用户分组（Collectors.groupingBy），每组独立事务处理</li>
+   *   <li>每用户委托 BudgetAlertProcessorService（REQUIRES_NEW · 独立事务）计算预警级别并持久化到 budget_alert 表</li>
+   *   <li>单用户失败只回滚该用户的预警记录，不影响其他用户</li>
+   * </ol>
+   *
+   * <p>为何提取为独立 Service：Scheduler 内部 this 调用 @Transactional 不走 AOP 代理，
+   * REQUIRES_NEW 传播无效。提取为独立 BudgetAlertProcessorService 后通过注入的代理调用，传播才能正确生效。</p>
+   *
+   * <p>调用链: Spring @Scheduled → BudgetScheduler.checkBudgetAlerts() → BudgetAlertProcessorService.processUserBudgetAlerts()
+   *   → TransactionMapper.selectCategorySummary() + BudgetAlertMapper.insert()</p>
+   */
+  @Scheduled(cron = "0 0 2 * * ?")                                      // Spring 定时：每天凌晨 2:00 整触发
   public void checkBudgetAlerts() {
-    long startTime = System.currentTimeMillis();  // 记录执行开始时间（修复：之前缺少执行耗时监控）
+    long startTime = System.currentTimeMillis();                         // 记录执行开始时间（执行耗时监控）
     log.info("BudgetScheduler: 开始每日预算预警检查");
 
-    LocalDateTime now = LocalDateTime.now();
-    String monthStr = String.format("%d-%02d", now.getYear(), now.getMonthValue());
-    int dayOfMonth = now.getDayOfMonth();
-    int daysInMonth = now.toLocalDate().lengthOfMonth();
+    // ─── 步骤一：准备时间参数 ───
+    LocalDateTime now = LocalDateTime.now();                             // 当前时间（用于记录 createdAt）
+    String monthStr = String.format("%d-%02d", now.getYear(), now.getMonthValue());  // 本月 yyyy-MM 格式
+    int dayOfMonth = now.getDayOfMonth();                                // 月内第几天（用于日预警计算）
+    int daysInMonth = now.toLocalDate().lengthOfMonth();                 // 本月总天数（用于日均计算）
 
-    // 1. 查询本月所有预算
+    // ─── 步骤二：查询本月所有预算 ───
+    // → mapper/BudgetMapper.java 的 selectList（继承自 BaseMapper<Budget>）· budget 表按 month 筛选
     List<Budget> budgets = budgetMapper.selectList(
         new LambdaQueryWrapper<Budget>().eq(Budget::getMonth, monthStr)
     );
 
-    if (budgets.isEmpty()) {
+    if (budgets.isEmpty()) {                                             // 本月无预算
       log.info("BudgetScheduler: 本月无活跃预算，跳过检查");
       return;
     }
 
-    // 2. 按用户分组处理（每个用户独立事务，避免全局回滚）
+    // ─── 步骤三：按用户分组处理 ───
+    // Collectors.groupingBy 按 userId 分组，每个用户独立事务（通过 BudgetAlertProcessorService 注入的代理调用）
     Map<Long, List<Budget>> budgetsByUser = budgets.stream()
-        .collect(Collectors.groupingBy(Budget::getUserId));
+        .collect(Collectors.groupingBy(Budget::getUserId));             // userId → 该用户的所有预算列表
 
-    int alertCount = 0;
+    int alertCount = 0;                                                  // 全局预警累计计数器
     for (Map.Entry<Long, List<Budget>> entry : budgetsByUser.entrySet()) {
-      Long userId = entry.getKey();
-      List<Budget> userBudgets = entry.getValue();
+      Long userId = entry.getKey();                                      // 当前用户 ID
+      List<Budget> userBudgets = entry.getValue();                       // 该用户的本月预算列表
       try {
+        // → service/BudgetAlertProcessorService.java 的 processUserBudgetAlerts（REQUIRES_NEW 独立事务）
         // 通过注入的 Spring 代理调用，REQUIRES_NEW 事务传播正确生效
-        alertCount += budgetAlertProcessorService.processUserBudgetAlerts(userId, userBudgets, monthStr, now, dayOfMonth, daysInMonth);
-      } catch (Exception e) {
+        alertCount += budgetAlertProcessorService.processUserBudgetAlerts(
+            userId, userBudgets, monthStr, now, dayOfMonth, daysInMonth);
+      } catch (Exception e) {                                            // 单用户处理异常
         log.error("BudgetScheduler: 用户 {} 预算预警处理失败", userId, e);
-        // 单用户失败不影响其他用户（REQUIRES_NEW 事务已独立回滚）
+        // 不抛异常：single-user-fail 不阻断其他用户（REQUIRES_NEW 事务已独立回滚该用户的预警记录）
       }
     }
 
-    long elapsed = System.currentTimeMillis() - startTime;  // 计算执行耗时（毫秒）
-    log.info("BudgetScheduler: 预算预警检查完成，检查 {} 条预算，生成 {} 条预警，耗时 {} ms", budgets.size(), alertCount, elapsed);  // 修复：添加执行耗时监控（生产环境排查性能问题必备）
+    // ─── 步骤四：执行报告 ───
+    long elapsed = System.currentTimeMillis() - startTime;               // 计算执行耗时（毫秒）
+    log.info("BudgetScheduler: 预算预警检查完成，检查 {} 条预算，生成 {} 条预警，耗时 {} ms",
+        budgets.size(), alertCount, elapsed);                            // 生产环境性能监控必备
   }
 }

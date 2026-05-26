@@ -1,25 +1,37 @@
+// 数据传输对象包（DTO 层，用于接收前端请求和返回响应）
 package com.example.finance.entity.dto;
 
+// Jakarta Bean Validation — 数值下限校验（金额必须 > 0.01）
 import jakarta.validation.constraints.DecimalMin;
+// Jakarta Bean Validation — 整数上限校验（类型须为 1 或 2）
 import jakarta.validation.constraints.Max;
+// Jakarta Bean Validation — 整数下限校验（ID ≥ 1 / 类型 ≥ 1）
 import jakarta.validation.constraints.Min;
+// Jakarta Bean Validation — 非空白字符串校验（名称/周期/到期日必填）
 import jakarta.validation.constraints.NotBlank;
+// Jakarta Bean Validation — 非空校验（账户/分类/金额/类型必填）
 import jakarta.validation.constraints.NotNull;
+// Jakarta Bean Validation — 正则匹配校验（周期值枚举 / 日期格式）
 import jakarta.validation.constraints.Pattern;
+// Jakarta Bean Validation — 字符串长度校验（名称 1-30 字符）
 import jakarta.validation.constraints.Size;
+// Lombok 自动生成 getter/setter/toString/equals/hashCode
 import lombok.Data;
 
+// Java 高精度金额类型（禁止 float/double 防精度丢失）
 import java.math.BigDecimal;
 
 /**
- * 周期性账单创建/更新请求体（前端 RecurringBillPage.vue 弹窗 → POST/PUT /api/recurring-bill）
+ * 周期性账单创建/更新请求体 DTO（前端 RecurringBillPage.vue 弹窗 → POST/PUT /api/recurring-bill）
  *
  * 校验规则：名称 1-30 字符（@Size(max=30)），账户/分类/金额/类型/周期/到期日必填
- * 业务约束：关联账户必须存在且状态=1，到期日是 @Scheduled 判断依据不可为空
+ * 业务约束：关联账户必须存在且状态=1（Service 层校验），到期日是 @Scheduled 判断依据不可为空
  *
  * 调用方: controller/RecurringBillController.java → service/impl/RecurringBillServiceImpl.java
  */
+// Lombok: 自动生成 getter/setter/toString/equals/hashCode（Lombok 1.18.46）
 @Data
+// 周期账单请求 DTO 类（前端表单 JSON → Controller @RequestBody @Valid 自动校验）
 public class RecurringBillRequest {
 
   /** 账单名称（1-30 字符，如「月房租」「月工资」，对齐 PRD P1-4 数据约束） */

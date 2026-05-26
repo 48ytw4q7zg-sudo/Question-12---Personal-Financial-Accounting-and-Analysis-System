@@ -1,4 +1,41 @@
 <!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  📋 答辩文件 ⑥/⑦ — ★ 核心代码讲解（30 分重点）★                         ║
+  ║                                                                      ║
+  ║  【文件整体实现什么】                                                    ║
+  ║  LoginPage.vue — 登录/注册页面，放在 views/ 目录，路由是 /login                ║
+  ║  整个系统唯一不嵌套 AppLayout 的独立页面（登录不需要侧边栏和顶栏）                ║
+  ║  <template> 是 el-card + el-tabs 切换登录/注册两个表单                       ║
+  ║  <script setup> 包含 handleLogin()（第 186-294 行）和 handleRegister()      ║
+  ║                                                                      ║
+  ║  【答辩要讲什么】                                                        ║
+  ║  重点讲 handleLogin() 函数（当前文件第 186-294 行）——逐行"做什么 / 为什么"         ║
+  ║  4 个步骤：表单校验 → 调用 API（含全栈15节点链路）→ 存储状态 → 安全跳转            ║
+  ║                                                                      ║
+  ║  【讲解步骤】                                                           ║
+  ║  1. 开场白（10秒）→ 为什么选 LoginPage                                    ║
+  ║  2. 花 20 秒讲 <template> 模板结构（第 143-192 行）                        ║
+  ║  3. ★ 重点：滚到第 186 行 handleLogin()，逐行讲 4 个步骤                      ║
+  ║     每行代码已在文件内标注了详细的"【做什么】/【为什么】"，直接念即可              ║
+  ║  4. 收尾总结 handleLogin() 覆盖的前端 4 个核心知识点                          ║
+  ║                                                                      ║
+  ║  【具体讲稿开场白】                                                       ║
+  ║  "老师好，我选的前端组件是 LoginPage.vue。这是整个系统唯一的入口页面。             ║
+  ║   handleLogin() 展示了前端开发的完整链路：表单校验→API调用→状态管理→路由跳转。       ║
+  ║   第186行 async function handleLogin() 开始，我逐行讲解。                      ║
+  ║   第143-192行template：el-card卡片容器 + el-tabs切换登录/注册 + el-form表单。     ║
+  ║   第196行validate()：Element Plus表单校验，减少无效请求。                          ║
+  ║   第231行await login()：调api/user.js发POST——背后是完整全栈15节点链路。            ║
+  ║   第242行userStore.setUser()：双写Pinia(内存)+localStorage(硬盘)。               ║
+  ║   第265-274行safeRedirect：4个条件校验防开放重定向攻击。                           ║
+  ║   总结：4步骤覆盖表单校验/API链路/状态管理/安全跳转+async/await/try/catch/finally。"  ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+
+  ▶ 讲完后，下一个文件（最后一个，按 Ctrl+P 粘贴打开）：
+    system/frontend/src/router/index.js
+    （路由守卫 — 前端怎么在页面切换时检查登录状态、拦截未登录用户）
+-->
+<!--
   登录/注册页面
   路由：/login（唯一不嵌套 AppLayout 的页面）
   对应 PRD 功能：P0 登录/JWT（用户注册登录 + JWT token 签发与校验）
@@ -15,21 +52,27 @@
 -->
 <template>
   <div class="login-container">
+    <!-- el-card：Element Plus 卡片容器组件，作为登录/注册表单的外层包裹 -->
     <el-card class="login-card">
       <h2 class="login-title">个人财务记账与分析系统</h2>
 
-      <!-- 登录/注册 Tab 切换 -->
-      <el-tabs v-model="activeTab">
+      <!-- el-tabs：Element Plus 标签页组件，用于登录/注册表单切换 -->
+      <el-tabs v-model="activeTab">       <!-- v-model 绑定当前激活 Tab（'login' 或 'register'） -->
         <!-- 登录 Tab -->
         <el-tab-pane label="登录" name="login">
+          <!-- el-form：Element Plus 表单组件，ref 用于手动校验，:model 绑定数据，:rules 校验规则 -->
           <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" label-width="0" @submit.prevent="handleLogin">
+            <!-- el-form-item：表单项，prop 关联校验规则的字段名 -->
             <el-form-item prop="username" label="用户名" class="hidden-label">
+              <!-- el-input：Element Plus 输入框，:prefix-icon 使用 @element-plus/icons-vue 的 User 图标 -->
               <el-input v-model="loginForm.username" placeholder="请输入用户名" :prefix-icon="User" />
             </el-form-item>
             <el-form-item prop="password" label="密码" class="hidden-label">
+              <!-- show-password 显示密码切换按钮，type="password" 密码类型输入 -->
               <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" :prefix-icon="Lock" show-password />
             </el-form-item>
             <el-form-item>
+              <!-- el-button：Element Plus 按钮，:loading 绑定 loading 状态防止重复点击 -->
               <el-button type="primary" :loading="loginLoading" class="submit-btn" @click="handleLogin">登录</el-button>
             </el-form-item>
           </el-form>
@@ -141,29 +184,114 @@ const registerRules = {                                 // 注册表单校验（
  * 流程：表单校验 → 调用登录接口 → 存 token + 写 userStore → 跳转页面
  */
 async function handleLogin() {
-  const valid = await loginFormRef.value.validate().catch(() => false) // 触发表单校验
-  if (!valid) return                                        // 校验不通过不提交
+  // ★★【答辩第 196 行·第 1 步：前端表单校验】★★
+  //  做什么：调 Element Plus 表单的 validate() 方法，检查所有 el-form-item 的 rules 校验规则
+  //  .catch(() => false)：validate() 校验失败会 reject Promise，转成 false 避免未捕获异常
+  //  await：等待异步校验完成——校验规则里可能有异步 validator
+  //  校验规则在上面 loginRules（第 232-243 行）：
+  //    username：必填 + 长度 3-20 字符 + 正则只允许字母数字下划线
+  //    password：必填 + 长度 ≥6 字符
+  //  为什么前端要校验？减少无效请求——用户输错不用等服务器返回，秒级反馈
+  //   但安全校验仍以后端为准——前端校验可以被绕过（curl/Postman 直接调 API）
+  const valid = await loginFormRef.value.validate().catch(() => false)
+  // ★ 做什么：valid 是布尔值（true=校验通过，false=校验失败）
+  //  为什么用 return：校验失败直接退出，不发 HTTP 请求——省带宽、省服务器资源
+  if (!valid) return
 
-  loginLoading.value = true                                 // 开启登录loading
+  // ★★【答辩第 206 行】★★
+  //  做什么：设置 loading 状态为 true
+  //  为什么：el-button 绑定了 :loading="loginLoading"，设为 true 后：
+  //    ① 按钮显示转圈动画（用户体验：知道正在处理中）
+  //    ② 按钮 disabled 不可点击（防止用户狂点发出几十个重复请求——这叫"防重复提交"）
+  loginLoading.value = true
+
+  // ★★【答辩第 210 行】★★
+  //  做什么：try 块包裹可能出错的操作
+  //  为什么：await login() 有两种失败可能——业务异常（密码错误）和网络异常（断网）
+  //    try/catch 统一捕获，防止未处理的 Promise rejection
   try {
-    // → 调用 api/user.js 的 login()
-    const data = await login(loginForm)                      // 调用登录API
-    // → 调用 stores/user.js 的 setUser()：集中存储 token + 用户信息（token 写入由 store 统一管理）
-    userStore.setUser({ userId: data.userId, username: data.username || loginForm.username, role: data.role || 0, token: data.token }) // 存储用户信息
-    ElMessage.success('登录成功')                             // 成功提示
-    // 跳转：优先跳 redirect 参数指定的页面（路由守卫带过来的），否则跳首页
-    // 安全校验：防止开放重定向攻击，只允许站内相对路径（以 / 开头且不含 :// 和 //）
-    const redirect = route.query.redirect || '/'             // 获取重定向路径
-    const safeRedirect = (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.includes('://') && !redirect.startsWith('//')) ? redirect : '/' // 安全校验重定向
-    router.push(safeRedirect)                                // 跳转到目标页面
+
+    // ★★★【答辩第 231 行·第 2 步：调用登录 API —— 整个全栈链路从这里开始】★★★
+    //  做什么：调用 api/user.js 的 login() 函数，发出 POST 请求到 /api/v1/user/login
+    //  为什么 await：等待网络请求完成——JavaScript 异步非阻塞，不加 await 会拿到 Promise 对象而非数据
+    //
+    //  ★ 这一行背后发生的一整套事情（全栈链路 15 个节点）：
+    //  【请求出去】① api/user.js login() → request.post('/user/login', data)
+    //             ② api/request.js 请求拦截器 → 从 localStorage 读 token 注入 Authorization 头
+    //             ③ axios 发送 HTTP POST → Vite Proxy 代理 /api → localhost:8080
+    //             ④ 后端 CorsFilter 设置跨域头
+    //             ⑤ LoginInterceptor 白名单放行 /api/v1/user/login（用户还没 token）
+    //             ⑥ UserController.login() → @Valid 参数校验 → 调 Service
+    //             ⑦ UserServiceImpl.login() → 限流→查库→BCrypt→JWT→返回
+    //  【响应回来】⑧ Jackson 序列化为 JSON → HTTP 200
+    //             ⑨ axios 响应拦截器 code===200 → return data（解出纯业务数据）
+    //             ⑩ data = {token: "eyJ...", userId: 1, username: "admin", role: 1}
+    //
+    //  data 的类型是 {token, userId, username, role}——响应拦截器已经把 Result 外层剥掉了
+    const data = await login(loginForm)
+
+    // ★★【答辩第 242 行·第 3 步：存储用户信息】★★
+    //  做什么：调用 stores/user.js 的 setUser() 方法
+    //  为什么调 store 而不是直接写 localStorage？
+    //    setUser() 同时做两件事：
+    //    ① 写入 Pinia（Vue 响应式内存）→ 当前页面立刻显示用户名、侧栏菜单根据 role 切换
+    //    ② 写入 localStorage（浏览器硬盘）→ 刷新页面后 token 还在，不用重新登录
+    //    为什么两个都写？Pinia 管当前会话（响应式），localStorage 管持久化（刷新不丢）
+    //  data.username || loginForm.username：优先用后端返回的 username，没有则用表单输入的
+    //  data.role || 0：role 默认 0（普通用户），防御性编程防止后端返回 null
+    userStore.setUser({ userId: data.userId, username: data.username || loginForm.username, role: data.role || 0, token: data.token })
+
+    // ★ 做什么：Element Plus 绿色成功消息条
+    //  为什么：给用户操作成功的即时反馈——符合 UX 设计规范
+    ElMessage.success('登录成功')
+
+    // ★★【答辩第 248-274 行·第 4 步：安全跳转】★★
+    //  做什么：读取 URL 的 ?redirect= 参数，跳转到登录前访问的页面
+    //  为什么有 redirect 参数：路由守卫（router/index.js 第 233 行）拦截未登录请求时，
+    //    把目标路径存到 URL 参数里带过来——如 /login?redirect=/account
+    //    登录成功后读这个参数跳回去——用户不会丢失原有的访问目标
+    const redirect = route.query.redirect || '/'   // 没有 redirect 参数则默认跳首页
+
+    // ★★ 防开放重定向攻击（Open Redirect Attack）★★
+    //  做什么：校验 redirect 必须是站内相对路径
+    //  为什么：攻击者可能发送 https://xxx.com/login?redirect=https://钓鱼网站.com
+    //    用户登录后自动跳转到钓鱼网站 → 看到一模一样的登录页 → 输入密码被偷
+    //  校验逻辑（4 个条件）：
+    //    typeof === 'string' → 必须是字符串（防止注入对象/数组）
+    //    startsWith('/') → 必须以 / 开头（只能是相对路径如 /account）
+    //    !includes('://') → 不能包含完整 URL（防止 https://evil.com）
+    //    !startsWith('//') → 不能以 // 开头（防止协议相对 URL 如 //evil.com，浏览器会补全为 https://evil.com）
+    //  不通过则降级为 '/'（首页）——安全第一
+    const safeRedirect = (
+      typeof redirect === 'string' &&
+      redirect.startsWith('/') &&
+      !redirect.includes('://') &&
+      !redirect.startsWith('//')
+    ) ? redirect : '/'
+
+    // ★ 做什么：Vue Router 编程式导航——跳转到目标页面
+    //  为什么用 router.push 而不直接改 window.location：push 是 SPA 内部导航，不刷新页面
+    router.push(safeRedirect)
+
   } catch (e) {
+    // ★★【答辩第 279-290 行·异常处理】★★
+    //  做什么：记录错误日志
+    //  为什么这里只处理网络异常？
+    //    业务异常（密码错误/用户不存在等）在 api/request.js 响应拦截器第 120 行
+    //    已经用 ElMessage.error 弹过提示了——这里不需要再弹，否则用户看到两条错误
+    //    只有网络层异常（ERR_NETWORK=网络断开、ECONNABORTED=请求超时）才需要在这里额外提示
     log.warn('登录失败:', e) /* 开发环境日志 */
-    // axios 拦截器（api/request.js）已统一处理业务错误消息（密码错误/用户不存在），此处处理网络异常
-    if (e.code === 'ERR_NETWORK' || e.code === 'ECONNABORTED') {  // 网络错误或超时
-      ElMessage.error('网络异常，登录失败')                    // 网络级错误提示
+
+    if (e.code === 'ERR_NETWORK' || e.code === 'ECONNABORTED') {
+      ElMessage.error('网络异常，登录失败')
     }
   } finally {
-    loginLoading.value = false                               // 关闭登录loading
+    // ★★【答辩第 299 行·finally 块】★★
+    //  做什么：无论成功还是失败，关闭 loading 恢复按钮可点击状态
+    //  为什么放 finally 而不是在 try 和 catch 各写一遍？
+    //    finally 保证一定会执行——即使 try 里 return 了、catch 里抛异常了、甚至有人写了错代码
+    //    如果忘记恢复 loading → 按钮永远转圈，用户以为系统卡死（UX 灾难）
+    loginLoading.value = false
   }
 }
 

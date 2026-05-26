@@ -1,22 +1,29 @@
 package com.example.finance.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.Data;
+import com.baomidou.mybatisplus.annotation.IdType;       // MP 主键策略（IdType.AUTO=数据库自增）
+import com.baomidou.mybatisplus.annotation.TableField;    // MP 字段映射（驼峰↔下划线转换）
+import com.baomidou.mybatisplus.annotation.TableId;       // MP 主键标识
+import com.baomidou.mybatisplus.annotation.TableName;      // MP 表名映射
+import lombok.Data;                                       // Lombok 自动生成 getter/setter/toString/equals/hashCode
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.math.BigDecimal;                              // 金额字段精度类型（DECIMAL(12,2) 映射）
+import java.time.LocalDateTime;                           // JDK 21 时间类型（对齐 DATETIME 数据库列）
 
 /**
- * 预算实体（对应 budget 表，PRD P1-3 预算管理）
+ * 预算实体（对应数据库 budget 表，PRD P1-3 预算管理）
  *
- * 月预算按分类设置，同一用户+同一月+同一分类唯一约束
- * 仅支出分类可设置预算（收入分类不参与预算）
+ * <p>月预算按分类设置，同一用户+同一月+同一分类唯一约束（INSERT ON DUPLICATE KEY UPDATE）。</p>
+ * <p>仅支出分类可设置预算（收入分类不参与预算）。</p>
+ *
+ * <p>关联文件：</p>
+ * <ul>
+ *   <li>被调用方: BudgetController.java / BudgetServiceImpl.java / BudgetScheduler.java</li>
+ *   <li>关联 DTO: BudgetRequest.java / BudgetDTO.java / BudgetProgressDTO.java / BudgetAlertDTO.java</li>
+ *   <li>数据库 DDL: sql/01-init.sql CREATE TABLE budget（含唯一索引 uk_user_category_month）</li>
+ * </ul>
  */
-@Data
-@TableName("budget")
+@Data                                 // Lombok: 自动生成 getter/setter/toString/equals/hashCode
+@TableName("budget")                  // 映射数据库 budget 表
 public class Budget {
 
   /** 预算主键 ID（BIGINT AUTO_INCREMENT） */

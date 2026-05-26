@@ -25,77 +25,81 @@
   调用方：AppLayout.vue
 -->
 <template>
-  <!-- router 模式：点击菜单项自动导航到 index 对应的路由 -->
+  <!-- el-menu：Element Plus 导航菜单组件，router=true 模式点击菜单项自动跳转对应路由 -->
   <el-menu
-    :default-active="activeMenu"
-    :collapse="collapsed"
-    router
+    :default-active="activeMenu"         <!-- 当前激活菜单项（由父组件 AppLayout 传入 route.path） -->
+    :collapse="collapsed"                <!-- 是否折叠模式（≥768px 且 <992px 时收缩为 64px） -->
+    router                               <!-- 开启路由模式，index 值即路由 path -->
     class="sidebar-menu"
     aria-label="主导航菜单"
-    @select="$emit('navigate')"
+    @select="$emit('navigate')"         <!-- 菜单项点击 → 触发父组件 navigate 事件（移动端关闭抽屉） -->
   >
     <!-- P0 核心功能 -->
-    <el-menu-item index="/">
-      <el-icon><HomeFilled /></el-icon>
-      <template #title>首页</template>
+    <el-menu-item index="/">             <!-- el-menu-item：导航菜单项，index 即跳转路由 path -->
+      <el-icon><HomeFilled /></el-icon>  <!-- el-icon + @element-plus/icons-vue HomeFilled 首页图标 -->
+      <template #title>首页</template>   <!-- #title 插槽：折叠模式下仅显示图标，展开时显示文字 -->
     </el-menu-item>
     <el-menu-item index="/account">
-      <el-icon><Wallet /></el-icon>
+      <el-icon><Wallet /></el-icon>      <!-- @element-plus/icons-vue Wallet 钱包图标 -->
       <template #title>账户管理</template>
     </el-menu-item>
     <el-menu-item index="/category">
-      <el-icon><Menu /></el-icon>
+      <el-icon><Menu /></el-icon>        <!-- @element-plus/icons-vue Menu 菜单图标 -->
       <template #title>分类浏览</template>
     </el-menu-item>
     <el-menu-item index="/transaction">
-      <el-icon><List /></el-icon>
+      <el-icon><List /></el-icon>        <!-- @element-plus/icons-vue List 列表图标 -->
       <template #title>收支记录</template>
     </el-menu-item>
     <!-- P1 进阶功能 -->
     <el-menu-item index="/budget">
-      <el-icon><Money /></el-icon>
+      <el-icon><Money /></el-icon>       <!-- @element-plus/icons-vue Money 金钱图标 -->
       <template #title>预算管理</template>
     </el-menu-item>
     <el-menu-item index="/recurring-bill">
-      <el-icon><Calendar /></el-icon>
+      <el-icon><Calendar /></el-icon>    <!-- @element-plus/icons-vue Calendar 日历图标 -->
       <template #title>周期账单</template>
     </el-menu-item>
     <el-menu-item index="/transfer">
-      <el-icon><Sort /></el-icon>
+      <el-icon><Sort /></el-icon>        <!-- @element-plus/icons-vue Sort 排序/转账图标 -->
       <template #title>转账</template>
     </el-menu-item>
     <!-- P2 扩展功能 -->
     <el-menu-item index="/analytics">
-      <el-icon><TrendCharts /></el-icon>
+      <el-icon><TrendCharts /></el-icon> <!-- @element-plus/icons-vue TrendCharts 趋势图图标 -->
       <template #title>统计分析</template>
     </el-menu-item>
     <el-menu-item index="/import">
-      <el-icon><Upload /></el-icon>
+      <el-icon><Upload /></el-icon>      <!-- @element-plus/icons-vue Upload 上传图标 -->
       <template #title>数据导入</template>
     </el-menu-item>
     <!-- P1 个人设置 -->
     <el-menu-item index="/settings">
-      <el-icon><Setting /></el-icon>
+      <el-icon><Setting /></el-icon>     <!-- @element-plus/icons-vue Setting 设置图标 -->
       <template #title>设置</template>
     </el-menu-item>
-    <!-- 管理员功能（评分标准 ≥2 类用户角色 · 仅 role=1 可见） -->
+    <!-- 管理员功能（评分标准 ≥2 类用户角色 · 仅 role=1 可见 · v-if 条件渲染） -->
     <el-menu-item v-if="userStore.role === ROLE_ADMIN" index="/admin">
-      <el-icon><UserFilled /></el-icon>
+      <el-icon><UserFilled /></el-icon>  <!-- @element-plus/icons-vue UserFilled 用户图标 -->
       <template #title>用户管理</template>
     </el-menu-item>
   </el-menu>
 </template>
 
 <script setup>
-import { useUserStore } from '../stores/user'
-import { ROLE_ADMIN } from '../constants/role'
-const userStore = useUserStore()
+// → 调用 stores/user.js 的 useUserStore()（读取当前用户角色判断是否显示管理员菜单）
+import { useUserStore } from '../stores/user'              // 导入用户状态store（stores/user.js）
+// → 读取 constants/role.js 的 ROLE_ADMIN 常量（判断管理员角色）
+import { ROLE_ADMIN } from '../constants/role'              // 导入角色常量（constants/role.js）
+const userStore = useUserStore()                           // 初始化用户store实例
 
+// 组件 Props 定义（由父组件 AppLayout.vue 传入）
 defineProps({
   activeMenu: { type: String, required: true },  // 当前激活路由 path（由父组件 AppLayout 传入 route.path）
-  collapsed: { type: Boolean, default: false }    // 是否折叠（≥768px 且 <992px 时折叠为 64px 宽）
+  collapsed: { type: Boolean, default: false }    // 是否折叠（≥768px 且 <992px 时 AppLayout 传入 true）
 })
 
+// 组件 Events 定义：菜单项点击时触发 navigate 事件（→ AppLayout.vue 用于关闭移动端抽屉）
 defineEmits(['navigate'])
 </script>
 

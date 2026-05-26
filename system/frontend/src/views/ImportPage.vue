@@ -22,27 +22,29 @@
 
       <el-form ref="formRef" :model="importForm" :rules="formRules" label-width="90px" style="max-width: 500px;">
         <el-form-item label="目标账户" prop="accountId">
+          <!-- el-select：Element Plus 下拉选择器，选择导入交易记录的归属账户 -->
           <el-select v-model="importForm.accountId" placeholder="请选择账户" style="width: 100%;">
             <el-option v-for="acc in accountList" :key="acc.id" :label="acc.name" :value="acc.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="CSV 文件" prop="file">
+          <!-- el-upload：Element Plus 文件上传组件 -->
           <el-upload
-            ref="uploadRef"
-            :auto-upload="false"
-            :limit="1"
-            accept=".csv"
-            :on-change="handleFileChange"
-            :on-remove="() => importForm.file = null"
+            ref="uploadRef"              <!-- 组件引用用于 clearFiles() -->
+            :auto-upload="false"         <!-- 关闭自动上传（手动触发导入） -->
+            :limit="1"                   <!-- 限制选择1个文件 -->
+            accept=".csv"                <!-- 仅接受 CSV 文件 -->
+            :on-change="handleFileChange" <!-- 文件选择变化 → 手动触发表单校验 -->
+            :on-remove="() => importForm.file = null"  <!-- 文件移除 → 清空表单数据 -->
           >
             <el-button type="primary">选择文件</el-button>
             <template #tip>
-              <div class="el-upload__tip">仅支持 .csv 格式文件</div>
+              <div class="el-upload__tip">仅支持 .csv 格式文件</div>  <!-- 文件格式提示 -->
             </template>
           </el-upload>
         </el-form-item>
         <el-form-item>
-          <!-- 文件和账户都选择后才能导入 -->
+          <!-- 文件和账户都选择后才能导入（:disabled 条件控制） -->
           <el-button type="primary" :loading="importing" :disabled="!importForm.file || !importForm.accountId" @click="handleImport">
             开始导入
           </el-button>
@@ -50,10 +52,11 @@
       </el-form>
     </el-card>
 
-    <!-- CSV 文件格式说明 -->
+    <!-- CSV 文件格式说明卡片 -->
     <el-card shadow="hover" class="format-card">
       <template #header>CSV 文件格式说明</template>
       <p>CSV 文件需包含以下列（第一行为表头）：</p>
+      <!-- el-table border size="small"：Element Plus 带边框小号表格，展示格式说明 -->
       <el-table :data="formatData" border size="small" aria-label="CSV格式说明">
         <el-table-column prop="col" label="列名" width="120" />
         <el-table-column prop="desc" label="说明" />
@@ -63,21 +66,23 @@
       <p class="tip-text">示例格式：<code>time,categoryId,type,amount,note</code>（第一行为表头，会被自动跳过）</p>
     </el-card>
 
-    <!-- 导入结果（仅导入完成后显示） -->
+    <!-- 导入结果卡片（v-if 仅导入完成后显示） -->
     <el-card v-if="importResult" shadow="hover" class="result-card">
       <template #header>导入结果</template>
+      <!-- el-descriptions border：Element Plus 描述列表，带边框，两列布局 -->
       <el-descriptions :column="2" border>
         <el-descriptions-item label="成功条数">
-          <el-tag type="success">{{ importResult.successCount }}</el-tag>
+          <el-tag type="success">{{ importResult.successCount }}</el-tag>  <!-- 绿色成功标签 -->
         </el-descriptions-item>
         <el-descriptions-item label="失败条数">
+          <!-- 有失败时显示红色 danger，无失败时显示灰色 info -->
           <el-tag :type="importResult.failCount > 0 ? 'danger' : 'info'">{{ importResult.failCount }}</el-tag>
         </el-descriptions-item>
       </el-descriptions>
-      <!-- 失败详情表格（有失败记录时显示） -->
+      <!-- 失败详情表格（v-if 有失败记录时显示） -->
       <div v-if="importResult.failRows && importResult.failRows.length > 0" class="fail-rows">
         <h4>失败详情：</h4>
-        <el-table :data="importResult.failRows" border size="small" max-height="300">
+        <el-table :data="importResult.failRows" border size="small" max-height="300">  <!-- max-height 限制表格高度并启用滚动 -->
           <el-table-column prop="row" label="行号" width="80" />
           <el-table-column prop="reason" label="原因" min-width="200" />
         </el-table>

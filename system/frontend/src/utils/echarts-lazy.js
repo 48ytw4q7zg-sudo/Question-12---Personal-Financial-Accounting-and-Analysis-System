@@ -55,4 +55,4 @@ export function loadEcharts() {                            // 加载 ECharts 核
     })
   }
   return echartsPromise                                    // 返回缓存的 Promise（非首次调用时已预加载完毕）
-}
+}                                                           // loadEcharts 函数结束 · 调用方: DashboardPage.vue / AnalyticsPage.vue

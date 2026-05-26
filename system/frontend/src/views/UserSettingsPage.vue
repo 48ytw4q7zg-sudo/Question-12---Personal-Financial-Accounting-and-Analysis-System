@@ -18,9 +18,11 @@
     <!-- 用户信息卡片：展示当前登录用户的基本信息 -->
     <el-card shadow="hover" aria-label="用户信息">
       <template #header>用户信息</template>
-      <el-descriptions :column="1" border>
-        <!-- → 调用 stores/user.js 的 username -->
+      <!-- el-descriptions border：Element Plus 带有边框的描述列表 -->
+      <el-descriptions :column="1" border>   <!-- :column="1" 单列布局 -->
+        <!-- → 读取 stores/user.js 的 username -->
         <el-descriptions-item label="用户名">{{ userStore.username }}</el-descriptions-item>
+        <!-- userStore.username 来自 stores/user.js useUserStore() -->
       </el-descriptions>
     </el-card>
 
@@ -30,6 +32,7 @@
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px" style="max-width: 400px;">
         <el-form-item label="原密码" prop="oldPassword">
           <!-- Q-CR修复: @change触发newPassword重校验，防止旧密码变更后新密码校验状态残留 -->
+          <!-- el-input type="password" show-password：Element Plus 密码输入框（可切换显示/隐藏） -->
           <el-input v-model="formData.oldPassword" type="password" placeholder="请输入原密码" show-password @change="() => formRef.validateField('newPassword').catch(() => {})" />
         </el-form-item>
         <el-form-item label="新密码" prop="newPassword">
@@ -40,6 +43,7 @@
           <el-input v-model="formData.confirmPassword" type="password" placeholder="请确认新密码" show-password />
         </el-form-item>
         <el-form-item>
+          <!-- el-button：Element Plus 主按钮提交修改密码 -->
           <el-button type="primary" :loading="submitting" @click="handleSubmit">修改密码</el-button>
         </el-form-item>
       </el-form>

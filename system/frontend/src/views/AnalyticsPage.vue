@@ -20,31 +20,32 @@
     <div class="page-header">
       <h2>统计分析</h2>
       <div class="header-actions">
-        <!-- 年份选择器：切换年份后刷新柱状图和折线图 -->
+        <!-- el-date-picker type="year"：Element Plus 年份选择器，切换年份后 @change → loadAllCharts() -->
         <el-date-picker
-          v-model="selectedYear"
-          type="year"
+          v-model="selectedYear"           <!-- 绑定年份字符串 YYYY -->
+          type="year"                      <!-- 年份选择模式 -->
           placeholder="选择年份"
-          value-format="YYYY"
-          @change="loadAllCharts"
+          value-format="YYYY"             <!-- 值格式化为年份 -->
+          @change="loadAllCharts"         <!-- 年份变更 → 刷新柱状图 + 折线图（共享 getTrend 数据） -->
         />
-        <!-- 月份选择器：切换月份后刷新分类饼图 -->
+        <!-- el-date-picker type="month"：Element Plus 月份选择器，切换月份后 @change → loadCategoryChart() -->
         <el-date-picker
-          v-model="selectedMonth"
-          type="month"
+          v-model="selectedMonth"          <!-- 绑定月份字符串 YYYY-MM -->
+          type="month"                     <!-- 月份选择模式 -->
           placeholder="选择月份"
-          value-format="YYYY-MM"
-          @change="loadCategoryChart"
+          value-format="YYYY-MM"          <!-- 值格式 -->
+          @change="loadCategoryChart"     <!-- 月份变更 → 刷新分类饼图 -->
         />
       </div>
     </div>
 
-    <!-- 上排图表：柱状图 + 饼图 -->
+    <!-- 上排图表：el-row 栅格布局，柱状图(lg=14) + 饼图(lg=10) -->
     <el-row :gutter="20">
       <!-- 月度收支对比柱状图 -->
-      <el-col :xs="24" :lg="14">
+      <el-col :xs="24" :lg="14">          <!-- xs=24 手机全宽，lg=14 大屏 14/24 -->
         <el-card shadow="hover">
           <template #header>月度收支对比（{{ selectedYear }}年）</template>
+          <!-- ref="barChartRef" → echarts.init(barChartRef.value) 获取DOM容器 -->
           <div ref="barChartRef" class="chart-container" role="img" aria-label="月度收支对比柱状图"></div>
         </el-card>
       </el-col>
@@ -57,9 +58,9 @@
       </el-col>
     </el-row>
 
-    <!-- 下排图表：趋势折线图 -->
+    <!-- 下排图表：趋势折线图，el-col :span="24" 全宽 -->
     <el-row :gutter="20" style="margin-top: 20px;">
-      <el-col :span="24">
+      <el-col :span="24">                 <!-- span=24 占满整行 -->
         <el-card shadow="hover">
           <template #header>收支趋势（{{ selectedYear }}年）</template>
           <div ref="trendChartRef" class="chart-container" role="img" aria-label="收支趋势折线图"></div>

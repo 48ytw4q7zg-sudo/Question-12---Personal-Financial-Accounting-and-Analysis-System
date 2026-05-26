@@ -15,38 +15,45 @@
   <div class="transfer-page">
     <h2>转账</h2>
 
+    <!-- el-card：Element Plus 卡片，v-loading 绑定初始加载状态 -->
     <el-card shadow="hover" class="transfer-card" v-loading="loading" aria-label="转账表单">
+      <!-- el-form：Element Plus 表单容器，居中最大宽度 500px -->
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="90px" style="max-width: 500px; margin: 0 auto;">
         <el-form-item label="转出账户" prop="fromAccountId">
           <!-- Q-CR修复: @change触发toAccountId重校验，防止转出账户变更后转入账户校验状态残留 -->
+          <!-- el-select：Element Plus 下拉选择器，已选为转入账户的选项 disabled 禁止选择（互斥约束） -->
           <el-select v-model="formData.fromAccountId" placeholder="请选择转出账户" style="width: 100%" @change="() => formRef.validateField('toAccountId').catch(() => {})">
             <el-option
               v-for="acc in accountList"
               :key="acc.id"
               :label="acc.name"
               :value="acc.id"
-              :disabled="acc.id === formData.toAccountId"
+              :disabled="acc.id === formData.toAccountId"  <!-- 禁止选择与转入账户相同的账户 -->
             />
           </el-select>
         </el-form-item>
         <el-form-item label="转入账户" prop="toAccountId">
+          <!-- el-select：Element Plus 下拉选择器，已选为转出账户的选项 disabled 禁止选择（互斥约束） -->
           <el-select v-model="formData.toAccountId" placeholder="请选择转入账户" style="width: 100%">
             <el-option
               v-for="acc in accountList"
               :key="acc.id"
               :label="acc.name"
               :value="acc.id"
-              :disabled="acc.id === formData.fromAccountId"
+              :disabled="acc.id === formData.fromAccountId"  <!-- 禁止选择与转出账户相同的账户 -->
             />
           </el-select>
         </el-form-item>
         <el-form-item label="金额" prop="amount">
+          <!-- el-input-number：Element Plus 数字输入框，:precision="2" 保留2位小数 -->
           <el-input-number v-model="formData.amount" :precision="2" :min="MIN_TRANSACTION_AMOUNT" :step="AMOUNT_STEP_ROUGH" style="width: 100%" />
         </el-form-item>
         <el-form-item label="备注" prop="note">
+          <!-- el-input type="textarea"：Element Plus 多行文本输入，:rows="3" 显示3行 -->
           <el-input v-model="formData.note" type="textarea" placeholder="备注（可选）" :rows="3" />
         </el-form-item>
         <el-form-item>
+          <!-- el-button：Element Plus 全宽提交按钮，:loading 防止重复提交 -->
           <el-button type="primary" :loading="submitting" @click="handleSubmit" style="width: 100%;">确认转账</el-button>
         </el-form-item>
       </el-form>

@@ -22,19 +22,23 @@
     → 调用 api/exchange-rate.js 的 getExchangeRates()（汇率数据 → P2-4 多币种换算）
 -->
 <template>
+  <!-- v-loading：Element Plus 指令，页面加载时显示 loading 遮罩 -->
   <div class="dashboard-page" v-loading="loading">
     <h2>首页概览</h2>
 
     <!-- 月度统计卡片：收入 / 支出 / 结余 -->
     <section aria-label="月度财务统计" class="summary-cards">
+      <!-- el-row：Element Plus 栅格行，:gutter="20" 列间距 20px -->
       <el-row :gutter="20">
-        <!-- 月收入卡片 -->
+        <!-- el-col：Element Plus 栅格列，xs=24 手机全宽，sm=8 平板/桌面 1/3 宽 -->
         <el-col :xs="24" :sm="8">
+          <!-- el-card：Element Plus 卡片，shadow="hover" 鼠标悬停显示阴影 -->
           <el-card shadow="hover" class="income-card" aria-label="月收入">
             <div class="card-content">
               <div class="card-label">月收入</div>
               <div class="card-value income">¥ {{ formatAmount(monthlySummary.income) }}</div>
             </div>
+            <!-- el-icon：Element Plus 图标，TrendCharts 来自 @element-plus/icons-vue -->
             <el-icon class="card-icon"><TrendCharts /></el-icon>
           </el-card>
         </el-col>
@@ -45,37 +49,40 @@
               <div class="card-label">月支出</div>
               <div class="card-value expense">¥ {{ formatAmount(monthlySummary.expense) }}</div>
             </div>
-            <el-icon class="card-icon"><Money /></el-icon>
+            <el-icon class="card-icon"><Money /></el-icon>  <!-- @element-plus/icons-vue Money 图标 -->
           </el-card>
         </el-col>
-        <!-- 月结余卡片（正数=收入>支出，负数=支出>收入） -->
+        <!-- 月结余卡片（正数=收入>支出显示绿色，负数=支出>收入显示红色） -->
         <el-col :xs="24" :sm="8">
           <el-card shadow="hover" class="balance-card" aria-label="月结余">
             <div class="card-content">
               <div class="card-label">月结余</div>
+              <!-- :class 动态绑定颜色：结余>=0 绿色(income)，<0 红色(expense) -->
               <div class="card-value" :class="monthlySummary.balance >= 0 ? 'income' : 'expense'">
                 ¥ {{ formatAmount(monthlySummary.balance) }}
               </div>
             </div>
-            <el-icon class="card-icon"><Wallet /></el-icon>
+            <el-icon class="card-icon"><Wallet /></el-icon>  <!-- @element-plus/icons-vue Wallet 图标 -->
           </el-card>
         </el-col>
       </el-row>
     </section>
-    <!-- 多币种提示：当存在非CNY账户时，提醒用户统计金额为各币种原始值 -->
+    <!-- P2-4 多币种提示：当存在非CNY账户时，提醒用户统计金额为各币种原始值 -->
     <div v-if="hasMultiCurrency" class="multi-currency-hint">
+      <!-- el-tag：Element Plus 标签组件，type="info" 灰色信息标签 -->
       <el-tag type="info" effect="plain">多币种账户存在，统计金额为各币种原始值，未做CNY换算</el-tag>
     </div>
 
     <!-- P2-2 预算预警条：根据 alertLevel 显示不同颜色 -->
     <div v-if="budgetAlerts.length > 0" class="budget-alert-section">
+      <!-- el-alert：Element Plus 警告提示组件，v-for 遍历预算预警列表 -->
       <el-alert
         v-for="alert in budgetAlerts"
-        :key="alert.categoryId"
-        :title="formatAlertTitle(alert)"
-        :type="getAlertType(alert.alertLevel)"
-        :closable="false"
-        show-icon
+        :key="alert.categoryId"           <!-- Vue v-for 需要唯一 key -->
+        :title="formatAlertTitle(alert)"  <!-- 预警标题文本（调用 formatAlertTitle() 生成） -->
+        :type="getAlertType(alert.alertLevel)"  <!-- 动态颜色：error(红)/warning(橙)/success(绿) -->
+        :closable="false"                 <!-- 禁止关闭按钮 -->
+        show-icon                          <!-- 显示左侧图标 -->
         class="budget-alert-item"
       />
     </div>
@@ -83,10 +90,11 @@
     <!-- 图表区域：饼图 + 折线图 -->
     <el-row :gutter="20" class="chart-row">
       <!-- 支出分类分布饼图 -->
-      <el-col :xs="24" :lg="10">
+      <el-col :xs="24" :lg="10">          <!-- xs=24 手机全宽，lg=10 大屏 10/24 宽 -->
         <el-card shadow="hover">
-          <template #header>支出分类分布</template>
+          <template #header>支出分类分布</template>  <!-- #header 插槽：卡片标题区域 -->
           <div ref="pieChartRef" class="chart-container" role="img" aria-label="支出分类饼图"></div>
+          <!-- ref="pieChartRef" → echarts.init(pieChartRef.value) 获取DOM容器 -->
         </el-card>
       </el-col>
       <!-- 收支趋势折线图（近 12 个月） -->
@@ -94,6 +102,7 @@
         <el-card shadow="hover">
           <template #header>收支趋势（近12个月）</template>
           <div ref="lineChartRef" class="chart-container" role="img" aria-label="收支趋势折线图"></div>
+          <!-- ref="lineChartRef" → echarts.init(lineChartRef.value) 获取DOM容器 -->
         </el-card>
       </el-col>
     </el-row>

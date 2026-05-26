@@ -24,25 +24,30 @@
   <div class="transaction-page">
     <div class="page-header">
       <h2>收支记录</h2>
+      <!-- el-button：Element Plus 按钮，"记一笔"新增入口 → openDialog() -->
       <el-button type="primary" @click="openDialog()">
-        <el-icon><Plus /></el-icon>记一笔
+        <el-icon><Plus /></el-icon>记一笔  <!-- @element-plus/icons-vue Plus 图标 -->
       </el-button>
     </div>
 
     <!-- 筛选栏（PRD P1-1: 多条件筛选） -->
+    <!-- el-card：Element Plus 卡片，role="search" 无障碍语义 -->
     <el-card shadow="hover" class="filter-card" role="search" aria-label="筛选条件">
+      <!-- el-form :inline="true"：行内表单，表单项水平排列 -->
       <el-form :inline="true" :model="filters">
         <el-form-item label="日期范围">
+          <!-- el-date-picker type="daterange"：Element Plus 日期范围选择器 -->
           <el-date-picker
-            v-model="filters.dateRange"
-            type="daterange"
+            v-model="filters.dateRange"     <!-- 双向绑定 [startDate, endDate] -->
+            type="daterange"               <!-- 日期范围类型 -->
             start-placeholder="开始日期"
             end-placeholder="结束日期"
-            value-format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"      <!-- 值格式化为 yyyy-MM-dd 字符串 -->
             style="width: 260px"
           />
         </el-form-item>
         <el-form-item label="账户">
+          <!-- el-select clearable：Element Plus 下拉选择器，可清空 -->
           <el-select v-model="filters.accountId" placeholder="全部" clearable style="width: 140px">
             <el-option v-for="acc in accountList" :key="acc.id" :label="acc.name" :value="acc.id" />
           </el-select>
@@ -53,11 +58,12 @@
           </el-select>
         </el-form-item>
         <el-form-item label="关键词">
+          <!-- el-input clearable：Element Plus 输入框，可一键清空 -->
           <el-input v-model="filters.keyword" placeholder="备注搜索" clearable style="width: 140px" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="resetFilters">重置</el-button>
+          <el-button type="primary" @click="handleSearch">搜索</el-button>  <!-- 触发筛选 + URL 同步 -->
+          <el-button @click="resetFilters">重置</el-button>    <!-- 清空筛选条件 + URL 参数 -->
         </el-form-item>
       </el-form>
     </el-card>
@@ -68,93 +74,102 @@
         <template #empty><el-empty description="暂无收支记录" /></template>
         <el-table-column prop="time" label="时间" width="180">
           <template #default="{ row }">
-            {{ formatTime(row.time) }}
+            {{ formatTime(row.time) }}  <!-- formatTime → utils/format.js -->
           </template>
         </el-table-column>
         <el-table-column prop="accountName" label="账户" width="120" />
         <el-table-column prop="categoryName" label="分类" width="120" />
-        <!-- 类型标签：1=收入(绿色), 2=支出(红色) -->
+        <!-- 类型标签：1=收入(绿色 success), 2=支出(红色 danger) -->
         <el-table-column prop="type" label="类型" width="80">
           <template #default="{ row }">
+            <!-- el-tag size="small"：Element Plus 小号标签 -->
             <el-tag :type="row.type === TRANSACTION_TYPE_INCOME ? 'success' : 'danger'" size="small">
-              {{ TRANSACTION_TYPE_MAP[row.type]?.label || '未知' }}
+              {{ TRANSACTION_TYPE_MAP[row.type]?.label || '未知' }}  <!-- 从常量映射中文 -->
             </el-tag>
           </template>
         </el-table-column>
-        <!-- 金额：收入显示+，支出显示- -->
+        <!-- 金额：收入显示 +，支出显示 - -->
         <el-table-column prop="amount" label="金额" width="120">
           <template #default="{ row }">
+            <!-- 动态 CSS 类：收入绿色(amount-income) / 支出红色(amount-expense) -->
             <span :class="row.type === TRANSACTION_TYPE_INCOME ? 'amount-income' : 'amount-expense'">
               {{ TRANSACTION_TYPE_MAP[row.type]?.sign || '' }}¥ {{ formatAmount(row.amount) }}
             </span>
           </template>
         </el-table-column>
+        <!-- show-overflow-tooltip：内容超出列宽时显示省略号 + tooltip -->
         <el-table-column prop="note" label="备注" min-width="150" show-overflow-tooltip />
-        <!-- 转账标识：有 transferId 的记录标记为「转账」 -->
+        <!-- 转账标识：有 transferId 的记录标记为「转入/转出」 -->
         <el-table-column label="转账标识" width="100">
           <template #default="{ row }">
+            <!-- el-tag：Element Plus 标签，转账支出=warning(橙)转出，转账收入=success(绿)转入 -->
             <el-tag v-if="row.transferId && row.type === TRANSACTION_TYPE_EXPENSE" type="warning" size="small">(转出)</el-tag>
             <el-tag v-else-if="row.transferId && row.type === TRANSACTION_TYPE_INCOME" type="success" size="small">(转入)</el-tag>
             <!-- 兜底条件：type 只能是 1(收入) 或 2(支出)，此分支理论上不会触发，保留以防御未来枚举扩展 -->
             <el-tag v-else-if="row.transferId && row.type !== TRANSACTION_TYPE_EXPENSE && row.type !== TRANSACTION_TYPE_INCOME" type="warning" size="small">转账</el-tag>
           </template>
         </el-table-column>
+        <!-- 操作列：fixed="right" 右侧固定列（水平滚动时保持可见） -->
         <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openDialog(row)">编辑</el-button>
+            <!-- 转账记录不显示删除按钮（v-if="!row.transferId"） -->
             <el-button
               v-if="!row.transferId"
               type="danger"
               link
               @click="handleDelete(row)"
-              :disabled="deletingId === row.id"
+              :disabled="deletingId === row.id"  <!-- 当前行正在删除中禁用 -->
             >删除</el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 分页组件（对齐 API_DESIGN.md §1 分页参数 pageNum + pageSize） -->
+      <!-- el-pagination：Element Plus 分页组件（对齐 API_DESIGN.md §1 分页参数 pageNum + pageSize） -->
       <div class="pagination-wrapper">
         <el-pagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :page-sizes="PAGE_SIZE_OPTIONS"
-          :total="pagination.total"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
+          v-model:current-page="pagination.pageNum"       <!-- 双向绑定当前页码 -->
+          v-model:page-size="pagination.pageSize"         <!-- 双向绑定每页条数 -->
+          :page-sizes="PAGE_SIZE_OPTIONS"                 <!-- 每页条数选项（来自 constants/finance.js） -->
+          :total="pagination.total"                       <!-- 总记录数 -->
+          layout="total, sizes, prev, pager, next, jumper" <!-- 分页布局：总数+条数选择+前后翻页+页码+跳转 -->
+          @size-change="handleSizeChange"                 <!-- 切换每页条数 → 重置到第1页 -->
+          @current-change="handlePageChange"              <!-- 切换页码 → 加载对应页 -->
         />
       </div>
     </el-card>
 
-    <!-- 记一笔/编辑弹窗 -->
+    <!-- el-dialog：Element Plus 弹窗，记一笔/编辑记录 -->
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑记录' : '记一笔'" width="500px" destroy-on-close>
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="80px">
         <el-form-item label="账户" prop="accountId">
-          <!-- 编辑转账记录时禁用账户/分类/类型/金额/时间，防止破坏转账关联 -->
+          <!-- 编辑转账记录时禁用账户选择（:disabled="isEdit && isTransfer"），防止破坏转账关联 -->
           <el-select v-model="formData.accountId" placeholder="请选择账户" style="width: 100%" :disabled="isEdit && isTransfer">
             <el-option v-for="acc in accountList" :key="acc.id" :label="acc.name" :value="acc.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="分类" prop="categoryId">
-          <!-- 根据当前选择的类型动态过滤可选分类 -->
+          <!-- filteredCategories 计算属性：根据当前类型动态过滤分类列表 -->
           <el-select v-model="formData.categoryId" placeholder="请选择分类" style="width: 100%" :disabled="isEdit && isTransfer">
             <el-option v-for="cat in filteredCategories" :key="cat.id" :label="cat.name" :value="cat.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="类型" prop="type">
+          <!-- el-radio-group：Element Plus 单选按钮组，支出/收入切换 -->
           <el-radio-group v-model="formData.type" :disabled="isEdit && isTransfer">
-            <el-radio :value="TRANSACTION_TYPE_EXPENSE">支出</el-radio>
-            <el-radio :value="TRANSACTION_TYPE_INCOME">收入</el-radio>
+            <el-radio :value="TRANSACTION_TYPE_EXPENSE">支出</el-radio>    <!-- value=2 -->
+            <el-radio :value="TRANSACTION_TYPE_INCOME">收入</el-radio>    <!-- value=1 -->
           </el-radio-group>
         </el-form-item>
         <el-form-item label="金额" prop="amount">
           <el-input-number v-model="formData.amount" :precision="2" :min="MIN_TRANSACTION_AMOUNT" :step="AMOUNT_STEP_PRECISE" style="width: 100%" :disabled="isEdit && isTransfer" />
         </el-form-item>
         <el-form-item label="备注" prop="note">
+          <!-- el-input type="textarea"：Element Plus 多行文本输入 -->
           <el-input v-model="formData.note" type="textarea" placeholder="备注（可选）" />
         </el-form-item>
         <el-form-item label="时间" prop="time">
+          <!-- el-date-picker type="datetime"：Element Plus 日期时间选择器 -->
           <el-date-picker v-model="formData.time" type="datetime" placeholder="选择时间" value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" :disabled="isEdit && isTransfer" />
         </el-form-item>
       </el-form>

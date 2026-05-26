@@ -73,71 +73,76 @@ public class BudgetAlertProcessorServiceImpl implements BudgetAlertProcessorServ
    * @return 预警数量
    */
   @Override
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  @Transactional(propagation = Propagation.REQUIRES_NEW)                                    // 独立事务：单个用户失败只回滚该用户，不影响其他
   public int processUserBudgetAlerts(Long userId, List<Budget> userBudgets,
       String monthStr, LocalDateTime now, int dayOfMonth, int daysInMonth) {
-    // 先删除该用户本月的旧预警记录（幂等：同一天多次执行覆盖）
-    budgetAlertMapper.delete(  // 删除旧预警记录(幂等)
+    // ═══ 阶段一：幂等清理 — 删除该用户本月的旧预警记录 ═══
+    // → mapper/BudgetAlertMapper.java 的 delete（继承自 BaseMapper<BudgetAlert>）
+    budgetAlertMapper.delete(
         new LambdaQueryWrapper<BudgetAlert>()
-            .eq(BudgetAlert::getUserId, userId)  // 筛选当前用户
-            .eq(BudgetAlert::getMonth, monthStr)  // 筛选指定月份
+            .eq(BudgetAlert::getUserId, userId)                         // 筛选当前用户
+            .eq(BudgetAlert::getMonth, monthStr)                        // 筛选指定月份（yyyy-MM 格式）
     );
 
-    // 查询该用户本月各分类支出汇总（一次性查询，消除 N+1 · 范围查询利用 idx_transaction_user_time 索引）
-    // 复用 EntityValidator.buildMonthRange() 消除重复代码
-    int yearVal = now.getYear();  // 从当前时间提取年份
-    int monthVal = now.getMonthValue();  // 从当前时间提取月份
-    String[] monthRange = EntityValidator.buildMonthRange(yearVal, monthVal);  // 构建月份范围时间字符串（复用EntityValidator公共方法）
-    List<CategorySummaryDTO> summaryList = transactionMapper.selectCategorySummary(  // 批量查询各分类支出汇总
-        userId, monthRange[0], monthRange[1], TransactionType.EXPENSE.getValue() // 支出类型
+    // ═══ 阶段二：查询支出汇总 — 一次性查询该用户本月各分类支出 ═══
+    // 复用 EntityValidator.buildMonthRange() 构建月份范围（common/EntityValidator.java）
+    int yearVal = now.getYear();                                         // 从当前时间提取年份
+    int monthVal = now.getMonthValue();                                  // 从当前时间提取月份
+    String[] monthRange = EntityValidator.buildMonthRange(yearVal, monthVal);  // → EntityValidator.buildMonthRange() 返回 [startOfMonth, startOfNextMonth]
+    // → mapper/TransactionMapper.java 的 selectCategorySummary · XML 映射 · 范围查询利用 idx_transaction_user_time 索引
+    List<CategorySummaryDTO> summaryList = transactionMapper.selectCategorySummary(
+        userId, monthRange[0], monthRange[1], TransactionType.EXPENSE.getValue()  // 支出类型(type=2)
     );
 
-    // 构建 categoryId → totalAmount 映射
-    Map<Long, BigDecimal> spentMap = new java.util.HashMap<>();  // 分类ID→支出金额映射
-    if (summaryList != null) {  // null保护
-      for (CategorySummaryDTO summary : summaryList) {  // 遍历汇总结果
-        spentMap.put(summary.getCategoryId(), summary.getTotalAmount());  // 填充映射
+    // 构建 categoryId → totalAmount 映射（null 保护：XML mapper 无数据返回 null）
+    Map<Long, BigDecimal> spentMap = new java.util.HashMap<>();         // 分类ID→支出金额映射
+    if (summaryList != null) {                                           // null 保护
+      for (CategorySummaryDTO summary : summaryList) {                  // 遍历每类汇总
+        spentMap.put(summary.getCategoryId(), summary.getTotalAmount()); // 分类ID → 支出总额
       }
     }
 
-    int alertCount = 0;  // 预警计数器
-    // 对每条预算计算预警级别并持久化
-    for (Budget budget : userBudgets) {  // 遍历用户所有预算
-      BigDecimal spent = spentMap.getOrDefault(budget.getCategoryId(), BigDecimal.ZERO);  // 获取该分类实际支出(默认0)
-      String alertLevel = calculateAlertLevel(budget, spent, dayOfMonth, daysInMonth);  // 计算预警级别
+    // ═══ 阶段三：逐条计算预警级别并持久化 ═══
+    int alertCount = 0;                                                  // 预警计数器
+    for (Budget budget : userBudgets) {                                 // 遍历该用户所有预算
+      // 获取该分类实际支出（无数据默认 BigDecimal.ZERO）
+      BigDecimal spent = spentMap.getOrDefault(budget.getCategoryId(), BigDecimal.ZERO);
+      // 计算预警级别（→ this.calculateAlertLevel() · private 方法 · 第160行）
+      String alertLevel = calculateAlertLevel(budget, spent, dayOfMonth, daysInMonth);
 
-      // 计算百分比
-      BigDecimal percentage = BigDecimal.ZERO;  // 百分比默认0
-      if (budget.getAmount().compareTo(BigDecimal.ZERO) > 0) {  // 预算金额>0才计算
-        percentage = spent.divide(budget.getAmount(), 4, RoundingMode.HALF_UP)  // 已用/预算(保留4位中间精度)
-            .multiply(PERCENTAGE_FACTOR)  // ×100 转为百分比
-            .setScale(2, RoundingMode.HALF_UP);  // 修复：对齐 BudgetServiceImpl.getProgress() 精度规范（保留2位小数百分比）
+      // 计算消耗百分比（已用 ÷ 预算 × 100% · 精度 2 位 · 对齐 BudgetServiceImpl.getProgress()）
+      BigDecimal percentage = BigDecimal.ZERO;                          // 百分比默认 0（预算为 0 时）
+      if (budget.getAmount().compareTo(BigDecimal.ZERO) > 0) {          // 预算金额 > 0 才计算
+        percentage = spent.divide(budget.getAmount(), 4, RoundingMode.HALF_UP)  // 已用÷预算（4位中间精度防丢失）
+            .multiply(PERCENTAGE_FACTOR)                                 // ×100 转为百分比
+            .setScale(2, RoundingMode.HALF_UP);                         // 保留 2 位小数（对齐 BudgetServiceImpl 精度规范）
       }
 
-      // 持久化预警记录到数据库
-      BudgetAlert alert = new BudgetAlert();  // 创建预警记录实体
-      alert.setUserId(userId);  // 设置用户ID
-      alert.setCategoryId(budget.getCategoryId());  // 设置分类ID
-      alert.setMonth(monthStr);  // 设置月份
-      alert.setAlertLevel(alertLevel);  // 设置预警级别
-      alert.setBudgetAmount(budget.getAmount());  // 设置预算金额
-      alert.setSpentAmount(spent);  // 设置已用金额
-      alert.setPercentage(percentage);  // 设置百分比
-      alert.setCreateTime(now);  // 设置创建时间
-      budgetAlertMapper.insert(alert);  // 插入数据库
+      // 持久化预警记录到 budget_alert 表（→ mapper/BudgetAlertMapper.java 的 insert）
+      BudgetAlert alert = new BudgetAlert();                            // 创建预警实体
+      alert.setUserId(userId);                                          // 用户 ID
+      alert.setCategoryId(budget.getCategoryId());                      // 分类 ID
+      alert.setMonth(monthStr);                                         // 月份（yyyy-MM）
+      alert.setAlertLevel(alertLevel);                                  // 预警级别（OVERSPENT/MONTHLY_WARN/DAILY_WARN/NORMAL）
+      alert.setBudgetAmount(budget.getAmount());                        // 预算金额
+      alert.setSpentAmount(spent);                                      // 已消耗金额
+      alert.setPercentage(percentage);                                  // 消耗百分比
+      alert.setCreateTime(now);                                         // 创建时间
+      budgetAlertMapper.insert(alert);                                  // → 写入 budget_alert 表
 
-      if (!ALERT_NORMAL.equals(alertLevel)) {  // 非正常级别则计入预警
-        alertCount++;  // 预警计数+1
-        if (ALERT_OVERSPENT.equals(alertLevel)) {  // 超支级别
-          log.error("BudgetScheduler [已超支]: userId={}, categoryId={}, budget={}, spent={}",  // 超支用error级别
+      // 日志分级：超支→error / 预警→warn / 正常→不打印
+      if (!ALERT_NORMAL.equals(alertLevel)) {                           // 非正常级别
+        alertCount++;                                                   // 预警计数 +1
+        if (ALERT_OVERSPENT.equals(alertLevel)) {                       // 超支级别 → error 级日志
+          log.error("BudgetScheduler [已超支]: userId={}, categoryId={}, budget={}, spent={}",
               userId, budget.getCategoryId(), budget.getAmount(), spent);
-        } else {  // 日预警或月预警
-          log.warn("BudgetScheduler [{}]: userId={}, categoryId={}, budget={}, spent={}",  // 其他预警用warn级别
+        } else {                                                        // 日预警或月预警 → warn 级日志
+          log.warn("BudgetScheduler [{}]: userId={}, categoryId={}, budget={}, spent={}",
               alertLevel, userId, budget.getCategoryId(), budget.getAmount(), spent);
         }
       }
     }
-    return alertCount;  // 返回预警数量
+    return alertCount;                                                   // 返回预警数量 → BudgetScheduler 累计全局预警计数
   }
 
   /**

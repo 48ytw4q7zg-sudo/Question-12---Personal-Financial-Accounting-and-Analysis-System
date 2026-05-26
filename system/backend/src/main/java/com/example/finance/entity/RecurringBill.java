@@ -12,13 +12,20 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 周期性账单实体（对应 recurring_bill 表，PRD P1-4 周期性账单提醒）
+ * 周期性账单实体（对应数据库 recurring_bill 表，PRD P1-4 周期性账单提醒）
  *
- * 用户设置周期性收支模板（月房租/月工资等），手动一键生成交易记录
- * 停用后不可恢复（软删除 status=0）
+ * <p>用户设置周期性收支模板（月房租/月工资等），手动一键生成交易记录。</p>
+ * <p>停用后不可恢复（软删除 status=0）。到期日到达后由 @Scheduled 定时任务检测并通知。</p>
+ *
+ * <p>关联文件：</p>
+ * <ul>
+ *   <li>被调用方: RecurringBillController.java / RecurringBillServiceImpl.java / BillScheduler.java</li>
+ *   <li>关联 DTO: RecurringBillRequest.java / RecurringBillDTO.java</li>
+ *   <li>数据库 DDL: sql/01-init.sql CREATE TABLE recurring_bill</li>
+ * </ul>
  */
-@Data
-@TableName("recurring_bill")
+@Data                                            // Lombok: 自动生成 getter/setter/toString/equals/hashCode
+@TableName("recurring_bill")                      // 映射数据库 recurring_bill 表
 public class RecurringBill {
 
   /** 账单主键 ID（BIGINT AUTO_INCREMENT） */

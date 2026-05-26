@@ -1,3 +1,61 @@
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  📋 答辩文件 ④/⑦ — ★ 核心代码讲解（30 分重点）★                          ║
+// ║                                                                      ║
+// ║  【文件整体实现什么】                                                    ║
+// ║  UserServiceImpl.java — 用户服务实现类，放在 service/impl/ 目录          ║
+// ║  包含三个方法：register() 用户注册、login() 用户登录、changePassword() 改密  ║
+// ║                                                                      ║
+// ║  【答辩要讲什么】                                                        ║
+// ║  重点讲解 login() 方法（当前文件第 154-237 行），共约 19 行代码              ║
+// ║  覆盖 7 个知识点：限流 / ORM / 防SQL注入 / BCrypt / 防枚举攻击 / JWT / 事务  ║
+// ║  每一行都标注了"这一行做什么 / 为什么这样写"                               ║
+// ║                                                                      ║
+// ║  【讲解步骤】                                                           ║
+// ║  1. 开场白（10秒）：告诉老师为什么选这个方法                             ║
+// ║  2. 滚到第 154 行 @Transactional 注解，开始逐行讲解                      ║
+// ║  3. 讲完第 237 行 return 语句后，用 7 个知识点总结收尾                     ║
+// ║                                                                      ║
+// ║  【具体讲稿 — 逐行念即可】                                               ║
+// ║                                                                      ║
+// ║  开场白："老师好，我选的后端核心方法是 UserServiceImpl 里的 login() 方法。  ║
+// ║    这个方法虽然只 19 行代码，但覆盖了 7 个核心知识点：限流、ORM、           ║
+// ║    防SQL注入、BCrypt密码加密、防用户名枚举攻击、JWT无状态认证、事务管理。"    ║
+// ║                                                                      ║
+// ║  第 154 行 @Transactional(readOnly=true)：Spring 声明式只读事务           ║
+// ║    "这一行告诉Spring'这个方法只做SELECT查询'。为什么标readOnly？            ║
+// ║     MySQL读写分离可以把读操作路由到从库；只读事务不需要维护undo log，更省资源。"║
+// ║                                                                      ║
+// ║  第 160 行 方法签名：接收 UserLoginRequest，返回 LoginResponse             ║
+// ║    "参数已经被Controller用@Valid校验过了——非空、长度等。"                   ║
+// ║                                                                      ║
+// ║  第 173-176 行·知识点1 限流：LoginRateLimiter.tryAcquire()                ║
+// ║    "同一用户名每秒最多2次尝试。为什么放最前面？防暴力破解——                    ║
+// ║     攻击请求在碰数据库之前就被拒绝，保护数据库连接池。"                        ║
+// ║                                                                      ║
+// ║  第 188-191 行·知识点2+3 ORM+防SQL注入：LambdaQueryWrapper                ║
+// ║    "为什么不用SQL字符串？1)编译时类型安全 2)PreparedStatement防注入            ║
+// ║     3)IDE重构时自动更新所有引用。生成的SQL是 SELECT * FROM user WHERE username=?"║
+// ║                                                                      ║
+// ║  第 208-211 行·知识点4+5 BCrypt+防枚举攻击                                 ║
+// ║    "user==null和密码错误合并到一个if，统一返回'用户名或密码错误'。               ║
+// ║     为什么？防止攻击者枚举哪些用户名已注册。BCrypt不可逆+自动加盐+4096次迭代。"   ║
+// ║                                                                      ║
+// ║  第 222 行·知识点6 JWT无状态认证：JwtUtils.generateToken()                 ║
+// ║    "把userId/username/role编码到token里，HMAC-SHA256签名，7天有效。           ║
+// ║     自包含token——拦截器解析就能拿到身份，不用每次查数据库。这就是无状态设计。"    ║
+// ║                                                                      ║
+// ║  第 228 行 清理限流器：LoginRateLimiter.cleanup()                          ║
+// ║    "登录成功释放限流器内存。只在失败时需要保留来防攻击。"                        ║
+// ║                                                                      ║
+// ║  第 237 行 返回 LoginResponse：token/userId/username/role 四个字段          ║
+// ║                                                                      ║
+// ║  收尾总结："这19行代码覆盖了7个知识点：限流/ORM/防SQL注入/BCrypt/           ║
+// ║    防枚举攻击/JWT无状态/事务管理，都是企业后端开发必知必会的。"                 ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+//
+// ▶ 讲完后，下一个文件（切换到前端，按 Ctrl+P 粘贴打开）：
+//   system/frontend/src/api/request.js
+//   （axios 请求拦截器 + 响应拦截器 — 前端请求怎么发出去的、响应怎么处理的）
 package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -94,22 +152,88 @@ public class UserServiceImpl implements UserService {
    */
   @Override
   @Transactional(readOnly = true)
+  // ★【答辩第 131 行】@Transactional(readOnly = true) — Spring 声明式只读事务
+  //  做什么：告诉 Spring 和数据库"这个方法只做 SELECT 查询，没有增删改"
+  //  为什么：MySQL 读写分离架构可以根据 readOnly 标志把读操作路由到从库，减轻主库压力
+  //         只读事务比读写事务省开销——不需要维护 undo log 用于回滚
+  //         如果方法里有 INSERT/UPDATE 还要标 readOnly=true → 数据库会报错，防呆设计
   public LoginResponse login(UserLoginRequest request) {
-    // 登录限流：同一用户名每秒最多 2 次尝试，超出则拒绝（防暴力破解）
+  // ★【答辩第 132 行】方法签名
+  //  参数 UserLoginRequest：前端表单 {username, password} 的 JSON → Controller 已经用 @Valid 校验过
+  //  返回 LoginResponse：{token, userId, username, role}，Controller 包装成 Result.success() 发给前端
+
+    // ★★【答辩第 134-136 行·知识点 1：限流】★★
+    //  做什么：LoginRateLimiter.tryAcquire() 检查同一用户名是否超过登录频率限制（每秒最多 2 次）
+    //  为什么放第一步（查数据库之前）？防止暴力破解攻击消耗数据库连接池——
+    //    攻击者用脚本每秒几百次尝试不同密码，如果先查库再限流，数据库连接已被耗尽
+    //    限流在最前面 → 攻击请求连数据库都碰不到就被拒绝
+    //  为什么用用户名做限流 Key 而不是 IP？防止同一 IP 下多用户互相影响（家庭/公司 NAT 环境）
+    //  LoginRateLimiter 来自 util/LoginRateLimiter.java，内部用 Guava RateLimiter + TTL 过期自动清理
+    //  如果触发限流 → 抛 BusinessException(1004)，前端弹窗"登录尝试过于频繁，请稍后再试"
     if (!LoginRateLimiter.tryAcquire(request.getUsername())) {
       throw new BusinessException(ErrorCode.LOGIN_RATE_LIMIT.getCode(), ErrorCode.LOGIN_RATE_LIMIT.getMsg());
+      // ErrorCode.LOGIN_RATE_LIMIT 定义在 common/ErrorCode.java，code=1004，msg="登录尝试过于频繁，请稍后再试"
     }
 
+    // ★★【答辩第 138-140 行·知识点 2+3：ORM + 防 SQL 注入】★★
+    //  做什么：用 MyBatis-Plus 的 LambdaQueryWrapper 构建 SQL 条件 WHERE username = ?，查 user 表
+    //  生成的 SQL：SELECT * FROM user WHERE username = ?（? 是 PreparedStatement 占位符）
+    //  为什么用 LambdaQueryWrapper 而不是写 SQL 字符串？
+    //    第一、类型安全 — User::getUsername 是 Java 方法引用，编译时检查
+    //      如果字段名写错（如 getUsernmae），编译器直接报错 → 写 SQL 字符串要到运行时才发现
+    //    第二、防 SQL 注入 — MyBatis-Plus 自动用 PreparedStatement 参数化
+    //      用户输入被当成纯数据而非 SQL 代码执行 → 传 ' OR '1'='1 也无法注入
+    //    第三、重构友好 — 改字段名时 IDE 一键重构，所有 Lambda 引用自动更新
+    //      写 SQL 字符串只能全局搜索手工改，容易漏
+    //  userMapper 是 MyBatis-Plus 的 BaseMapper<User>，selectOne 查一条记录（多条匹配抛异常）
     User user = userMapper.selectOne(
         new LambdaQueryWrapper<User>().eq(User::getUsername, request.getUsername())
     );
+
+    // ★★【答辩第 141-143 行·知识点 4+5：BCrypt + 防枚举攻击】★★
+    //  做什么：判断用户是否存在 + 验证密码是否正确，两个条件合并到一个 if 里
+    //  为什么 user==null 和密码错误统一抛同一个异常？
+    //    这叫"防用户名枚举攻击"（Username Enumeration Attack）——
+    //    如果区分返回"用户不存在"和"密码错误"，攻击者可以写脚本枚举：
+    //      返回"密码错误"→ 这个用户名已注册（可以针对性攻击）
+    //      返回"用户不存在"→ 这个用户名没注册（跳过）
+    //    统一返回"用户名或密码错误"→ 攻击者无法判断，防用户枚举
+    //  为什么 BCRYPT_ENCODER.matches() 而不是 MD5？
+    //    第一、BCrypt 不可逆哈希 → 即使数据库泄露，无法从哈希值还原明文密码
+    //    第二、BCrypt 自动加盐 → 相同密码每次哈希结果不同，防彩虹表碰撞攻击
+    //       （MD5 相同密码产生相同哈希 → 攻击者提前算好"123456→e10adc..."查表秒破）
+    //    第三、工作因子 12 = 4096 次迭代 → 暴力破解成本极高，MD5 只需 1 次哈希
+    //    第四、BCrypt 是 OWASP 推荐的密码存储方案（A02: Cryptographic Failures）
+    //  BCRYPT_ENCODER 是 BCryptPasswordEncoder 实例（上面第 161 行），static final 共享单例线程安全
     if (user == null || !BCRYPT_ENCODER.matches(request.getPassword(), user.getPassword())) {
       throw new BusinessException(ErrorCode.PASSWORD_ERROR.getCode(), ErrorCode.PASSWORD_ERROR.getMsg());
+      // ErrorCode.PASSWORD_ERROR 定义在 common/ErrorCode.java，code=1002，msg="用户名或密码错误"
     }
 
+    // ★★【答辩第 145 行·知识点 6：JWT 无状态认证】★★
+    //  做什么：登录成功，调用 JwtUtils.generateToken() 生成 JWT token
+    //  这个方法把 userId、username、role 三个信息编码到 JWT 的 payload 里，用 HMAC-SHA256 签名
+    //  生成的 token 是三段 Base64 字符串，用 . 分隔：header.payload.signature
+    //  为什么 JWT 里存 username 和 role？这叫"自包含 token"（Self-Contained Token）
+    //    LoginInterceptor 解析 token 就能拿到用户身份 → 不需要每次请求都查数据库
+    //    → 这就是"无状态设计"——服务器不需要 session 来记住用户是谁
+    //  有效期 7 天（配置在 config/JwtConfig.java），过期后需要重新登录
+    //  JwtUtils.generateToken() 在 util/JwtUtils.java 里定义
     String token = JwtUtils.generateToken(user.getId(), user.getUsername(), user.getRole());
-    // 登录成功后清理限流器，释放内存
+
+    // ★【答辩第 147 行】清理限流器
+    //  做什么：登录成功后移除这个用户名的限流器
+    //  为什么：限流器只在登录失败时需要保留（阻止攻击者继续尝试），成功后释放内存防止内存泄漏
+    //  LoginRateLimiter 内部用 ConcurrentHashMap + TTL 自动过期，cleanup 主动清理释放 Map 条目
     LoginRateLimiter.cleanup(request.getUsername());
+
+    // ★【答辩第 148 行】返回结果
+    //  做什么：返回 LoginResponse DTO，包含 token / userId / username / role 四个字段
+    //  token：前端存 localStorage，后续所有请求带 Authorization: Bearer <token>
+    //  userId：前端知道是谁登录了
+    //  username：显示在界面右上角
+    //  role：0=普通用户，1=管理员——路由守卫和侧边栏菜单根据 role 显示不同内容
+    //  Controller 收到后包装成 Result.success(loginResponse) → Jackson 序列化为 JSON 发给前端
     return new LoginResponse(token, user.getId(), user.getUsername(), user.getRole());
   }
 

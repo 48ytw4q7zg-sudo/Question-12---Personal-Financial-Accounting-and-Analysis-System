@@ -4,6 +4,7 @@
   对应关系：router/index.js 定义路由规则 → 匹配到的页面组件在此渲染
 -->
 <template>
+  <!-- Vue Router 渲染出口：根据当前 URL 匹配 router/index.js 路由表，渲染对应页面组件 -->
   <router-view />
 </template>
 
