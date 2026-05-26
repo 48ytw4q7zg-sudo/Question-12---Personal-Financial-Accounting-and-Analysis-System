@@ -348,8 +348,9 @@ function readFiltersFromUrl() {
   if (q.page) pagination.pageNum = Number(q.page)          // 读取页码
 }
 
-/** 搜索：重置页码到第 1 页 + 同步 URL + 重新加载 */
+/** 搜索：重置页码到第 1 页 + 同步 URL + 重新加载（loading 防抖防止快速重复点击） */
 function handleSearch() {
+  if (loading.value) return                                 // 加载中则忽略重复请求
   pagination.pageNum = 1                                    // 重置页码
   syncFiltersToUrl()                                        // 同步到URL
   loadTransactions()                                        // 重新加载

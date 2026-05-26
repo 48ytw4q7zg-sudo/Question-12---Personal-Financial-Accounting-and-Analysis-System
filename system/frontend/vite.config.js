@@ -19,6 +19,8 @@ export default defineConfig({
     }
   },
   build: {
+    // 生产构建禁止 sourcemap，防止源代码暴露（安全加固）
+    sourcemap: false,                                        // 禁用 sourcemap 避免生产环境泄露源码
     // 单个 chunk 超过 800KB 时发出警告(避免打包过大影响首屏加载)
     chunkSizeWarningLimit: 1000,  // Element Plus 945KB 超过 800KB 但无法进一步拆分(全局依赖)
     rollupOptions: {

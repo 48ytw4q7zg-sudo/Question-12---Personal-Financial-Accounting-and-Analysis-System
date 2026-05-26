@@ -19,7 +19,7 @@
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="90px" style="max-width: 500px; margin: 0 auto;">
         <el-form-item label="转出账户" prop="fromAccountId">
           <!-- Q-CR修复: @change触发toAccountId重校验，防止转出账户变更后转入账户校验状态残留 -->
-          <el-select v-model="formData.fromAccountId" placeholder="请选择转出账户" style="width: 100%" @change="() => formRef.validateField('toAccountId')">
+          <el-select v-model="formData.fromAccountId" placeholder="请选择转出账户" style="width: 100%" @change="() => formRef.validateField('toAccountId').catch(() => {})">
             <el-option
               v-for="acc in accountList"
               :key="acc.id"

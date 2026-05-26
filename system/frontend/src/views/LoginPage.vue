@@ -43,7 +43,8 @@
             </el-form-item>
             <el-form-item prop="password" label="密码" class="hidden-label">
               <!-- Q-CR修复: @change触发confirmPassword重新校验，防止密码变更后确认密码校验状态残留 -->
-              <el-input v-model="registerForm.password" type="password" placeholder="请输入密码" :prefix-icon="Lock" show-password @change="() => registerFormRef.validateField('confirmPassword')" />
+              <!-- .catch(() => {}) 防止 validateField rejection 导致未捕获的 Promise 错误 -->
+              <el-input v-model="registerForm.password" type="password" placeholder="请输入密码" :prefix-icon="Lock" show-password @change="() => registerFormRef.validateField('confirmPassword').catch(() => {})" />
             </el-form-item>
             <el-form-item prop="confirmPassword" label="确认密码" class="hidden-label">
               <el-input v-model="registerForm.confirmPassword" type="password" placeholder="请确认密码" :prefix-icon="Lock" show-password />

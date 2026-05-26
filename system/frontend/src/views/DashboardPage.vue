@@ -343,8 +343,10 @@ onMounted(async () => {
 // 页面卸载时移除 resize 监听 + 销毁 ECharts 实例，防止内存泄漏（先移除监听再 dispose，避免 race condition）
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)         // 移除resize监听
+  pieChart?.off('click')                                     // 移除饼图事件监听，防止 dispose 后残留事件处理器引用导致内存泄漏
   pieChart?.dispose()                                        // 销毁饼图实例
   pieChart = null                                            // 清空饼图引用
+  lineChart?.off('click')                                    // 移除折线图事件监听，防止 dispose 后残留事件处理器引用导致内存泄漏
   lineChart?.dispose()                                       // 销毁折线图实例
   lineChart = null                                           // 清空折线图引用
 })

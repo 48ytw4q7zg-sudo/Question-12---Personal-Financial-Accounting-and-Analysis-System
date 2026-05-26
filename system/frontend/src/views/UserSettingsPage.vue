@@ -30,11 +30,11 @@
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px" style="max-width: 400px;">
         <el-form-item label="原密码" prop="oldPassword">
           <!-- Q-CR修复: @change触发newPassword重校验，防止旧密码变更后新密码校验状态残留 -->
-          <el-input v-model="formData.oldPassword" type="password" placeholder="请输入原密码" show-password @change="() => formRef.validateField('newPassword')" />
+          <el-input v-model="formData.oldPassword" type="password" placeholder="请输入原密码" show-password @change="() => formRef.validateField('newPassword').catch(() => {})" />
         </el-form-item>
         <el-form-item label="新密码" prop="newPassword">
           <!-- Q-CR修复: @change触发confirmPassword重校验，防止新密码变更后确认密码校验状态残留 -->
-          <el-input v-model="formData.newPassword" type="password" placeholder="请输入新密码" show-password @change="() => formRef.validateField('confirmPassword')" />
+          <el-input v-model="formData.newPassword" type="password" placeholder="请输入新密码" show-password @change="() => formRef.validateField('confirmPassword').catch(() => {})" />
         </el-form-item>
         <el-form-item label="确认密码" prop="confirmPassword">
           <el-input v-model="formData.confirmPassword" type="password" placeholder="请确认新密码" show-password />
