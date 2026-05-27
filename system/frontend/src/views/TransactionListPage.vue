@@ -38,11 +38,11 @@
         <el-form-item label="日期范围">
           <!-- el-date-picker type="daterange"：Element Plus 日期范围选择器 -->
           <el-date-picker
-            v-model="filters.dateRange"     <!-- 双向绑定 [startDate, endDate] -->
-            type="daterange"               <!-- 日期范围类型 -->
+            v-model="filters.dateRange"
+            type="daterange"
             start-placeholder="开始日期"
             end-placeholder="结束日期"
-            value-format="YYYY-MM-DD"      <!-- 值格式化为 yyyy-MM-dd 字符串 -->
+            value-format="YYYY-MM-DD"
             style="width: 260px"
           />
         </el-form-item>
@@ -119,7 +119,7 @@
               type="danger"
               link
               @click="handleDelete(row)"
-              :disabled="deletingId === row.id"  <!-- 当前行正在删除中禁用 -->
+              :disabled="deletingId === row.id"
             >删除</el-button>
           </template>
         </el-table-column>
@@ -128,13 +128,13 @@
       <!-- el-pagination：Element Plus 分页组件（对齐 API_DESIGN.md §1 分页参数 pageNum + pageSize） -->
       <div class="pagination-wrapper">
         <el-pagination
-          v-model:current-page="pagination.pageNum"       <!-- 双向绑定当前页码 -->
-          v-model:page-size="pagination.pageSize"         <!-- 双向绑定每页条数 -->
-          :page-sizes="PAGE_SIZE_OPTIONS"                 <!-- 每页条数选项（来自 constants/finance.js） -->
-          :total="pagination.total"                       <!-- 总记录数 -->
-          layout="total, sizes, prev, pager, next, jumper" <!-- 分页布局：总数+条数选择+前后翻页+页码+跳转 -->
-          @size-change="handleSizeChange"                 <!-- 切换每页条数 → 重置到第1页 -->
-          @current-change="handlePageChange"              <!-- 切换页码 → 加载对应页 -->
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="PAGE_SIZE_OPTIONS"
+          :total="pagination.total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
         />
       </div>
     </el-card>

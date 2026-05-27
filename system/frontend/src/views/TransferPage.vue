@@ -28,19 +28,18 @@
               :key="acc.id"
               :label="acc.name"
               :value="acc.id"
-              :disabled="acc.id === formData.toAccountId"  <!-- 禁止选择与转入账户相同的账户 -->
+              :disabled="acc.id === formData.toAccountId"
             />
           </el-select>
         </el-form-item>
         <el-form-item label="转入账户" prop="toAccountId">
-          <!-- el-select：Element Plus 下拉选择器，已选为转出账户的选项 disabled 禁止选择（互斥约束） -->
           <el-select v-model="formData.toAccountId" placeholder="请选择转入账户" style="width: 100%">
             <el-option
               v-for="acc in accountList"
               :key="acc.id"
               :label="acc.name"
               :value="acc.id"
-              :disabled="acc.id === formData.fromAccountId"  <!-- 禁止选择与转出账户相同的账户 -->
+              :disabled="acc.id === formData.fromAccountId"
             />
           </el-select>
         </el-form-item>

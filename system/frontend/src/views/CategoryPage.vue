@@ -22,12 +22,12 @@
       <div class="month-selector">
         <!-- el-date-picker：Element Plus 日期选择器，type="month" 月份选择模式 -->
         <el-date-picker
-          v-model="selectedMonth"        <!-- 绑定选中月份（YYYY-MM 格式字符串） -->
-          type="month"                   <!-- 月选择器类型 -->
+          v-model="selectedMonth"
+          type="month"
           placeholder="选择月份"
-          format="YYYY-MM"               <!-- 显示格式 -->
-          value-format="YYYY-MM"         <!-- 值格式（绑定到 v-model） -->
-          @change="loadSummary"          <!-- 月份变更 → 重新加载汇总数据（→ api/statistics.js） -->
+          format="YYYY-MM"
+          value-format="YYYY-MM"
+          @change="loadSummary"
         />
       </div>
 

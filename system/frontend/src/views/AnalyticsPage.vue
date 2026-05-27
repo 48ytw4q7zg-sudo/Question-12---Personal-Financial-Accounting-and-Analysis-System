@@ -22,19 +22,18 @@
       <div class="header-actions">
         <!-- el-date-picker type="year"：Element Plus 年份选择器，切换年份后 @change → loadAllCharts() -->
         <el-date-picker
-          v-model="selectedYear"           <!-- 绑定年份字符串 YYYY -->
-          type="year"                      <!-- 年份选择模式 -->
+          v-model="selectedYear"
+          type="year"
           placeholder="选择年份"
-          value-format="YYYY"             <!-- 值格式化为年份 -->
-          @change="loadAllCharts"         <!-- 年份变更 → 刷新柱状图 + 折线图（共享 getTrend 数据） -->
+          value-format="YYYY"
+          @change="loadAllCharts"
         />
-        <!-- el-date-picker type="month"：Element Plus 月份选择器，切换月份后 @change → loadCategoryChart() -->
         <el-date-picker
-          v-model="selectedMonth"          <!-- 绑定月份字符串 YYYY-MM -->
-          type="month"                     <!-- 月份选择模式 -->
+          v-model="selectedMonth"
+          type="month"
           placeholder="选择月份"
-          value-format="YYYY-MM"          <!-- 值格式 -->
-          @change="loadCategoryChart"     <!-- 月份变更 → 刷新分类饼图 -->
+          value-format="YYYY-MM"
+          @change="loadCategoryChart"
         />
       </div>
     </div>

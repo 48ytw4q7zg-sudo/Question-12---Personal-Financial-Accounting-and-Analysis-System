@@ -30,12 +30,12 @@
         <el-form-item label="CSV 文件" prop="file">
           <!-- el-upload：Element Plus 文件上传组件 -->
           <el-upload
-            ref="uploadRef"              <!-- 组件引用用于 clearFiles() -->
-            :auto-upload="false"         <!-- 关闭自动上传（手动触发导入） -->
-            :limit="1"                   <!-- 限制选择1个文件 -->
-            accept=".csv"                <!-- 仅接受 CSV 文件 -->
-            :on-change="handleFileChange" <!-- 文件选择变化 → 手动触发表单校验 -->
-            :on-remove="() => importForm.file = null"  <!-- 文件移除 → 清空表单数据 -->
+            ref="uploadRef"
+            :auto-upload="false"
+            :limit="1"
+            accept=".csv"
+            :on-change="handleFileChange"
+            :on-remove="() => importForm.file = null"
           >
             <el-button type="primary">选择文件</el-button>
             <template #tip>

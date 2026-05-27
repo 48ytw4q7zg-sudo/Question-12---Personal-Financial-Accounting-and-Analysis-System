@@ -75,14 +75,13 @@
 
     <!-- P2-2 预算预警条：根据 alertLevel 显示不同颜色 -->
     <div v-if="budgetAlerts.length > 0" class="budget-alert-section">
-      <!-- el-alert：Element Plus 警告提示组件，v-for 遍历预算预警列表 -->
       <el-alert
         v-for="alert in budgetAlerts"
-        :key="alert.categoryId"           <!-- Vue v-for 需要唯一 key -->
-        :title="formatAlertTitle(alert)"  <!-- 预警标题文本（调用 formatAlertTitle() 生成） -->
-        :type="getAlertType(alert.alertLevel)"  <!-- 动态颜色：error(红)/warning(橙)/success(绿) -->
-        :closable="false"                 <!-- 禁止关闭按钮 -->
-        show-icon                          <!-- 显示左侧图标 -->
+        :key="alert.categoryId"
+        :title="formatAlertTitle(alert)"
+        :type="getAlertType(alert.alertLevel)"
+        :closable="false"
+        show-icon
         class="budget-alert-item"
       />
     </div>

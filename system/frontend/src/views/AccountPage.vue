@@ -89,7 +89,7 @@
             <!-- P2-4: 非CNY币种展示CNY等值换算 -->
             <div v-if="accountCurrency(item.accountId) !== 'CNY'" class="balance-cny-equivalent">
               折合 ≈ ¥ {{ formatCnyEquivalent(item) }}
-              <!-- formatCnyEquivalent() 通过汇率数据换算 */
+              <!-- formatCnyEquivalent() 通过汇率数据换算 -->
             </div>
           </div>
         </el-col>

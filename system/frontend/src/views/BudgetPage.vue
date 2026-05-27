@@ -24,11 +24,11 @@
       <div class="header-actions">
         <!-- el-date-picker type="month"：Element Plus 月份选择器，切换月份后 @change → loadData() -->
         <el-date-picker
-          v-model="selectedMonth"          <!-- 绑定 YYYY-MM 格式字符串 -->
-          type="month"                     <!-- 月份选择模式 -->
+          v-model="selectedMonth"
+          type="month"
           placeholder="选择月份"
-          value-format="YYYY-MM"          <!-- 值格式 -->
-          @change="loadData"              <!-- 月份变更 → 加载预算进度 + 预警数据 -->
+          value-format="YYYY-MM"
+          @change="loadData"
         />
         <el-button type="primary" @click="openDialog()">
           <el-icon><Plus /></el-icon>设置预算  <!-- @element-plus/icons-vue Plus 图标 -->
@@ -55,9 +55,9 @@
         <el-table-column label="进度" min-width="200">
           <template #default="{ row }">
             <el-progress
-              :percentage="getProgress(row)"       <!-- 百分比：spentAmount / budgetAmount * 100 -->
-              :color="getProgressColor(row)"       <!-- 颜色：<80%绿 / 80-100%橙 / >=100%红 -->
-              :stroke-width="18"                   <!-- 进度条高度 18px -->
+              :percentage="getProgress(row)"
+              :color="getProgressColor(row)"
+              :stroke-width="18"
             />
           </template>
         </el-table-column>
@@ -87,7 +87,7 @@
           <!-- el-select：Element Plus 下拉选择器，编辑时禁用分类选择（:disabled="isEdit"），防止修改已有预算的分类 -->
           <el-select v-model="formData.categoryId" placeholder="请选择支出分类" style="width: 100%" :disabled="isEdit">
             <el-option
-              v-for="cat in expenseCategories"   <!-- 仅展示支出分类（category.type === 1） -->
+              v-for="cat in expenseCategories"
               :key="cat.id"
               :label="cat.name"
               :value="cat.id"

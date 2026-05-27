@@ -22,11 +22,11 @@
 <template>
   <!-- el-dialog：Element Plus 弹窗对话框组件 -->
   <el-dialog
-    v-model="visible"                   <!-- 双向绑定弹窗显隐（内部状态） -->
-    :title="title"                      <!-- 弹窗标题（由父组件传入） -->
-    width="420px"                       <!-- 弹窗宽度 420px -->
-    :close-on-click-modal="false"       <!-- 禁止点击遮罩层关闭弹窗（防误操作） -->
-    destroy-on-close                    <!-- 关闭弹窗时销毁DOM，避免表单残留 -->
+    v-model="visible"
+    :title="title"
+    width="420px"
+    :close-on-click-modal="false"
+    destroy-on-close
   >
     <p class="confirm-content">{{ content }}</p>  <!-- 确认提示文字（由父组件传入） -->
     <template #footer>

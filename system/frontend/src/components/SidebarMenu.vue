@@ -27,12 +27,12 @@
 <template>
   <!-- el-menu：Element Plus 导航菜单组件，router=true 模式点击菜单项自动跳转对应路由 -->
   <el-menu
-    :default-active="activeMenu"         <!-- 当前激活菜单项（由父组件 AppLayout 传入 route.path） -->
-    :collapse="collapsed"                <!-- 是否折叠模式（≥768px 且 <992px 时收缩为 64px） -->
-    router                               <!-- 开启路由模式，index 值即路由 path -->
+    :default-active="activeMenu"
+    :collapse="collapsed"
+    router
     class="sidebar-menu"
     aria-label="主导航菜单"
-    @select="$emit('navigate')"         <!-- 菜单项点击 → 触发父组件 navigate 事件（移动端关闭抽屉） -->
+    @select="$emit('navigate')"
   >
     <!-- P0 核心功能 -->
     <el-menu-item index="/">             <!-- el-menu-item：导航菜单项，index 即跳转路由 path -->
