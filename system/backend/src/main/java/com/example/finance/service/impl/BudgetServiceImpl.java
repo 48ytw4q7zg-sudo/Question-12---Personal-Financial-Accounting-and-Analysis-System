@@ -1,3 +1,9 @@
+/**
+ * 预算服务实现类（PRD P1-3 预算管理：月预算按分类设置 + 超支标记）
+ *
+ * 职责：处理月预算的创建、查询、更新、删除及预算进度计算与超支预警业务。
+ * 调用方：BudgetController → BudgetService 接口 → 本实现类。
+ */
 package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;

@@ -1,3 +1,9 @@
+/**
+ * 账户服务实现类（PRD P0-2 账户 CRUD + P0-5 按账户汇总余额）
+ *
+ * 职责：处理账户的创建、查询、更新、软删除及按账户汇总余额等核心业务逻辑。
+ * 调用方：AccountController → AccountService 接口 → 本实现类。
+ */
 package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;

@@ -1,61 +1,13 @@
 // ╔══════════════════════════════════════════════════════════════════════╗
-// ║  📋 答辩文件 ④/⑦ — ★ 核心代码讲解（30 分重点）★                          ║
+// ║  📋 答辩参考文件（非主讲）— 用户登录/注册业务实现                           ║
 // ║                                                                      ║
 // ║  【文件整体实现什么】                                                    ║
-// ║  UserServiceImpl.java — 用户服务实现类，放在 service/impl/ 目录          ║
-// ║  包含三个方法：register() 用户注册、login() 用户登录、changePassword() 改密  ║
+// ║  UserServiceImpl.java — 用户服务实现类，包含 register()/login()/changePassword() ║
+// ║  login() 覆盖了限流/ORM/BCrypt/JWT 等知识点，可作为答辩备选参考                ║
 // ║                                                                      ║
-// ║  【答辩要讲什么】                                                        ║
-// ║  重点讲解 login() 方法（当前文件第 154-237 行），共约 19 行代码              ║
-// ║  覆盖 7 个知识点：限流 / ORM / 防SQL注入 / BCrypt / 防枚举攻击 / JWT / 事务  ║
-// ║  每一行都标注了"这一行做什么 / 为什么这样写"                               ║
-// ║                                                                      ║
-// ║  【讲解步骤】                                                           ║
-// ║  1. 开场白（10秒）：告诉老师为什么选这个方法                             ║
-// ║  2. 滚到第 154 行 @Transactional 注解，开始逐行讲解                      ║
-// ║  3. 讲完第 237 行 return 语句后，用 7 个知识点总结收尾                     ║
-// ║                                                                      ║
-// ║  【具体讲稿 — 逐行念即可】                                               ║
-// ║                                                                      ║
-// ║  开场白："老师好，我选的后端核心方法是 UserServiceImpl 里的 login() 方法。  ║
-// ║    这个方法虽然只 19 行代码，但覆盖了 7 个核心知识点：限流、ORM、           ║
-// ║    防SQL注入、BCrypt密码加密、防用户名枚举攻击、JWT无状态认证、事务管理。"    ║
-// ║                                                                      ║
-// ║  第 154 行 @Transactional(readOnly=true)：Spring 声明式只读事务           ║
-// ║    "这一行告诉Spring'这个方法只做SELECT查询'。为什么标readOnly？            ║
-// ║     MySQL读写分离可以把读操作路由到从库；只读事务不需要维护undo log，更省资源。"║
-// ║                                                                      ║
-// ║  第 160 行 方法签名：接收 UserLoginRequest，返回 LoginResponse             ║
-// ║    "参数已经被Controller用@Valid校验过了——非空、长度等。"                   ║
-// ║                                                                      ║
-// ║  第 173-176 行·知识点1 限流：LoginRateLimiter.tryAcquire()                ║
-// ║    "同一用户名每秒最多2次尝试。为什么放最前面？防暴力破解——                    ║
-// ║     攻击请求在碰数据库之前就被拒绝，保护数据库连接池。"                        ║
-// ║                                                                      ║
-// ║  第 188-191 行·知识点2+3 ORM+防SQL注入：LambdaQueryWrapper                ║
-// ║    "为什么不用SQL字符串？1)编译时类型安全 2)PreparedStatement防注入            ║
-// ║     3)IDE重构时自动更新所有引用。生成的SQL是 SELECT * FROM user WHERE username=?"║
-// ║                                                                      ║
-// ║  第 208-211 行·知识点4+5 BCrypt+防枚举攻击                                 ║
-// ║    "user==null和密码错误合并到一个if，统一返回'用户名或密码错误'。               ║
-// ║     为什么？防止攻击者枚举哪些用户名已注册。BCrypt不可逆+自动加盐+4096次迭代。"   ║
-// ║                                                                      ║
-// ║  第 222 行·知识点6 JWT无状态认证：JwtUtils.generateToken()                 ║
-// ║    "把userId/username/role编码到token里，HMAC-SHA256签名，7天有效。           ║
-// ║     自包含token——拦截器解析就能拿到身份，不用每次查数据库。这就是无状态设计。"    ║
-// ║                                                                      ║
-// ║  第 228 行 清理限流器：LoginRateLimiter.cleanup()                          ║
-// ║    "登录成功释放限流器内存。只在失败时需要保留来防攻击。"                        ║
-// ║                                                                      ║
-// ║  第 237 行 返回 LoginResponse：token/userId/username/role 四个字段          ║
-// ║                                                                      ║
-// ║  收尾总结："这19行代码覆盖了7个知识点：限流/ORM/防SQL注入/BCrypt/           ║
-// ║    防枚举攻击/JWT无状态/事务管理，都是企业后端开发必知必会的。"                 ║
+// ║  ⚠ 答辩主讲文件已变更为 TransactionServiceImpl.transfer()（转账业务）       ║
+// ║     → 路径：system/backend/.../service/impl/TransactionServiceImpl.java    ║
 // ╚══════════════════════════════════════════════════════════════════════╝
-//
-// ▶ 讲完后，下一个文件（切换到前端，按 Ctrl+P 粘贴打开）：
-//   system/frontend/src/api/request.js
-//   （axios 请求拦截器 + 响应拦截器 — 前端请求怎么发出去的、响应怎么处理的）
 package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;

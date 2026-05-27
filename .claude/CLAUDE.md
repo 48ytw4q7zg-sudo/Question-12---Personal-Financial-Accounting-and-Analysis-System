@@ -11,7 +11,7 @@
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-05-23 (commit a80fd61). Confidence: 100%.
+Last indexed: 2026-05-27 (commit ab45a77). Confidence: 100%.
 ### Architecture
 This finance system is a full-stack personal finance management application: it ingests user-provided financial data (accounts, transactions, budgets, and recurring bills) through a JavaScript single-page application, transforms the data via a Java/Spring Boot REST API that enforces business rules and validations, persists the state in a relational database, and renders interactive dashboards and reports back to the user. - **Backend:** Java (Spring Boot)  
 - **Frontend:** JavaScript (Vue.js ecosystem — inferred from router/index.js and api/request.js structure)  
@@ -54,23 +54,23 @@ The repository follows a **classic client‑server architecture** with clear sep
 **Infra:** Docker Compose### Hotspots (High Churn)
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `system/backend/src/main/java/com/example/finance/service/impl/TransactionServiceImpl.java` | 99.3th %ile | 12 | qxw |
-| `system/backend/src/main/java/com/example/finance/service/impl/RecurringBillServiceImpl.java` | 98.6th %ile | 12 | qxw |
-| `system/backend/src/main/java/com/example/finance/service/impl/BudgetServiceImpl.java` | 97.8th %ile | 14 | qxw |
-| `system/frontend/src/router/index.js` | 97.1th %ile | 9 | qxw |
-| `system/backend/src/main/java/com/example/finance/service/impl/AccountServiceImpl.java` | 96.4th %ile | 12 | qxw |
+| `system/backend/src/main/java/com/example/finance/service/impl/TransactionServiceImpl.java` | 100.0th %ile | 12 | qxw |
+| `system/frontend/src/views/TransactionListPage.vue` | 100.0th %ile | 12 | qxw |
+| `system/frontend/src/views/DashboardPage.vue` | 100.0th %ile | 11 | qxw |
+| `system/backend/src/main/java/com/example/finance/service/impl/RecurringBillServiceImpl.java` | 99.9th %ile | 12 | qxw |
+| `system/frontend/src/views/AnalyticsPage.vue` | 99.9th %ile | 10 | qxw |
 
 ## Code health
-Hotspot health: 7.2/10 (stable) ·
-Average: 7.77/10 ·
+Hotspot health: 7.86/10 (stable) ·
+Average: 7.97/10 ·
 Worst: 1.7/10 (`system/backend/src/main/java/com/example/finance/service/impl/TransactionServiceImpl.java`)
 
 ### Critical biomarkers
 - `system/backend/src/main/java/com/example/finance/controller/StatisticsController.java` — untested hotspot — impact −2.0
-- `system/backend/src/main/java/com/example/finance/controller/TransactionController.java` — untested hotspot — impact −2.0
 - `system/backend/src/main/java/com/example/finance/controller/RecurringBillController.java` — untested hotspot — impact −2.0
 - `system/backend/src/main/java/com/example/finance/service/impl/BudgetServiceImpl.java` — untested hotspot — impact −2.0
 - `system/backend/src/main/java/com/example/finance/service/impl/AccountServiceImpl.java` — untested hotspot — impact −2.0
+- `system/backend/src/main/java/com/example/finance/service/impl/CategoryServiceImpl.java` — untested hotspot — impact −2.0
 
 ### Repowise MCP Tools
 

@@ -1,39 +1,14 @@
 <!--
   ╔══════════════════════════════════════════════════════════════════════╗
-  ║  📋 答辩文件 ⑥/⑦ — ★ 核心代码讲解（30 分重点）★                         ║
+  ║  📋 答辩参考文件（非主讲）— 登录/注册页面                                 ║
   ║                                                                      ║
   ║  【文件整体实现什么】                                                    ║
-  ║  LoginPage.vue — 登录/注册页面，放在 views/ 目录，路由是 /login                ║
-  ║  整个系统唯一不嵌套 AppLayout 的独立页面（登录不需要侧边栏和顶栏）                ║
-  ║  <template> 是 el-card + el-tabs 切换登录/注册两个表单                       ║
-  ║  <script setup> 包含 handleLogin()（第 186-294 行）和 handleRegister()      ║
+  ║  LoginPage.vue — 登录/注册页面，路由 /login，含 handleLogin()/handleRegister() ║
+  ║  handleLogin() 展示了全栈15节点链路（前端→网络→后端→数据库→响应），可作为备选参考   ║
   ║                                                                      ║
-  ║  【答辩要讲什么】                                                        ║
-  ║  重点讲 handleLogin() 函数（当前文件第 186-294 行）——逐行"做什么 / 为什么"         ║
-  ║  4 个步骤：表单校验 → 调用 API（含全栈15节点链路）→ 存储状态 → 安全跳转            ║
-  ║                                                                      ║
-  ║  【讲解步骤】                                                           ║
-  ║  1. 开场白（10秒）→ 为什么选 LoginPage                                    ║
-  ║  2. 花 20 秒讲 <template> 模板结构（第 143-192 行）                        ║
-  ║  3. ★ 重点：滚到第 186 行 handleLogin()，逐行讲 4 个步骤                      ║
-  ║     每行代码已在文件内标注了详细的"【做什么】/【为什么】"，直接念即可              ║
-  ║  4. 收尾总结 handleLogin() 覆盖的前端 4 个核心知识点                          ║
-  ║                                                                      ║
-  ║  【具体讲稿开场白】                                                       ║
-  ║  "老师好，我选的前端组件是 LoginPage.vue。这是整个系统唯一的入口页面。             ║
-  ║   handleLogin() 展示了前端开发的完整链路：表单校验→API调用→状态管理→路由跳转。       ║
-  ║   第186行 async function handleLogin() 开始，我逐行讲解。                      ║
-  ║   第143-192行template：el-card卡片容器 + el-tabs切换登录/注册 + el-form表单。     ║
-  ║   第196行validate()：Element Plus表单校验，减少无效请求。                          ║
-  ║   第231行await login()：调api/user.js发POST——背后是完整全栈15节点链路。            ║
-  ║   第242行userStore.setUser()：双写Pinia(内存)+localStorage(硬盘)。               ║
-  ║   第265-274行safeRedirect：4个条件校验防开放重定向攻击。                           ║
-  ║   总结：4步骤覆盖表单校验/API链路/状态管理/安全跳转+async/await/try/catch/finally。"  ║
+  ║  ⚠ 答辩主讲文件已变更为 TransactionListPage.vue（收支记录页面）             ║
+  ║     → 路径：system/frontend/src/views/TransactionListPage.vue            ║
   ╚══════════════════════════════════════════════════════════════════════╝
-
-  ▶ 讲完后，下一个文件（最后一个，按 Ctrl+P 粘贴打开）：
-    system/frontend/src/router/index.js
-    （路由守卫 — 前端怎么在页面切换时检查登录状态、拦截未登录用户）
 -->
 <!--
   登录/注册页面

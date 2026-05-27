@@ -20,8 +20,8 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 //
 // ▶ 讲完后，下一个文件（★ 30 分重点，按 Ctrl+P 粘贴打开）：
-//   system/backend/src/main/java/com/example/finance/service/impl/UserServiceImpl.java
-//   （login() 方法 — 答辩要求自选的 1 个后端 Service 方法）
+//   system/backend/src/main/java/com/example/finance/service/impl/TransactionServiceImpl.java
+//   （transfer() 方法 — 答辩要求自选的 1 个后端 Service 方法 · 转账业务）
 package com.example.finance.config;
 
 // ===== 项目内部导入 =====

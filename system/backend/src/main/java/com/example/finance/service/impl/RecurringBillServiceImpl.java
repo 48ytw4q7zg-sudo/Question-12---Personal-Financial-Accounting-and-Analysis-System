@@ -1,3 +1,9 @@
+/**
+ * 周期性账单服务实现类（PRD P1-4 周期性账单提醒）
+ *
+ * 职责：处理周期性账单的创建、查询、更新、停用及到期日自动推进等核心业务逻辑。
+ * 调用方：RecurringBillController → RecurringBillService 接口 → 本实现类。
+ */
 package com.example.finance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
