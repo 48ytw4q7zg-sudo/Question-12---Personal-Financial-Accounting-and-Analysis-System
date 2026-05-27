@@ -171,6 +171,17 @@ const billList = ref([])         // 周期账单列表
 const accountList = ref([])      // 账户下拉选项
 const categoryList = ref([])     // 分类下拉选项
 
+// 新增/编辑表单数据（必须在 computed/watch 之前声明，避免 TDZ 错误）
+const formData = reactive({
+  name: '',                                                 // 账单名称
+  accountId: null,                                          // 账户ID
+  categoryId: null,                                         // 分类ID
+  amount: null,                                             // 金额
+  type: TRANSACTION_TYPE_EXPENSE,              // 默认支出
+  period: DEFAULT_RECURRING_PERIOD,                          // 默认每月（使用常量 constants/finance.js）
+  nextDueDate: ''                                           // 下次到期日期
+})
+
 // 根据类型筛选分类（交易 type 和分类 type 值相反：交易 1=收入/2=支出，分类 1=支出/2=收入）
 const filteredCategories = computed(() => {
   if (!categoryList.value.length) return []                  // 无分类数据返回空
@@ -182,17 +193,6 @@ const filteredCategories = computed(() => {
 // 切换类型时重置分类选择，避免选中不匹配的分类
 watch(() => formData.type, () => {
   formData.categoryId = null                                 // 重置分类选择
-})
-
-// 新增/编辑表单数据
-const formData = reactive({
-  name: '',                                                 // 账单名称
-  accountId: null,                                          // 账户ID
-  categoryId: null,                                         // 分类ID
-  amount: null,                                             // 金额
-  type: TRANSACTION_TYPE_EXPENSE,              // 默认支出
-  period: DEFAULT_RECURRING_PERIOD,                          // 默认每月（使用常量 constants/finance.js）
-  nextDueDate: ''                                           // 下次到期日期
 })
 
 // 表单校验规则（所有字段必填）

@@ -1,256 +1,305 @@
-@echo off
-chcp 65001 >nul
+﻿@echo off
+chcp 65001 >nul 2>&1
+setlocal enabledelayedexpansion
 title 个人财务记账与分析系统 - 一键启动
 color 0A
 
+echo.
+echo ============================================
+echo  个人财务记账与分析系统 - 正在启动...
+echo ============================================
+echo.
+
 REM ============================================
-REM 系统配置（使用相对路径）
+REM 路径计算
 REM ============================================
-REM 获取脚本所在目录的父目录作为项目根目录
-set SCRIPT_DIR=%~dp0
-set PROJECT_ROOT=%SCRIPT_DIR%..
-set BACKEND_DIR=%PROJECT_ROOT%\system\backend
-set FRONTEND_DIR=%PROJECT_ROOT%\system\frontend
-set SQL_FILE=%PROJECT_ROOT%\system\sql\01-init.sql
+set "SCRIPT_DIR=%~dp0"
+set "PROJECT_ROOT=%SCRIPT_DIR%.."
+if "%PROJECT_ROOT:~-1%"=="\" set "PROJECT_ROOT=%PROJECT_ROOT:~0,-1%"
+set "BACKEND_DIR=%PROJECT_ROOT%\system\backend"
+set "FRONTEND_DIR=%PROJECT_ROOT%\system\frontend"
+set "SQL_FILE=%PROJECT_ROOT%\system\sql\01-init.sql"
+set "DB_USER=root"
+set "DB_PASS=root"
+set "DB_NAME=finance_db"
+set "BACKEND_PORT=8080"
+set "FRONTEND_PORT=5173"
 
-set DB_USER=root
-set DB_PASS=root
-set DB_NAME=finance_db
+REM ============================================
+REM 路径验证
+REM ============================================
+echo [INFO] 项目根目录: %PROJECT_ROOT%
 
-set BACKEND_PORT=8080
-set FRONTEND_PORT=5173
+if not exist "%BACKEND_DIR%" (
+    echo [ERROR] 后端目录不存在: %BACKEND_DIR%
+    echo 请确认 bat 文件放在 startcode 文件夹内
+    echo 且项目目录结构完整（system\backend）
+    goto :fail
+)
+if not exist "%FRONTEND_DIR%" (
+    echo [ERROR] 前端目录不存在: %FRONTEND_DIR%
+    echo 请确认项目目录结构完整（system\frontend）
+    goto :fail
+)
+echo [OK] 目录结构验证通过
+echo.
 
-REM 创建日志目录
 if not exist "%PROJECT_ROOT%\logs" mkdir "%PROJECT_ROOT%\logs"
 
 REM ============================================
-REM 阶段1：环境检测
+REM 环境检测
 REM ============================================
 echo ============================================
-echo  阶段 1/6：环境依赖检测
+echo  环境依赖检测
 echo ============================================
 echo.
 
-set MISSING_DEPS=0
+set "MISSING=0"
 
 where java >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo [FATAL] Java 未安装！请安装 JDK 21
-    echo 下载地址：https://adoptium.net/
-    set /A MISSING_DEPS+=1
+if errorlevel 1 (
+    echo [ERROR] 未找到 Java，请安装 JDK 21
+    echo 下载: https://adoptium.net/
+    set /A MISSING+=1
 ) else (
-    java -version 2>&1 | findstr "21" >nul
-    if %ERRORLEVEL% NEQ 0 (
-        echo [WARN] Java 版本可能不是 21，请确认
-    ) else (
-        echo [OK] Java 已安装
-    )
+    echo [OK] Java
 )
 
+set "MVN_CMD=mvn"
 where mvn >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo [FATAL] Maven 未安装！请安装 Maven 3.9+
-    echo 下载地址：https://maven.apache.org/
-    set /A MISSING_DEPS+=1
+if errorlevel 1 (
+    if exist "%BACKEND_DIR%\mvnw.cmd" (
+        set "MVN_CMD=%BACKEND_DIR%\mvnw.cmd"
+        echo [OK] Maven Wrapper
+    ) else (
+        echo [ERROR] 未找到 Maven，请安装 3.9+ 版本
+        echo 下载: https://maven.apache.org/
+        set /A MISSING+=1
+    )
 ) else (
-    echo [OK] Maven 已安装
+    echo [OK] Maven
 )
 
 where node >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo [FATAL] Node.js 未安装！请安装 Node.js 24 LTS
-    echo 下载地址：https://nodejs.org/
-    set /A MISSING_DEPS+=1
+if errorlevel 1 (
+    echo [ERROR] 未找到 Node.js，请安装 24 LTS
+    echo 下载: https://nodejs.org/
+    set /A MISSING+=1
 ) else (
-    echo [OK] Node.js 已安装
+    echo [OK] Node.js
 )
 
 where pnpm >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo [WARN] pnpm 未安装，将自动安装
-    call npm install -g pnpm@10
+if errorlevel 1 (
+    echo [INFO] 正在安装 pnpm...
+    call npm install -g pnpm@10 >nul 2>&1
+    where pnpm >nul 2>&1
+    if errorlevel 1 (
+        echo [ERROR] pnpm 安装失败，请手动执行: npm install -g pnpm@10
+        set /A MISSING+=1
+    ) else (
+        echo [OK] pnpm (已自动安装)
+    )
 ) else (
-    echo [OK] pnpm 已安装
+    echo [OK] pnpm
 )
 
 where mysql >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo [FATAL] MySQL 未安装！请安装 MySQL 8.4
-    echo 下载地址：https://dev.mysql.com/downloads/
-    set /A MISSING_DEPS+=1
+if errorlevel 1 (
+    echo [ERROR] 未找到 MySQL，请安装 8.4
+    echo 下载: https://dev.mysql.com/downloads/
+    set /A MISSING+=1
 ) else (
-    echo [OK] MySQL 已安装
+    echo [OK] MySQL
 )
 
-if %MISSING_DEPS% GTR 0 (
+where curl >nul 2>&1
+if errorlevel 1 (
+    echo [WARN] 未找到 curl，健康检查将用替代方案
+) else (
+    echo [OK] curl
+)
+
+if !MISSING! GTR 0 (
     echo.
-    echo 检测到 %MISSING_DEPS% 个必需依赖缺失，请安装后重试！
-    pause
-    exit /b 1
+    echo 缺少 !MISSING! 个必需依赖，无法继续
+    goto :fail
 )
 
 echo.
+echo 所有依赖检查通过
+echo.
+
+REM ============================================
+REM 数据库初始化
+REM ============================================
 echo ============================================
-echo  阶段 2/6：数据库初始化
+echo  数据库初始化
 echo ============================================
 echo.
 
-mysql -u%DB_USER% -p%DB_PASS% -e "CREATE DATABASE IF NOT EXISTS %DB_NAME%;" >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo [WARN] 数据库连接失败，请确认 MySQL 服务已启动
-    echo 将跳过数据库初始化，如需初始化请手动执行：
-    echo mysql -u%DB_USER% -p%DB_PASS% ^< "%SQL_FILE%"
+mysql -u%DB_USER% -p%DB_PASS% -e "SELECT 1;" >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] 数据库连接失败！
+    echo.
+    echo 可能原因:
+    echo   1. MySQL 未安装或未启动（服务名通常为 MySQL80 / MySQL84）
+    echo   2. root 密码不是 %DB_PASS%（请修改 bat 文件中的 DB_PASS 变量）
+    echo   3. MySQL 未加入 PATH（运行 mysql --version 验证）
+    echo.
+    echo 后续步骤需要数据库支持，无法继续
+    goto :fail
 ) else (
-    mysql -u%DB_USER% -p%DB_PASS% %DB_NAME% < "%SQL_FILE%"
-    if %ERRORLEVEL% EQU 0 (
-        echo [OK] 数据库初始化成功
+    echo [OK] 数据库连接成功
+    mysql -u%DB_USER% -p%DB_PASS% -e "CREATE DATABASE IF NOT EXISTS %DB_NAME%;" >nul 2>&1
+    if exist "%SQL_FILE%" (
+        mysql -u%DB_USER% -p%DB_PASS% %DB_NAME% < "%SQL_FILE%" >nul 2>&1
+        echo [OK] 数据表初始化完成
     ) else (
-        echo [WARN] 数据库初始化可能已存在，跳过
+        echo [WARN] SQL 文件不存在: %SQL_FILE%
     )
 )
 
 echo.
+
+REM ============================================
+REM 后端编译
+REM ============================================
 echo ============================================
-echo  阶段 3/6：后端编译检查
+echo  后端编译
 echo ============================================
 echo.
 
 cd /d "%BACKEND_DIR%"
 if exist target\classes (
-    echo [OK] 后端已编译，跳过
+    echo [OK] 已编译，跳过
 ) else (
-    echo 正在编译后端...
-    call mvn.cmd clean compile -DskipTests > "%PROJECT_ROOT%\logs\backend-compile.log" 2>&1
-    if %ERRORLEVEL% NEQ 0 (
-        echo [ERROR] 后端编译失败！
-        echo 详细日志："%PROJECT_ROOT%\logs\backend-compile.log"
-        notepad "%PROJECT_ROOT%\logs\backend-compile.log"
-        pause
-        exit /b 1
+    echo 正在编译（首次需几分钟）...
+    call %MVN_CMD% clean compile -DskipTests > "%PROJECT_ROOT%\logs\backend-compile.log" 2>&1
+    if errorlevel 1 (
+        echo [ERROR] 编译失败，日志: %PROJECT_ROOT%\logs\backend-compile.log
+        goto :fail
     )
-    echo [OK] 后端编译成功
+    echo [OK] 编译完成
 )
 
 echo.
+
+REM ============================================
+REM 启动后端
+REM ============================================
 echo ============================================
-echo  阶段 4/6：启动后端服务 (端口 %BACKEND_PORT%)
+echo  启动后端服务（端口 %BACKEND_PORT%）
 echo ============================================
 echo.
 
 cd /d "%BACKEND_DIR%"
 
-REM 检查端口是否被占用
-netstat -ano | findstr ":%BACKEND_PORT%" >nul
-if %ERRORLEVEL% EQU 0 (
-    echo [WARN] 端口 %BACKEND_PORT% 已被占用，尝试终止进程...
-    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%BACKEND_PORT%"') do (
-        taskkill /F /PID %%a >nul 2>&1
-    )
-    timeout /t 2 /nobreak >nul
+REM 清理端口占用（用 findstr 精确匹配，兼容中英文 Windows）
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%BACKEND_PORT%" ^| findstr "LISTENING"') do (
+    echo [INFO] 清理端口 %BACKEND_PORT% 上的进程 %%p
+    taskkill /F /PID %%p >nul 2>&1
 )
+timeout /t 2 /nobreak >nul
 
-REM 启动后端（新窗口）
-start "Finance Backend" cmd /k "cd /d %BACKEND_DIR% && mvn.cmd spring-boot:run"
+start "Finance Backend" cmd /k "cd /d %BACKEND_DIR% && %MVN_CMD% spring-boot:run"
 
 echo 等待后端启动...
-timeout /t 5 /nobreak >nul
+timeout /t 10 /nobreak >nul
 
-REM 检查后端是否启动成功
-set BACKEND_STARTED=0
-for /l %%i in (1,1,36) do (
+set "BACKEND_OK=0"
+for /l %%i in (1,1,24) do (
     curl -s http://localhost:%BACKEND_PORT%/api/v1/health >nul 2>&1
-    if %ERRORLEVEL% EQU 0 (
-        set BACKEND_STARTED=1
-        echo [OK] 后端服务启动成功
-        goto backend_started
+    if not errorlevel 1 (
+        set "BACKEND_OK=1"
+        goto :backend_on
     )
     timeout /t 5 /nobreak >nul
-    echo 等待中... (%%i/36)
+    echo   等待中... %%i/24
 )
-echo [ERROR] 后端启动超时，请检查日志
-pause
-exit /b 1
+echo [ERROR] 后端启动超时，请检查 Finance Backend 窗口
+goto :fail
 
-:backend_started
-
+:backend_on
+echo [OK] 后端已启动
 echo.
+
+REM ============================================
+REM 启动前端
+REM ============================================
 echo ============================================
-echo  阶段 5/6：启动前端服务 (端口 %FRONTEND_PORT%)
+echo  启动前端服务（端口 %FRONTEND_PORT%）
 echo ============================================
 echo.
 
 cd /d "%FRONTEND_DIR%"
 
-REM 检查依赖
 if not exist node_modules (
-    echo 正在安装前端依赖...
-    call pnpm.CMD install > "%PROJECT_ROOT%\logs\frontend-install.log" 2>&1
-    if %ERRORLEVEL% NEQ 0 (
-        echo [ERROR] 前端依赖安装失败！
-        echo 详细日志："%PROJECT_ROOT%\logs\frontend-install.log"
-        notepad "%PROJECT_ROOT%\logs\frontend-install.log"
-        pause
-        exit /b 1
+    echo 安装前端依赖（首次需几分钟）...
+    call pnpm install > "%PROJECT_ROOT%\logs\frontend-install.log" 2>&1
+    if errorlevel 1 (
+        echo [ERROR] 依赖安装失败，日志: %PROJECT_ROOT%\logs\frontend-install.log
+        goto :fail
     )
-    echo [OK] 前端依赖安装成功
+    echo [OK] 依赖安装完成
 )
 
-REM 检查端口是否被占用
-netstat -ano | findstr ":%FRONTEND_PORT%" >nul
-if %ERRORLEVEL% EQU 0 (
-    echo [WARN] 端口 %FRONTEND_PORT% 已被占用，尝试终止进程...
-    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%FRONTEND_PORT%"') do (
-        taskkill /F /PID %%a >nul 2>&1
-    )
-    timeout /t 2 /nobreak >nul
+REM 清理端口占用（用 findstr 精确匹配，兼容中英文 Windows）
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%FRONTEND_PORT%" ^| findstr "LISTENING"') do (
+    echo [INFO] 清理端口 %FRONTEND_PORT% 上的进程 %%p
+    taskkill /F /PID %%p >nul 2>&1
 )
+timeout /t 2 /nobreak >nul
 
-REM 启动前端（新窗口）
-start "Finance Frontend" cmd /k "cd /d %FRONTEND_DIR% && pnpm.CMD dev"
+start "Finance Frontend" cmd /k "cd /d %FRONTEND_DIR% && pnpm dev"
 
 echo 等待前端启动...
-timeout /t 3 /nobreak >nul
+timeout /t 8 /nobreak >nul
 
-REM 检查前端是否启动成功
-set FRONTEND_STARTED=0
+set "FRONTEND_OK=0"
 for /l %%i in (1,1,18) do (
     curl -s http://localhost:%FRONTEND_PORT%/ >nul 2>&1
-    if %ERRORLEVEL% EQU 0 (
-        set FRONTEND_STARTED=1
-        echo [OK] 前端服务启动成功
-        goto frontend_started
+    if not errorlevel 1 (
+        set "FRONTEND_OK=1"
+        goto :frontend_on
     )
     timeout /t 5 /nobreak >nul
-    echo 等待中... (%%i/18)
+    echo   等待中... %%i/18
 )
-echo [ERROR] 前端启动超时，请检查日志
-pause
-exit /b 1
+echo [ERROR] 前端启动超时，请检查 Finance Frontend 窗口
+goto :fail
 
-:frontend_started
-
-echo.
-echo ============================================
-echo  阶段 6/6：打开浏览器
-echo ============================================
+:frontend_on
+echo [OK] 前端已启动
 echo.
 
-timeout /t 3 /nobreak >nul
+REM ============================================
+REM 打开浏览器
+REM ============================================
+timeout /t 2 /nobreak >nul
 start "" "http://localhost:%FRONTEND_PORT%"
 
-echo.
 echo ============================================
 echo  系统启动完成！
 echo ============================================
 echo.
-echo 后端服务：http://localhost:%BACKEND_PORT%
-echo 前端服务：http://localhost:%FRONTEND_PORT%
+echo 后端: http://localhost:%BACKEND_PORT%
+echo 前端: http://localhost:%FRONTEND_PORT%
 echo.
-echo 测试账号：
-echo   普通用户：zhangsan / 123456
-echo   管理员：admin / 000000
+echo 测试账号:
+echo   普通用户: zhangsan / 123456
+echo   管理员: admin / 000000
 echo.
-echo 关闭此窗口不会影响服务运行
-echo 要停止服务，请关闭对应的终端窗口
+echo 关闭此窗口不影响已启动的服务
 echo.
 pause
+exit /b 0
+
+:fail
+echo.
+echo ============================================
+echo  启动失败，请检查上方错误信息
+echo ============================================
+echo.
+pause
+exit /b 1
