@@ -1,0 +1,72 @@
+# ============================================================
+# 个人财务记账与分析系统 - Spring Boot 应用配置
+# ============================================================
+# 环境区分: 本文件为通用配置, 敏感信息通过环境变量注入
+# 开发环境: 使用默认值(如 DB_USERNAME:root)
+# 生产环境: 必须设置 DB_USERNAME / DB_PASSWORD / JWT_SECRET 环境变量
+# ============================================================
+
+# --- 服务器配置 ---
+server:
+  # 后端服务端口: 优先读环境变量 SERVER_PORT, 默认 8080 (前端 Vite proxy 代理到 localhost:8080)
+  port: ${SERVER_PORT:8080}
+
+# --- 数据源配置 ---
+spring:
+  datasource:
+    # 数据库连接URL: 优先读环境变量 DB_URL, 默认 localhost:3306/finance_db (utf8mb4 + Asia/Shanghai 时区)
+    url: ${DB_URL:jdbc:mysql://localhost:3306/finance_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai}
+    # 数据库用户名: 优先读环境变量 DB_USERNAME, 未设置时默认 root(开发环境)
+    username: ${DB_USERNAME:root}
+    # 数据库密码: 优先读环境变量 DB_PASSWORD, 开发环境默认 root
+    # ⚠️ 生产环境: 必须通过服务器环境变量或 K8s Secret 注入强密码
+    password: ${DB_PASSWORD:root}
+    # MySQL 8.4 驱动
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # --- Jackson JSON 序列化配置 ---
+  jackson:
+    # LocalDateTime 序列化格式: yyyy-MM-dd HH:mm:ss (对齐前端 axios 时间解析)
+    date-format: yyyy-MM-dd HH:mm:ss
+    # 时区: 东八区(北京时间)
+    time-zone: Asia/Shanghai
+    serialization:
+      # 禁用时间戳序列化(不输出毫秒数), 使用 date-format 字符串格式
+      write-dates-as-timestamps: false
+
+# --- MyBatis-Plus 配置 ---
+mybatis-plus:
+  # XML Mapper 文件位置
+  mapper-locations: classpath:mapper/*.xml
+  # Entity 类扫描包（预留配置 · 当前 XML Mapper 使用全限定类名故未激活——若后续改用短类名可启用此别名扫描）
+  type-aliases-package: com.example.finance.entity
+  configuration:
+    # 下划线转驼峰: 数据库字段 user_id 自动映射 Java 字段 userId
+    map-underscore-to-camel-case: true
+    # SQL 日志输出: 优先读环境变量 MYBATIS_LOG_IMPL, 开发默认 StdOutImpl(打印SQL到控制台)
+    # ⚠️ 生产环境: 必须设置 MYBATIS_LOG_IMPL=org.apache.ibatis.logging.nologging.NoLoggingImpl
+    # 否则 SQL 参数(含密码哈希、金额等敏感数据)会打印到控制台日志
+    log-impl: ${MYBATIS_LOG_IMPL:org.apache.ibatis.logging.stdout.StdOutImpl}
+
+# --- CORS 跨域配置 ---
+cors:
+  # 允许的前端源：优先读环境变量 CORS_ALLOWED_ORIGINS，默认 localhost 常用端口
+  # 多个源用逗号分隔，开发环境默认 5173(Vite 默认端口), 5174(备用)
+  # 生产环境必须通过环境变量替换为具体域名，禁止 localhost
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174}
+
+# --- JWT 配置 ---
+jwt:
+  # JWT 签名密钥: 优先读环境变量 JWT_SECRET, 开发环境默认占位密钥(32+字节)
+  # 密钥要求: HS256 算法至少 32 字节, 建议使用 64 字符以上的随机字符串
+  # ⚠️ 生产环境: 必须通过服务器环境变量或 K8s Secret 注入强密钥
+  secret: ${JWT_SECRET:change-me-in-production-use-jwt-secret-env}
+  # Token 有效期: 优先读环境变量 JWT_EXPIRE, 默认 604800000 毫秒 = 7 天 (生产环境建议设更短如 1800000=30分钟)
+  expire: ${JWT_EXPIRE:604800000}
+
+# --- 日志配置 ---
+logging:
+  level:
+    # 项目包日志级别: 优先读环境变量 LOG_LEVEL, 默认 info
+    # 开发时可设为 debug 查看更详细的日志, 生产环境保持 info
+    com.example.finance: ${LOG_LEVEL:info}

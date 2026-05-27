@@ -1,0 +1,2 @@
+# bat文件：强制CRLF行尾（cmd.exe要求）+ 保留UTF-8 BOM（中文字符需要）
+*.bat text eol=crlf

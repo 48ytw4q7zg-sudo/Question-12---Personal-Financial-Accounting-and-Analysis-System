@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.finance.mapper.TransactionMapper">
+
+  <!-- 可复用的筛选条件 SQL 片段（DRY 原则 · selectTransactionList 和 selectTransactionCount 共用） -->
+  <sql id="transactionFilterConditions">
+    <if test="accountId != null">
+      AND t.account_id = #{accountId}
+    </if>
+    <if test="categoryId != null">
+      AND t.category_id = #{categoryId}
+    </if>
+    <if test="startTime != null and startTime != ''">
+      AND t.time &gt;= #{startTime}
+    </if>
+    <if test="endTime != null and endTime != ''">
+      AND t.time &lt;= #{endTime}
+    </if>
+    <if test="keyword != null and keyword != ''">
+      AND t.note LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
+    </if>
+  </sql>
+
+  <!-- 带筛选条件的交易记录查询（JOIN account + category） -->
+  <select id="selectTransactionList" resultType="com.example.finance.entity.dto.TransactionDTO">
+    SELECT
+      t.id,
+      t.account_id AS accountId,
+      a.name AS accountName,
+      t.category_id AS categoryId,
+      c.name AS categoryName,
+      t.type,
+      t.amount,
+      t.note,
+      DATE_FORMAT(t.time, '%Y-%m-%d %H:%i:%s') AS time,
+      t.transfer_id AS transferId,
+      t.create_time AS createTime,
+      t.update_time AS updateTime
+    FROM `transaction` t
+    LEFT JOIN account a ON t.account_id = a.id
+    LEFT JOIN category c ON t.category_id = c.id
+    WHERE t.user_id = #{userId}
+    <include refid="transactionFilterConditions"/>
+    <choose>
+      <when test="sortBy == 'amount_asc'">
+        ORDER BY t.amount ASC
+      </when>
+      <when test="sortBy == 'amount_desc'">
+        ORDER BY t.amount DESC
+      </when>
+      <otherwise>
+        ORDER BY t.time DESC
+      </otherwise>
+    </choose>
+  </select>
+
+  <!-- 查询交易记录总数（带筛选 · 复用 transactionFilterConditions 片段消除重复） -->
+  <select id="selectTransactionCount" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM `transaction` t
+    WHERE t.user_id = #{userId}
+    <include refid="transactionFilterConditions"/>
+  </select>
+
+  <!-- 月度收支汇总（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_transaction_user_time 索引）-->
+  <!-- Q-CR修复: year/month 使用数字占位符(0/NULL)，避免 MyBatis 将空字符串类型强制转换 Integer 字段时的歧义 -->
+  <select id="selectMonthlySummary" resultType="com.example.finance.entity.dto.MonthlySummaryDTO">
+    SELECT
+      0 AS year,
+      NULL AS month,
+      COALESCE(SUM(CASE WHEN t.type = 1 THEN t.amount ELSE 0 END), 0) AS totalIncome,
+      COALESCE(SUM(CASE WHEN t.type = 2 THEN t.amount ELSE 0 END), 0) AS totalExpense,
+      COALESCE(SUM(CASE WHEN t.type = 1 THEN t.amount ELSE 0 END), 0)
+        - COALESCE(SUM(CASE WHEN t.type = 2 THEN t.amount ELSE 0 END), 0) AS balance
+    FROM `transaction` t
+    WHERE t.user_id = #{userId}
+      AND t.time &gt;= #{startOfMonth}
+      AND t.time &lt; #{startOfNextMonth}
+      AND t.transfer_id IS NULL
+  </select>
+
+  <!-- 年度收支汇总（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_transaction_user_time 索引）-->
+  <!-- Q-CR修复: year 使用数字占位符(0)，避免 MyBatis 将空字符串类型强制转换 Integer 字段时的歧义 -->
+  <select id="selectYearlySummary" resultType="com.example.finance.entity.dto.MonthlySummaryDTO">
+    SELECT
+      0 AS year,
+      NULL AS month,
+      COALESCE(SUM(CASE WHEN t.type = 1 THEN t.amount ELSE 0 END), 0) AS totalIncome,
+      COALESCE(SUM(CASE WHEN t.type = 2 THEN t.amount ELSE 0 END), 0) AS totalExpense,
+      COALESCE(SUM(CASE WHEN t.type = 1 THEN t.amount ELSE 0 END), 0)
+        - COALESCE(SUM(CASE WHEN t.type = 2 THEN t.amount ELSE 0 END), 0) AS balance
+    FROM `transaction` t
+    WHERE t.user_id = #{userId}
+      AND t.time &gt;= #{startOfYear}
+      AND t.time &lt; #{startOfNextYear}
+      AND t.transfer_id IS NULL
+  </select>
+
+  <!-- 分类汇总（type 可选，为空时返回全部 · 排除转账记录避免虚增 · 范围查询利用 idx_transaction_user_time 索引） -->
+  <select id="selectCategorySummary" resultType="com.example.finance.entity.dto.CategorySummaryDTO">
+    SELECT
+      t.category_id AS categoryId,
+      c.name AS categoryName,
+      c.type AS type,
+      SUM(t.amount) AS totalAmount,
+      COUNT(*) AS transactionCount
+    FROM `transaction` t
+    LEFT JOIN category c ON t.category_id = c.id
+    WHERE t.user_id = #{userId}
+      AND t.time &gt;= #{startOfMonth}
+      AND t.time &lt; #{startOfNextMonth}
+      AND t.transfer_id IS NULL
+      <if test="type != null">
+        AND t.type = #{type}
+      </if>
+    GROUP BY t.category_id, c.name, c.type
+    ORDER BY totalAmount DESC
+  </select>
+
+  <!-- 月度趋势（type=1 收入, type=2 支出 · 排除转账记录避免虚增 · 范围查询利用 idx_transaction_user_time 索引） -->
+  <select id="selectTrend" resultType="com.example.finance.entity.dto.MonthlyTrendDTO">
+    SELECT
+      DATE_FORMAT(t.time, '%Y-%m') AS month,
+      COALESCE(SUM(CASE WHEN t.type = 1 THEN t.amount ELSE 0 END), 0) AS totalIncome,
+      COALESCE(SUM(CASE WHEN t.type = 2 THEN t.amount ELSE 0 END), 0) AS totalExpense
+    FROM `transaction` t
+    WHERE t.user_id = #{userId}
+      AND t.time &gt;= #{startOfYear}
+      AND t.time &lt; #{startOfNextYear}
+      AND t.transfer_id IS NULL
+    GROUP BY DATE_FORMAT(t.time, '%Y-%m')
+    ORDER BY month ASC
+  </select>
+
+  <!-- 计算单个账户总收入（type=1 收入 · COALESCE 空值兜底为0 · 不含转账记录）
+       调用方：TransactionServiceImpl.transfer() 余额校验 + AccountServiceImpl.getBalance() 旧版单账户查询 -->
+  <select id="selectAccountIncome" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(t.amount), 0)
+    FROM `transaction` t
+    WHERE t.user_id = #{userId}
+      AND t.account_id = #{accountId}
+      AND t.type = 1
+  </select>
+
+  <!-- 计算单个账户总支出（type=2 支出 · COALESCE 空值兜底为0 · 不含转账记录）
+       调用方：TransactionServiceImpl.transfer() 余额校验 + AccountServiceImpl.getBalance() 旧版单账户查询 -->
+  <select id="selectAccountExpense" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(t.amount), 0)
+    FROM `transaction` t
+    WHERE t.user_id = #{userId}
+      AND t.account_id = #{accountId}
+      AND t.type = 2
+  </select>
+
+  <!-- 批量计算账户收入（消除N+1 · GROUP BY account_id · 返回类型化 AccountBatchIncomeDTO） -->
+  <select id="selectAccountIncomeBatch" resultType="com.example.finance.entity.dto.AccountBatchIncomeDTO">
+    SELECT t.account_id AS accountId, COALESCE(SUM(t.amount), 0) AS totalIncome
+    FROM `transaction` t
+    WHERE t.user_id = #{userId}
+      AND t.account_id IN
+      <foreach collection="accountIds" item="id" open="(" separator="," close=")">
+        #{id}
+      </foreach>
+      AND t.type = 1
+    GROUP BY t.account_id
+  </select>
+
+  <!-- 批量计算账户支出（消除N+1 · GROUP BY account_id · 返回类型化 AccountBatchExpenseDTO） -->
+  <select id="selectAccountExpenseBatch" resultType="com.example.finance.entity.dto.AccountBatchExpenseDTO">
+    SELECT t.account_id AS accountId, COALESCE(SUM(t.amount), 0) AS totalExpense
+    FROM `transaction` t
+    WHERE t.user_id = #{userId}
+      AND t.account_id IN
+      <foreach collection="accountIds" item="id" open="(" separator="," close=")">
+        #{id}
+      </foreach>
+      AND t.type = 2
+    GROUP BY t.account_id
+  </select>
+
+</mapper>
