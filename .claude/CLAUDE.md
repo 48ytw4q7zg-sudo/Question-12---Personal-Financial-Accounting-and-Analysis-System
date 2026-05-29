@@ -11,7 +11,7 @@
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-05-27 (commit 19f870d). Confidence: 100%.
+Last indexed: 2026-05-29 (commit 8f07e28). Confidence: 100%.
 ### Architecture
 This finance system is a full-stack personal finance management application: it ingests user-provided financial data (accounts, transactions, budgets, and recurring bills) through a JavaScript single-page application, transforms the data via a Java/Spring Boot REST API that enforces business rules and validations, persists the state in a relational database, and renders interactive dashboards and reports back to the user. - **Backend:** Java (Spring Boot)  
 - **Frontend:** JavaScript (Vue.js ecosystem — inferred from router/index.js and api/request.js structure)  
@@ -54,15 +54,15 @@ The repository follows a **classic client‑server architecture** with clear sep
 **Infra:** Docker Compose### Hotspots (High Churn)
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `system/backend/src/main/java/com/example/finance/service/impl/TransactionServiceImpl.java` | 100.0th %ile | 13 | qxw |
-| `.repowise/.update.log` | 100.0th %ile | 11 | qxw |
-| `system/frontend/src/views/TransactionListPage.vue` | 100.0th %ile | 13 | qxw |
+| `system/backend/src/main/java/com/example/finance/service/impl/TransactionServiceImpl.java` | 100.0th %ile | 14 | qxw |
+| `system/frontend/src/views/TransactionListPage.vue` | 100.0th %ile | 14 | qxw |
+| `.repowise/.update.log` | 100.0th %ile | 12 | qxw |
 | `system/frontend/src/views/DashboardPage.vue` | 99.9th %ile | 11 | qxw |
 | `system/backend/src/main/java/com/example/finance/service/impl/RecurringBillServiceImpl.java` | 99.9th %ile | 13 | qxw |
 
 ## Code health
-Hotspot health: 8.54/10 (stable) ·
-Average: 8.61/10 ·
+Hotspot health: 8.56/10 (stable) ·
+Average: 8.63/10 ·
 Worst: 5.8/10 (`system/backend/src/main/java/com/example/finance/controller/StatisticsController.java`)
 
 ### Critical biomarkers
