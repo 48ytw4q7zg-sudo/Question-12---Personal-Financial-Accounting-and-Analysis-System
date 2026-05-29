@@ -3,15 +3,7 @@
 §1.4 数据流 节点 ①②⑯ — 转账全栈链路的前端起终点（用户操作→表单校验→成功处理）
 §2.2 逐文件讲解 ⑧/⑩ — TransferPage.vue（转账页面 · 路由 /transfer）
 
-这个文件做什么：转账表单页面——选择转出/转入账户（互斥）、输入金额、备注
-               转账完整数据流的起点——用户点"确认转账"触发 17 个节点的全栈链路
 
-答辩讲什么：handleSubmit() — 转账提交的 4 步
-  第1步 validate() 表单校验：金额>0、账户不同（前端秒级反馈，不通过不发请求）
-  第2步 submitting=true 按钮 loading：防用户连点发出重复转账
-  第3步 await transfer(formData)：调 API → 从这里触发全栈 17 节点数据流
-  第4步 成功后 ElMessage + resetFields + loadAccounts 刷新余额
-  finally 保证 loading 一定关闭——按钮不会永远转圈
 
 ★ 答辩讲稿（§1.4 数据流 · 节点 ①②⑯ · 直接念）：
   "节点①，用户在 TransferPage.vue 转账页面选择转出账户、转入账户、输入金额，
