@@ -1,3 +1,17 @@
+// ============================================================
+// §1.4 数据流 节点 ⑬ — 统一响应包装（所有 Controller 返回 {code, message, data}）
+// §2.2 逐文件讲解 ⑥/⑩ — Result.java
+//
+// 这个文件做什么：Result<T> 是前后端约定的唯一通信格式
+//                 code=200 成功 / 401 未登录 / 其他业务错误
+//                 前端 axios 拦截器只写一段 if-else，所有页面自动受益
+//
+// 答辩怎么讲（15 秒）："统一返回格式——前端拦截器只写一段 if-else，10 个模块 11 个页面自动走。"
+//
+// ▶ 逐文件讲解下一个（Ctrl+P）：
+//   system/frontend/src/api/transaction.js
+//   （§1.4 节点 ③ · §2.2 逐文件讲解 ⑦/⑩ — API 封装层）
+// ============================================================
 package com.example.finance.common;  // 通用层：统一响应包装类 + 异常处理
 
 import lombok.Data;  // Lombok：自动生成 getter/setter/toString/equals/hashCode

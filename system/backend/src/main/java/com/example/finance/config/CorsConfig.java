@@ -1,16 +1,15 @@
 // ============================================================
-// 答辩 ①/⑦ — CorsConfig.java（CORS 跨域配置 · Filter 层）
+// §1.4 数据流 节点 ⑥ — 请求进入后端第一个经过的文件（Filter 层 · 比 Interceptor 更早）
+// §2.2 逐文件讲解 ①/⑩ — CorsConfig.java
 //
 // 这个文件做什么：创建 CorsFilter，允许前端 localhost:5173 跨域访问后端 8080
-//                 请求进入后端第一个经过的就是它（比 LoginInterceptor 更早）
 //
-// 答辩讲什么：corsFilter()（第 102-120 行）— 8 个 CORS 配置项逐行解释
-// 核心论点：CORS 必须放 Filter 层——OPTIONS 预检没有 Authorization 头
-//          如果放 Interceptor 层，LoginInterceptor 会误拦返回 401，预检失败
+// 答辩讲什么：corsFilter() — CORS 为什么必须放 Filter 层（核心论点）
+//   OPTIONS 预检没有 Authorization 头，放 Interceptor 层会被 LoginInterceptor 误拦返回 401
 //
-// ▶ 下一个文件（Ctrl+P）：
+// ▶ 逐文件讲解下一个（Ctrl+P）：
 //   system/backend/src/main/java/com/example/finance/interceptor/LoginInterceptor.java
-//   （②/⑦ LoginInterceptor — JWT 认证拦截器，在 Filter 之后执行）
+//   （§1.4 节点 ⑧ · §2.2 逐文件讲解 ②/⑩ — JWT 认证拦截器）
 // ============================================================
 package com.example.finance.config;
 

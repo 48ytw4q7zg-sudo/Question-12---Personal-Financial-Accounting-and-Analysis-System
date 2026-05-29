@@ -1,19 +1,20 @@
 <!--
 ============================================================
-★ 答辩 ⑦/⑦ — TransactionListPage.vue（收支记录页面 · 路由 /transaction · 30 分重点）
+§2.2 逐文件讲解 ★ ⑩/⑩ — TransactionListPage.vue（自选前端页面 · 30 分重点）
+（不在转账数据流中——这是收支记录管理页面，跟转账是独立的业务模块）
 
 这个文件做什么：系统最复杂的页面——筛选栏 + 分页表格 + 记一笔弹窗 + URL 状态同步
   <template> 4 大区块：筛选栏、交易表格（el-table）、分页栏（el-pagination）、新增/编辑弹窗（el-dialog）
 
 ★ 答辩讲什么：3 个核心函数（文件内已标注 ★★ 行号）
-  函数1 loadTransactions()（第 332 行）— 构建筛选参数 → 调 API → 兼容响应格式 → loading/错误兜底
+  函数1 loadTransactions() — 构建筛选参数 → 调 API → 兼容响应格式 → loading/错误兜底
     知识点：async/await 异步、reactive 响应式状态、可选链 ?. 防御、try/catch/finally 完整错误处理
-  函数2 handleSubmit()（第 499 行）— 表单校验 → 新增/编辑分支 → 转账字段保护 → 刷新列表
+  函数2 handleSubmit() — 表单校验 → 新增/编辑分支 → 转账字段保护 → 刷新列表
     知识点：Element Plus 表单校验、RESTful POST/PUT 区分、转账记录字段 disabled、finally 释放 loading
-  函数3 syncFiltersToUrl()（第 394 行）— 筛选条件写入 URL query → router.replace 防历史污染
+  函数3 syncFiltersToUrl() — 筛选条件写入 URL query → router.replace 防历史污染
     知识点：URL↔状态双向同步、replace vs push 区别、readFiltersFromUrl 反向还原
 
-▶ 答辩结束。全部 7 个文件已讲完。
+▶ 答辩结束。全部 10 个文件已讲完。
 ============================================================
 -->
 <template>

@@ -1,21 +1,17 @@
 // ============================================================
-// 答辩 ②/⑦ — LoginInterceptor.java（JWT 认证拦截器 · Interceptor 层）
+// §1.4 数据流 节点 ⑧ — JWT 认证拦截器（Interceptor 层 · Controller 之前校验身份）
+// §2.2 逐文件讲解 ②/⑩ — LoginInterceptor.java
 //
 // 这个文件做什么：拦截所有 /api/v1/** 请求，校验 Authorization 头中的 JWT token
 //                 解析出 userId 和 role 存入 request.setAttribute，供 Controller 使用
 //                 token 缺失/无效/过期 → 返回 HTTP 200 + body.code=401，中断请求链
 //
-// 答辩讲什么：preHandle()（第 86-127 行）— 4 步 JWT 校验
-//   第1步 OPTIONS 预检直接放行（没 Authorization 头，不放行会被误拦）
-//   第2步 提取 Authorization: Bearer <token>（RFC 6750 标准）
-//   第3步 parseTokenPayload() 一次验签提取 userId+role（旧版两次验签，合并省 50% CPU）
-//   第4步 request.setAttribute 存储（为什么不用 ThreadLocal？Tomcat 线程池复用会串号）
-// 补充讲：writeError()（第 148-169 行）— HTTP 200 + body.code=401 约定
-//         前端 axios 检查 body.code 而非 HTTP status——统一 body-code-first 机制
+// 答辩讲什么：preHandle() 4 步 JWT 校验 + writeError() body-code-first 约定
+//   第1步 OPTIONS 放行 / 第2步 提取 Bearer token / 第3步 HMAC 验签 / 第4步 setAttribute
 //
-// ▶ 下一个文件（Ctrl+P）：
+// ▶ 逐文件讲解下一个（Ctrl+P）：
 //   system/backend/src/main/java/com/example/finance/config/WebMvcConfig.java
-//   （③/⑦ WebMvcConfig — 拦截器注册 + 白名单配置）
+//   （§2.1 请求处理链 · §2.2 逐文件讲解 ③/⑩ — 拦截器注册 + 白名单）
 // ============================================================
 package com.example.finance.interceptor;
 

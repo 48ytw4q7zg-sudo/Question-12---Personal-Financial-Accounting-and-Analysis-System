@@ -1,5 +1,8 @@
 // ============================================================
-// ★ 答辩 ④/⑦ — TransactionServiceImpl.java（后端核心 · 30 分重点）
+// ★ 答辩 ⑤/⑩ — TransactionServiceImpl.java（后端核心 · 30 分重点）
+//
+// §1.4 数据流 节点 ⑩ — 转账核心业务逻辑（7 步：fail-fast→死锁预防→BigDecimal→复式记账）
+// §2.2 逐文件讲解 ★ ⑤/⑩ — 自选后端 Service 方法
 //
 // 这个文件做什么：交易记录服务实现类，包含 6 个方法——list/create/update/delete/transfer/importCsv
 //
@@ -15,9 +18,9 @@
 // 覆盖 7 个知识点：fail-fast / 死锁预防 / FOR UPDATE 悲观锁 / BigDecimal /
 //                 @Transactional 原子性 / 复式记账 / UUID 关联
 //
-// ▶ 下一个文件（切换到前端 · Ctrl+P）：
-//   system/frontend/src/views/TransferPage.vue
-//   （⑤/⑦ 转账页面 — 转账数据流的前端起点，handleSubmit() 表单校验+调API）
+// ▶ 逐文件讲解下一个（Ctrl+P）：
+//   system/backend/src/main/java/com/example/finance/common/Result.java
+//   （§1.4 节点 ⑬ · §2.2 逐文件讲解 ⑥/⑩ — 统一响应包装）
 // ============================================================
 /**
  * 交易记录服务实现类（PRD P0-4 收支记录 + P1-1 多条件筛选 + P1-5 转账 + P2-3 CSV 批量导入）

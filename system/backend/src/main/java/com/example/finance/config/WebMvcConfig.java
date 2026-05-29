@@ -1,20 +1,15 @@
 // ============================================================
-// 答辩 ③/⑦ — WebMvcConfig.java（拦截器注册 + 白名单配置）
+// §2.1 请求处理链 — 拦截器注册（决定哪些路径走 LoginInterceptor / AdminInterceptor）
+// §2.2 逐文件讲解 ③/⑩ — WebMvcConfig.java
 //
 // 这个文件做什么：注册 LoginInterceptor 和 AdminInterceptor 到 Spring MVC 拦截器链
 //                 配置拦截范围（addPathPatterns）和白名单（excludePathPatterns）
 //
-// 答辩讲什么：addInterceptors()（第 78-101 行）
-//   LoginInterceptor 拦截 /api/v1/**，白名单放行 4 个接口：
-//     login/register — 用户还没 token，必须放行
-//     health — 运维监控（Docker/K8s healthcheck），不带 token
-//     category — 种子数据公开只读
-//   AdminInterceptor 只拦 /api/v1/admin/**，依赖 LoginInterceptor 存入的 role 校验管理员
-//   执行顺序：LoginInterceptor → AdminInterceptor → Controller（顺序不能反）
+// 答辩讲什么：addInterceptors() — 白名单 4 个接口 + 执行顺序为什么不能反
 //
-// ▶ 下一个文件（★ 30 分重点 · Ctrl+P）：
-//   system/backend/src/main/java/com/example/finance/service/impl/TransactionServiceImpl.java
-//   （④/⑦ transfer() 转账方法 — 答辩自选的 1 个后端 Service 方法）
+// ▶ 逐文件讲解下一个（Ctrl+P）：
+//   system/backend/src/main/java/com/example/finance/controller/TransactionController.java
+//   （§1.4 节点 ⑨ · §2.2 逐文件讲解 ④/⑩ — Controller 层承上启下）
 // ============================================================
 package com.example.finance.config;
 

@@ -1,3 +1,16 @@
+// ============================================================
+// §1.4 数据流 节点 ⑨ — Controller 层（LoginInterceptor 之后 · Service 之前）
+// §2.2 逐文件讲解 ④/⑩ — TransactionController.java
+//
+// 这个文件做什么：接收前端 HTTP 请求 → @Valid 参数校验 → 转发 TransactionService
+//                Controller 只做校验和转发，不写业务逻辑——职责单一
+//
+// 答辩怎么讲（10 秒）："Controller 只做 @Valid 校验 + 调 Service。业务逻辑在下一个文件。"
+//
+// ▶ 逐文件讲解下一个（Ctrl+P）：
+//   system/backend/src/main/java/com/example/finance/service/impl/TransactionServiceImpl.java
+//   （§1.4 节点 ⑩ · §2.2 逐文件讲解 ★ ⑤/⑩ — transfer() 转账 7 步）
+// ============================================================
 package com.example.finance.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -20,34 +33,22 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-/*
- *  ╔══════════════════════════════════════════════════════════════════════╗
- *  ║  📋 完整数据流 — Controller 控制器层（HTTP 请求入口，登录拦截器之后）        ║
- *  ║                                                                      ║
- *  ║  transfer()（第 176-189 行）：从拦截器取 userId → @Valid校验参数          ║
- *  ║  → 调用 transactionService.transfer(userId, request)                  ║
- *  ║                                                                      ║
- *  ║  数据流：LoginInterceptor → TransactionController → TransactionServiceImpl ║
- *  ╚══════════════════════════════════════════════════════════════════════╝
+/**
+ * 交易记录控制器（数据流节点 ⑨ · LoginInterceptor → Controller → Service）
  *
- *  交易记录控制器（PRD P0-4 收支记录 + P1-1 多条件筛选 + P1-5 转账 + P2-3 CSV 批量导入）
- *  完整数据流 — Controller 控制器层（数据流节点：LoginInterceptor → Service 之间）
+ * <p>职责：接收收支记录的 HTTP 请求，参数校验后转发 TransactionService 处理。</p>
+ * <p>路由前缀：/api/v1/transaction</p>
+ *
+ * <p>接口清单（6 个 · 前端 api/transaction.js 调用）：</p>
+ * <ul>
+ *   <li>GET    /api/v1/transaction              — 查询交易记录（分页 + 多条件筛选）</li>
+ *   <li>POST   /api/v1/transaction              — 创建收支记录（记一笔）</li>
+ *   <li>PUT    /api/v1/transaction/{id}         — 更新收支记录</li>
+ *   <li>DELETE /api/v1/transaction/{id}         — 删除收支记录</li>
+ *   <li>POST   /api/v1/transaction/transfer     — 转账（数据流核心 · 见 transfer() 方法）</li>
+ *   <li>POST   /api/v1/transaction/import       — CSV 批量导入</li>
+ * </ul>
  */
-//
-// 职责：接收收支记录的 HTTP 请求，参数校验后转发 TransactionService 处理
-// 路由前缀：/api/v1/transaction
-// 依赖：→ TransactionService（业务逻辑层）→ TransactionMapper + AccountMapper（数据访问层）
-//
-// 接口清单：
-//   GET    /api/v1/transaction              — 查询交易记录（分页 + 多条件筛选）
-//   POST   /api/v1/transaction              — 创建收支记录（记一笔）
-//   PUT    /api/v1/transaction/{id}         — 更新收支记录
-//   DELETE /api/v1/transaction/{id}         — 删除收支记录（转账记录禁止删除）
-//   POST   /api/v1/transaction/transfer     — 转账（生成两条关联记录）
-//   POST   /api/v1/transaction/import       — CSV 批量导入（≤5MB，≤1000 条）
-//
-// 被前端调用：→ api/transaction.js 的 getTransactionList/create/update/transfer/importCsv
-// 被 TransactionListPage.vue、TransferPage.vue、ImportPage.vue 调用
 @RestController
 @RequestMapping("/api/v1/transaction")
 @RequiredArgsConstructor
