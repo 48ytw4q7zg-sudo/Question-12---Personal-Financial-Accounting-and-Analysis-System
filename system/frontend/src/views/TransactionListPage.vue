@@ -1,64 +1,20 @@
 <!--
-  ╔══════════════════════════════════════════════════════════════════════╗
-  ║  📋 答辩文件 ⑥/⑦ — ★ 核心代码讲解（30 分重点）★                         ║
-  ║                                                                      ║
-  ║  【文件整体实现什么】                                                    ║
-  ║  TransactionListPage.vue — 收支记录页面，放在 views/ 目录，路由 /transaction   ║
-  ║  整个系统最复杂的页面之一：筛选栏 + 分页表格 + 记一笔弹窗 + URL同步               ║
-  ║  <template> 有 4 个功能区块：筛选栏/交易表格/分页栏/新增编辑弹窗                   ║
-  ║  <script setup> 含 7 个核心函数，重点讲 3 个：loadTransactions / handleSubmit / handleSearch ║
-  ║                                                                      ║
-  ║  【答辩要讲什么】                                                        ║
-  ║  重点讲 3 个核心函数（当前文件第 294-440 行左右），覆盖前端开发的完整范式：         ║
-  ║    loadTransactions() — 构建筛选参数 + 调API + 兼容响应 + loading/错误处理     ║
-  ║    handleSubmit() — 表单校验 + 新增/编辑分支 + 转账保护 + 加载刷新             ║
-  ║    syncFiltersToUrl() — 筛选条件持久化到URL + router.replace防历史污染         ║
-  ║                                                                      ║
-  ║  【讲解步骤】                                                           ║
-  ║  1. 开场白（10秒）：为什么选收支记录页——筛选/分页/CRUD/URL同步，全链路           ║
-  ║  2. 花 20 秒展示 <template> 四大区块（筛选栏/表格/分页/弹窗）                     ║
-  ║  3. ★ 重点：依次讲解 loadTransactions / handleSubmit / syncFiltersToUrl      ║
-  ║     每段代码已在文件内标注了详细的答辩注释，直接念即可                            ║
-  ║  4. 收尾串讲：前端 3 个核心功能覆盖 5 个知识点                         ║
-  ║                                                                      ║
-  ║  【具体讲稿开场白】                                                       ║
-  ║  "老师好，我选的前端组件是 TransactionListPage.vue——收支记录页面。              ║
-  ║   这是系统里最复杂的页面：多条件筛选+分页+新增编辑+URL状态持久化。               ║
-  ║   三个核心函数 loadTransactions/handleSubmit/syncFiltersToUrl               ║
-  ║   覆盖了前端开发完整范式：API调用→状态管理→URL同步→错误处理。"                    ║
-  ║                                                                      ║
-  ║  第 294 行 loadTransactions()：构建params→调API→兼容响应→loading/错误兜底       ║
-  ║  第 440 行 handleSubmit()：validate校验→新增/编辑分支→转账保护→刷新列表          ║
-  ║  第 346 行 syncFiltersToUrl()：筛选条件写入URL→router.replace→防历史污染        ║
-  ║                                                                      ║
-  ║  收尾："这3个函数覆盖了5个知识点：async/await异步、Promise.all并行、             ║
-  ║    reactive筛选状态、URL↔状态双向同步、Element Plus表单校验。"                  ║
-  ╚══════════════════════════════════════════════════════════════════════╝
+============================================================
+★ 答辩 ⑦/⑦ — TransactionListPage.vue（收支记录页面 · 路由 /transaction · 30 分重点）
 
-  ▶ 讲完后，下一个文件（最后一个，按 Ctrl+P 粘贴打开）：
-    system/frontend/src/router/index.js
-    （路由守卫 — 前端怎么在页面切换时检查登录状态、拦截未登录用户）
+这个文件做什么：系统最复杂的页面——筛选栏 + 分页表格 + 记一笔弹窗 + URL 状态同步
+  <template> 4 大区块：筛选栏、交易表格（el-table）、分页栏（el-pagination）、新增/编辑弹窗（el-dialog）
 
-  收支记录页面
-  路由：/transaction
-  对应 PRD 功能：
-    - P0 收支记录（记一笔 + 改 + 列表分页）
-    - P1 多条件筛选（时间/账户/分类/关键词）
+★ 答辩讲什么：3 个核心函数（文件内已标注 ★★ 行号）
+  函数1 loadTransactions()（第 332 行）— 构建筛选参数 → 调 API → 兼容响应格式 → loading/错误兜底
+    知识点：async/await 异步、reactive 响应式状态、可选链 ?. 防御、try/catch/finally 完整错误处理
+  函数2 handleSubmit()（第 499 行）— 表单校验 → 新增/编辑分支 → 转账字段保护 → 刷新列表
+    知识点：Element Plus 表单校验、RESTful POST/PUT 区分、转账记录字段 disabled、finally 释放 loading
+  函数3 syncFiltersToUrl()（第 394 行）— 筛选条件写入 URL query → router.replace 防历史污染
+    知识点：URL↔状态双向同步、replace vs push 区别、readFiltersFromUrl 反向还原
 
-  功能说明：
-    - 顶部筛选栏：日期范围 + 账户 + 分类 + 关键词搜索
-    - 交易记录表格：时间/账户/分类/类型/金额/备注/转账标识/操作
-    - 分页组件（pageNum + pageSize）
-    - 「记一笔」新增弹窗 + 编辑弹窗
-    - 筛选条件持久化到 URL query params（支持浏览器前进后退）
-
-  调用关系：
-    → 调用 api/transaction.js 的 getTransactionList()（加载交易列表，支持筛选+分页）
-    → 调用 api/transaction.js 的 createTransaction()（记一笔）
-    → 调用 api/transaction.js 的 updateTransaction()（编辑记录）
-    → 调用 api/transaction.js 的 deleteTransaction()（删除记录，转账记录不显示删除按钮）
-    → 调用 api/account.js 的 getAccountList()（加载账户下拉选项）
-    → 调用 api/category.js 的 getCategoryList()（加载分类下拉选项）
+▶ 答辩结束。全部 7 个文件已讲完。
+============================================================
 -->
 <template>
   <div class="transaction-page">

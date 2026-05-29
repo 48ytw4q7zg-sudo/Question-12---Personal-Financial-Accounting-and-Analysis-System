@@ -1,40 +1,50 @@
-/**
- * 交易/收支记录模块 API 封装（api/transaction.js）
+/*
+ *  api/transaction.js — 交易记录模块 API 封装
  *
- * 职责：封装收支记录相关的所有 HTTP 请求（分页列表 + 新增 + 编辑 + 删除 + 转账 + CSV 导入）
- * 通过 request.js（Axios 实例）发送请求，统一享受拦截器处理（token 注入 + 401 拦截 + 错误提示）
+ *  这个文件做什么：封装收支记录相关的 6 个 HTTP 请求
+ *    分页列表(GET) / 新增(POST) / 编辑(PUT) / 删除(DELETE) / 转账(POST) / CSV导入(POST)
+ *    通过 request.js 的 axios 实例发请求，自动享受拦截器（token注入+401拦截+错误提示）
  *
- * 对应后端接口（对齐 API_DESIGN.md 交易模块接口）：
- *   GET    /api/v1/transaction          → TransactionController.list()     分页 + 多条件筛选列表
- *   POST   /api/v1/transaction          → TransactionController.create()   新增交易记录（记一笔）
- *   PUT    /api/v1/transaction/:id      → TransactionController.update()   编辑交易记录
- *   DELETE /api/v1/transaction/:id      → TransactionController.delete()   删除交易记录
- *   POST   /api/v1/transaction/transfer → TransactionController.transfer() 转账（自动创建 2 条关联记录）
- *   POST   /api/v1/transaction/import   → TransactionController.importCsv() CSV 文件导入
- *
- * 对应 PRD 功能：
- *   - P0 收支记录（记一笔 + 改 + 列表分页）
- *   - P1 多条件筛选（时间范围 + 账户 + 分类 + 关键词）
- *   - P1 转账（两个账户间资金转移）
- *   - P2 数据导入（CSV 文件批量导入交易记录）
- *
- * 调用方（哪些 .vue 文件使用了本模块的导出函数）：
- *   - TransactionListPage.vue → getTransactionList() / createTransaction() / updateTransaction() / deleteTransaction()
- *   - TransferPage.vue → transfer()（转账表单提交）
- *   - ImportPage.vue → importCsv()（CSV 文件上传）
- *
- * 数据流向：
- *   .vue 组件 → api/transaction.js（导出函数）→ request.js（Axios 实例 + 拦截器）→ TransactionController → TransactionServiceImpl → TransactionMapper → MySQL
- *                 ← Result<T> 响应 ← Axios 响应拦截器解析后返回到 .vue 组件
- *
- * 关联文件：
- *   - api/request.js：Axios 实例（baseURL=/api、timeout=10000、请求拦截器注入 token、响应拦截器处理 401/业务错）
- *   - views/TransactionListPage.vue：收支记录列表页（分页表格 + 筛选表单 + 新增/编辑弹窗）
- *   - views/TransferPage.vue：转账页面（源账户/目标账户 + 金额）
- *   - views/ImportPage.vue：CSV 导入页面（文件上传 + 目标账户选择）
- *   - backend/controller/TransactionController.java：交易控制器
- *   - backend/entity/Transaction.java：交易记录实体（表名 transactions）
+ *  数据流中的位置：TransferPage/TransactionListPage → api/transaction.js → request.js → Vite Proxy → 后端
+ *  关联文件：
+ *    前端调用方：TransactionListPage.vue / TransferPage.vue / ImportPage.vue
+ *    前端下游：api/request.js（axios 实例 + 拦截器）
+ *    后端上游：TransactionController.java → TransactionServiceImpl.java → TransactionMapper.java → MySQL
  */
+//
+// 职责：封装收支记录相关的所有 HTTP 请求（分页列表 + 新增 + 编辑 + 删除 + 转账 + CSV 导入）
+// 通过 request.js（Axios 实例）发送请求，统一享受拦截器处理（token 注入 + 401 拦截 + 错误提示）
+//
+// 对应后端接口（对齐 API_DESIGN.md 交易模块接口）：
+//   GET    /api/v1/transaction          → TransactionController.list()     分页 + 多条件筛选列表
+//   POST   /api/v1/transaction          → TransactionController.create()   新增交易记录（记一笔）
+//   PUT    /api/v1/transaction/:id      → TransactionController.update()   编辑交易记录
+//   DELETE /api/v1/transaction/:id      → TransactionController.delete()   删除交易记录
+//   POST   /api/v1/transaction/transfer → TransactionController.transfer() 转账（自动创建 2 条关联记录）
+//   POST   /api/v1/transaction/import   → TransactionController.importCsv() CSV 文件导入
+//
+// 对应 PRD 功能：
+//   - P0 收支记录（记一笔 + 改 + 列表分页）
+//   - P1 多条件筛选（时间范围 + 账户 + 分类 + 关键词）
+//   - P1 转账（两个账户间资金转移）
+//   - P2 数据导入（CSV 文件批量导入交易记录）
+//
+// 调用方（哪些 .vue 文件使用了本模块的导出函数）：
+//   - TransactionListPage.vue → getTransactionList() / createTransaction() / updateTransaction() / deleteTransaction()
+//   - TransferPage.vue → transfer()（转账表单提交）
+//   - ImportPage.vue → importCsv()（CSV 文件上传）
+//
+// 数据流向：
+//   .vue 组件 → api/transaction.js（导出函数）→ request.js（Axios 实例 + 拦截器）→ TransactionController → TransactionServiceImpl → TransactionMapper → MySQL
+//                 ← Result<T> 响应 ← Axios 响应拦截器解析后返回到 .vue 组件
+//
+// 关联文件：
+//   - api/request.js：Axios 实例（baseURL=/api、timeout=10000、请求拦截器注入 token、响应拦截器处理 401/业务错）
+//   - views/TransactionListPage.vue：收支记录列表页（分页表格 + 筛选表单 + 新增/编辑弹窗）
+//   - views/TransferPage.vue：转账页面（源账户/目标账户 + 金额）
+//   - views/ImportPage.vue：CSV 导入页面（文件上传 + 目标账户选择）
+//   - backend/controller/TransactionController.java：交易控制器
+//   - backend/entity/Transaction.java：交易记录实体（表名 transactions）
 import request from './request'                              // 导入 Axios 实例（→ api/request.js），包含 baseURL + 拦截器配置
 
 /**

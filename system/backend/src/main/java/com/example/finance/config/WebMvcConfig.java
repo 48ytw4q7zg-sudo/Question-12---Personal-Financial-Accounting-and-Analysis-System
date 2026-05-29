@@ -1,27 +1,21 @@
-// ╔══════════════════════════════════════════════════════════════════════╗
-// ║  📋 答辩文件 ③/⑦ — 核心代码讲解 → WebMvcConfig：拦截器注册 + 白名单       ║
-// ║                                                                      ║
-// ║  【文件整体实现什么】                                                    ║
-// ║  WebMvcConfig.java — Spring MVC 配置类，放在 config/ 目录                   ║
-// ║  addInterceptors() 方法（第 78-101 行）注册两个拦截器：                       ║
-// ║    ① LoginInterceptor — 拦截 /api/v1/**，白名单放行 4 个接口                    ║
-// ║    ② AdminInterceptor — 拦截 /api/v1/admin/**，校验管理员 role=1               ║
-// ║                                                                      ║
-// ║  【答辩要讲什么】                                                        ║
-// ║  重点讲 addInterceptors() 方法（第 78-101 行）——拦截范围 + 白名单 + 执行顺序        ║
-// ║  白名单 4 个接口：login / register / health / category（未登录用户需要）         ║
-// ║                                                                      ║
-// ║  【具体讲稿】                                                           ║
-// ║  滚到第 78 行 addInterceptors()："Spring 启动时自动调用，注册拦截器。              ║
-// ║    LoginInterceptor 拦截 /api/v1/**，但 4 个接口放行——                             ║
-// ║    login/register 用户还没 token，health 运维监控，category 种子数据公开。          ║
-// ║    AdminInterceptor 只拦 /api/v1/admin/**，依赖 LoginInterceptor 存的 role。       ║
-// ║    执行顺序：LoginInterceptor → AdminInterceptor → Controller。"                 ║
-// ╚══════════════════════════════════════════════════════════════════════╝
+// ============================================================
+// 答辩 ③/⑦ — WebMvcConfig.java（拦截器注册 + 白名单配置）
 //
-// ▶ 讲完后，下一个文件（★ 30 分重点，按 Ctrl+P 粘贴打开）：
+// 这个文件做什么：注册 LoginInterceptor 和 AdminInterceptor 到 Spring MVC 拦截器链
+//                 配置拦截范围（addPathPatterns）和白名单（excludePathPatterns）
+//
+// 答辩讲什么：addInterceptors()（第 78-101 行）
+//   LoginInterceptor 拦截 /api/v1/**，白名单放行 4 个接口：
+//     login/register — 用户还没 token，必须放行
+//     health — 运维监控（Docker/K8s healthcheck），不带 token
+//     category — 种子数据公开只读
+//   AdminInterceptor 只拦 /api/v1/admin/**，依赖 LoginInterceptor 存入的 role 校验管理员
+//   执行顺序：LoginInterceptor → AdminInterceptor → Controller（顺序不能反）
+//
+// ▶ 下一个文件（★ 30 分重点 · Ctrl+P）：
 //   system/backend/src/main/java/com/example/finance/service/impl/TransactionServiceImpl.java
-//   （transfer() 方法 — 答辩要求自选的 1 个后端 Service 方法 · 转账业务）
+//   （④/⑦ transfer() 转账方法 — 答辩自选的 1 个后端 Service 方法）
+// ============================================================
 package com.example.finance.config;
 
 // ===== 项目内部导入 =====

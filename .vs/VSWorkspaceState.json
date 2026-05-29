@@ -1,15 +1,8 @@
 {
   "ExpandedNodes": [
     "",
-    "\\startcode",
-    "\\system\\backend\\src",
-    "\\system\\backend\\src\\main",
-    "\\system\\backend\\src\\main\\java",
-    "\\system\\backend\\src\\main\\java\\com",
-    "\\system\\backend\\src\\main\\java\\com\\example",
-    "\\system\\backend\\src\\main\\java\\com\\example\\finance",
-    "\\system\\frontend\\src"
+    "\\system",
+    "\\system\\frontend"
   ],
-  "SelectedNode": "\\startcode\\面向答辩教学的系统实现详解.md",
   "PreviewInSolutionExplorer": false
 }

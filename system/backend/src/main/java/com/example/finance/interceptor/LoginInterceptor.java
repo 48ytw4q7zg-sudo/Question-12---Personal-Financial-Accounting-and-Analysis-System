@@ -1,36 +1,22 @@
-// ╔══════════════════════════════════════════════════════════════════════╗
-// ║  📋 答辩文件 ②/⑦ — 核心代码讲解 → LoginInterceptor：JWT 认证拦截器       ║
-// ║                                                                      ║
-// ║  【文件整体实现什么】                                                    ║
-// ║  LoginInterceptor.java — JWT 认证拦截器，放在 interceptor/ 目录              ║
-// ║  preHandle() 拦截所有 /api/v1/** 请求，校验 Authorization 头中的 JWT token   ║
-// ║  解析出 userId 和 role 存入 request，供下游 Controller 使用                   ║
-// ║  token 缺失/无效/过期时返回 HTTP 200 + body.code=401，中断请求链              ║
-// ║                                                                      ║
-// ║  【答辩要讲什么】                                                        ║
-// ║  重点讲 preHandle() 方法（当前文件第 86-152 行）— 4 步 JWT 校验流程              ║
-// ║  补充讲 writeError() 方法（第 148-169 行）— body-code-first 约定              ║
-// ║  核心论点：为什么需要拦截器 / Filter vs Interceptor / request.setAttribute 选型 ║
-// ║                                                                      ║
-// ║  【讲解步骤】                                                           ║
-// ║  1. 先说职责（10秒）：校验 JWT token，没 token 返回 401                         ║
-// ║  2. 说为什么需要拦截器（20秒）：10个Controller都写JWT校验→重复→AOP分离           ║
-// ║  3. 滚到第 86 行 preHandle()，逐行讲 4 步（OPTIONS放行→提取头→解析→存储）       ║
-// ║  4. 滚到第 148 行 writeError()，讲 body-code-first（HTTP200 + body 401）       ║
-// ║                                                                      ║
-// ║  【具体讲稿】                                                           ║
-// ║  "LoginInterceptor 校验 JWT token。10个Controller如果每个都写一遍JWT校验，       ║
-// ║   重复且易遗漏。拦截器把'校验身份'和'处理业务'分离——AOP思想。                       ║
-// ║   第128行preHandle()：第1步OPTIONS放行(预检没Authorization头)；                    ║
-// ║   第2步提取Authorization: Bearer <token>（RFC6750标准）；                         ║
-// ║   第3步parseTokenPayload()一次解析（优化：旧代码两次验签，合并减少50%运算）；         ║
-// ║   第4步setAttribute存userId+role（为什么不用ThreadLocal？Tomcat线程池复用会串号）。  ║
-// ║   第190行writeError()：HTTP200+body 401——前端axios检查body.code而非HTTP status。"  ║
-// ╚══════════════════════════════════════════════════════════════════════╝
+// ============================================================
+// 答辩 ②/⑦ — LoginInterceptor.java（JWT 认证拦截器 · Interceptor 层）
 //
-// ▶ 讲完后，下一个文件（按 Ctrl+P 粘贴打开）：
+// 这个文件做什么：拦截所有 /api/v1/** 请求，校验 Authorization 头中的 JWT token
+//                 解析出 userId 和 role 存入 request.setAttribute，供 Controller 使用
+//                 token 缺失/无效/过期 → 返回 HTTP 200 + body.code=401，中断请求链
+//
+// 答辩讲什么：preHandle()（第 86-127 行）— 4 步 JWT 校验
+//   第1步 OPTIONS 预检直接放行（没 Authorization 头，不放行会被误拦）
+//   第2步 提取 Authorization: Bearer <token>（RFC 6750 标准）
+//   第3步 parseTokenPayload() 一次验签提取 userId+role（旧版两次验签，合并省 50% CPU）
+//   第4步 request.setAttribute 存储（为什么不用 ThreadLocal？Tomcat 线程池复用会串号）
+// 补充讲：writeError()（第 148-169 行）— HTTP 200 + body.code=401 约定
+//         前端 axios 检查 body.code 而非 HTTP status——统一 body-code-first 机制
+//
+// ▶ 下一个文件（Ctrl+P）：
 //   system/backend/src/main/java/com/example/finance/config/WebMvcConfig.java
-//   （拦截器注册 + 白名单配置 — 配置拦截哪些路径、放行哪些路径）
+//   （③/⑦ WebMvcConfig — 拦截器注册 + 白名单配置）
+// ============================================================
 package com.example.finance.interceptor;
 
 import com.example.finance.common.BusinessException;

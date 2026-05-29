@@ -1,15 +1,21 @@
 <!--
-  转账页面
-  路由：/transfer
-  对应 PRD 功能：P1 转账（在两个账户间转移资金）
+============================================================
+答辩 ⑤/⑦ — TransferPage.vue（转账页面 · 路由 /transfer）
 
-  功能说明：
-    - 转账表单：选择转出账户、转入账户（互斥，不能选同一个）、输入金额、备注
-    - 提交后后端自动创建一对关联的收支记录（转出方支出 + 转入方收入）
+这个文件做什么：转账表单页面——选择转出/转入账户（互斥）、输入金额、备注
+               转账完整数据流的起点——用户点"确认转账"触发 14 个节点的全栈链路
 
-  调用关系：
-    → 调用 api/transaction.js 的 transfer()（转账接口）
-    → 调用 api/account.js 的 getAccountList()（加载账户下拉选项）
+答辩讲什么：handleSubmit()（第 154 行）— 转账提交的 4 步
+  第1步 validate() 表单校验：金额>0、账户不同（前端秒级反馈，不通过不发请求）
+  第2步 submitting=true 按钮 loading：防用户连点发出重复转账
+  第3步 await transfer(formData)：调 API → 从这里触发全栈 14 节点数据流
+  第4步 成功后 ElMessage + resetFields + loadAccounts 刷新余额
+  finally 保证 loading 一定关闭——按钮不会永远转圈
+
+▶ 下一个文件（Ctrl+P）：
+  system/frontend/src/api/request.js
+  （⑥/⑦ axios 请求/响应拦截器 — 前端所有请求的"总闸"）
+============================================================
 -->
 <template>
   <div class="transfer-page">
@@ -118,25 +124,58 @@ async function loadAccounts() {
   }
 }
 
+/**
+ * ★★【答辩·handleSubmit() 转账提交 — 转账数据流起点】★★
+ * 做什么：用户点击"确认转账"→表单校验→调API→成功提示+重置+刷新余额→错误处理→关闭loading
+ * 为什么在这里讲：这是转账完整数据流的起点——从这个函数开始触发14个节点的全栈链路
+ * 覆盖知识点：Element Plus表单校验/async-await异步/loading防抖/axios-intercept错误处理/finally资源释放
+ */
 /** 提交转账 */
 async function handleSubmit() {
-  const valid = await formRef.value.validate().catch(() => false) // 触发表单校验
-  if (!valid) return                                        // 校验不通过不提交
+  // ★★【答辩·handleSubmit() 转账提交 — 转账数据流起点】★★
+  // 覆盖知识点：Element Plus表单校验/async-await异步/loading防抖/axios-intercept错误处理/finally资源释放
 
+  // ★ 第1步：Element Plus 表单校验
+  //  做什么：validate() 检查所有 el-form-item 的 rules——fromAccountId必填/toAccountId必填且不同于转出/amount>0
+  //  为什么 .catch(() => false)：validate() 失败时 reject，不 catch 会变成 unhandled rejection；转成 false 方便 if(!valid) 判断
+  const valid = await formRef.value.validate().catch(() => false) // 触发表单校验
+  if (!valid) return                                        // ★ 校验失败直接退出——前端校验秒级反馈，不浪费带宽发HTTP请求
+
+  // ★ 第2步：按钮 loading 防抖
+  //  做什么：按钮变成转圈+disabled，防止用户连点发出多个重复转账请求
+  //  为什么不用防抖函数（debounce）：防抖延迟用户体验差——loading是最直观的"正在处理中"反馈
   submitting.value = true                                   // 开启提交loading
   try {
+    // ★★ 第3步：调用转账 API（核心步骤——从这里触发14节点全栈数据流）
+    //  做什么：await transfer(formData) → api/transaction.js 的 transfer() →
+    //          request.js 请求拦截器注入 token → POST /api/v1/transaction/transfer →
+    //          Vite Proxy → CorsFilter → LoginInterceptor → TransactionController →
+    //          TransactionServiceImpl.transfer()（fail-fast→加锁→BigDecimal→复式记账→双条INSERT→COMMIT）
+    //  为什么 await：等待后端完整处理转账并返回结果——不加 await 会直接跳过，前端不知道转账是否成功
     await transfer(formData)                                // 调用转账API
+    // ★★ 第4步：成功处理
+    //  做什么：① ElMessage.success 用户级反馈 ② resetFields() 清空表单 ③ loadAccounts() 刷新账户余额
+    //  为什么刷新账户列表：转账后两个账户的余额都变了——调用 getAccountList() 从后端拿最新余额，不刷新用户看到的还是旧数字
     ElMessage.success('转账成功')                             // 成功提示
     formRef.value.resetFields()                              // 重置表单字段
     // 转账后刷新账户列表（余额可能已变化）
     await loadAccounts()                                    // 刷新账户列表
   } catch (e) {
-    // axios 拦截器已统一处理业务错误消息（如余额不足、账户禁用等），此处处理网络/超时异常
+    // ★★ 第5步：错误处理——网络异常兜底
+    //  说明：业务异常（余额不足/账户不存在/账户相同）已被 axios 响应拦截器统一 ElMessage.error 处理
+    //  这里只处理网络层异常——代码拿不到响应对象（error.response 为空）
+    //  为什么区分 ERR_NETWORK 和 ECONNABORTED：
+    //    ERR_NETWORK = 网络断开/DNS解析失败/服务器宕机——请求根本没发出去
+    //    ECONNABORTED = axios 的 10 秒 timeout 触发——服务器响应太慢
+    //  axios 拦截器已统一处理业务错误消息（如余额不足、账户禁用等），此处处理网络/超时异常
     log.error('转账异常:', e)                            // 记录异常日志
     if (e.code === 'ERR_NETWORK' || e.code === 'ECONNABORTED') {  // 网络错误或超时
       ElMessage.error('网络异常，转账失败')              // 网络级错误提示
     }
   } finally {
+    // ★★ 第6步：finally 关闭 loading（保证一定执行）
+    //  为什么 finally：如果只在 try 里关，catch 里抛了新异常会跳过——finally 无论成功/失败/异常都执行
+    //  不关 loading 的后果：按钮永远转圈，用户无法再次提交——只能刷新页面
     submitting.value = false                                 // 关闭提交loading
   }
 }

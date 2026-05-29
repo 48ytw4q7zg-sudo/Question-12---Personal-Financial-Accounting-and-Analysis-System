@@ -16,23 +16,35 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * 交易记录 Mapper 接口（含复杂聚合查询 · XML 映射文件: resources/mapper/TransactionMapper.xml）
+ *  ╔══════════════════════════════════════════════════════════════════════╗
+ *  ║  📋 完整数据流 — Mapper 数据访问层（终点：MyBatis-Plus → JDBC → MySQL）    ║
+ *  ║                                                                      ║
+ *  ║  转账时被调用的方法：                                                    ║
+ *  ║    selectAccountIncome() → SELECT SUM 查总收入（余额计算用）                ║
+ *  ║    selectAccountExpense() → SELECT SUM 查总支出（余额计算用）               ║
+ *  ║    BaseMapper.insert() → INSERT 转出+转入两条记录                        ║
+ *  ║                                                                      ║
+ *  ║  数据流：TransactionServiceImpl → TransactionMapper → MySQL InnoDB       ║
+ *  ╚══════════════════════════════════════════════════════════════════════╝
  *
- * <p>继承 BaseMapper<Transaction> 提供标准 CRUD（insert/selectById/updateById/deleteById 等）。</p>
- * <p>本接口定义的复杂查询方法（多表 JOIN / GROUP BY 聚合 / 范围统计）使用 XML 映射实现，
- * 属于 MyBatis-Plus「复杂查询有限例外」（对齐 CLAUDE.md §二·四）。</p>
- *
- * <p>性能优化：所有统计方法使用范围查询（startOfMonth < time < startOfNextMonth）替代 YEAR()/MONTH() 函数，
- * 利用 idx_transaction_user_time 索引加速查询（对齐 BudgetServiceImpl/StatisticsServiceImpl 中的范围查询模式）。</p>
- *
- * <p>调用方:</p>
- * <ul>
- *   <li>TransactionServiceImpl — CRUD + 筛选 + 转账余额校验</li>
- *   <li>AccountServiceImpl — 余额批量查询（selectAccountIncomeBatch/selectAccountExpenseBatch）</li>
- *   <li>BudgetServiceImpl — 预算进度分类支出汇总（selectCategorySummary）</li>
- *   <li>StatisticsServiceImpl — 月度/年度/趋势/分类汇总（selectMonthlySummary 等）</li>
- * </ul>
+ *  ▶ 数据流上一步：TransactionServiceImpl.java（transfer() 核心业务）
+ *  ▶ 数据流终点：MySQL InnoDB（FOR UPDATE 行锁 → INSERT → COMMIT 事务提交）
  */
+// 交易记录 Mapper 接口（含复杂聚合查询 · XML 映射文件: resources/mapper/TransactionMapper.xml）
+// 完整数据流 — Mapper 数据访问层（终点：MyBatis-Plus → JDBC → MySQL）
+//
+// 继承 BaseMapper<Transaction> 提供标准 CRUD（insert/selectById/updateById/deleteById 等）。
+// 本接口定义的复杂查询方法（多表 JOIN / GROUP BY 聚合 / 范围统计）使用 XML 映射实现，
+// 属于 MyBatis-Plus「复杂查询有限例外」（对齐 CLAUDE.md §二·四）。
+//
+// 性能优化：所有统计方法使用范围查询（startOfMonth < time < startOfNextMonth）替代 YEAR()/MONTH() 函数，
+// 利用 idx_transaction_user_time 索引加速查询（对齐 BudgetServiceImpl/StatisticsServiceImpl 中的范围查询模式）。
+//
+// 调用方:
+//   - TransactionServiceImpl — CRUD + 筛选 + 转账余额校验
+//   - AccountServiceImpl — 余额批量查询（selectAccountIncomeBatch/selectAccountExpenseBatch）
+//   - BudgetServiceImpl — 预算进度分类支出汇总（selectCategorySummary）
+//   - StatisticsServiceImpl — 月度/年度/趋势/分类汇总（selectMonthlySummary 等）
 @Mapper
 public interface TransactionMapper extends BaseMapper<Transaction> {
 
