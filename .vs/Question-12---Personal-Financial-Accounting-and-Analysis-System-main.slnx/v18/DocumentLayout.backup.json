@@ -3,10 +3,6 @@
   "WorkspaceRootPath": "C:\\Users\\Administrator\\Desktop\\Question-12---Personal-Financial-Accounting-and-Analysis-System-main\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Administrator\\Desktop\\Question-12---Personal-Financial-Accounting-and-Analysis-System-main\\system\\frontend\\src\\views\\TransferPage.vue||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:system\\frontend\\src\\views\\TransferPage.vue||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Administrator\\Desktop\\Question-12---Personal-Financial-Accounting-and-Analysis-System-main\\startcode\\\u7B54\u9898\u6587\u6863-\u9879\u76EE\u67B6\u6784\u4E0E\u6838\u5FC3\u4EE3\u7801\u8BB2\u89E3.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:startcode\\\u7B54\u9898\u6587\u6863-\u9879\u76EE\u67B6\u6784\u4E0E\u6838\u5FC3\u4EE3\u7801\u8BB2\u89E3.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
     }
@@ -18,32 +14,19 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 0,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
               "Title": "\u7B54\u9898\u6587\u6863-\u9879\u76EE\u67B6\u6784\u4E0E\u6838\u5FC3\u4EE3\u7801\u8BB2\u89E3.md",
               "DocumentMoniker": "C:\\Users\\Administrator\\Desktop\\Question-12---Personal-Financial-Accounting-and-Analysis-System-main\\startcode\\\u7B54\u9898\u6587\u6863-\u9879\u76EE\u67B6\u6784\u4E0E\u6838\u5FC3\u4EE3\u7801\u8BB2\u89E3.md",
               "RelativeDocumentMoniker": "startcode\\\u7B54\u9898\u6587\u6863-\u9879\u76EE\u67B6\u6784\u4E0E\u6838\u5FC3\u4EE3\u7801\u8BB2\u89E3.md",
               "ToolTip": "C:\\Users\\Administrator\\Desktop\\Question-12---Personal-Financial-Accounting-and-Analysis-System-main\\startcode\\\u7B54\u9898\u6587\u6863-\u9879\u76EE\u67B6\u6784\u4E0E\u6838\u5FC3\u4EE3\u7801\u8BB2\u89E3.md",
               "RelativeToolTip": "startcode\\\u7B54\u9898\u6587\u6863-\u9879\u76EE\u67B6\u6784\u4E0E\u6838\u5FC3\u4EE3\u7801\u8BB2\u89E3.md",
-              "ViewState": "AgIAADwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAACYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
               "WhenOpened": "2026-05-29T03:47:22.544Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "TransferPage.vue",
-              "DocumentMoniker": "C:\\Users\\Administrator\\Desktop\\Question-12---Personal-Financial-Accounting-and-Analysis-System-main\\system\\frontend\\src\\views\\TransferPage.vue",
-              "RelativeDocumentMoniker": "system\\frontend\\src\\views\\TransferPage.vue",
-              "ToolTip": "C:\\Users\\Administrator\\Desktop\\Question-12---Personal-Financial-Accounting-and-Analysis-System-main\\system\\frontend\\src\\views\\TransferPage.vue",
-              "RelativeToolTip": "system\\frontend\\src\\views\\TransferPage.vue",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003491|",
-              "WhenOpened": "2026-05-29T03:46:51.296Z",
               "EditorCaption": ""
             }
           ]

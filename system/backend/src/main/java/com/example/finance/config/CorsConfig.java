@@ -7,6 +7,23 @@
 // 答辩讲什么：corsFilter() — CORS 为什么必须放 Filter 层（核心论点）
 //   OPTIONS 预检没有 Authorization 头，放 Interceptor 层会被 LoginInterceptor 误拦返回 401
 //
+// ★ §1.4 数据流讲稿（节点 ⑥ · 直接念）：
+//   "节点⑥，请求最先到达的是 CorsConfig 配置的 CorsFilter。它在 Filter 层——
+//    比 Interceptor 更早执行。检查请求来源是否在允许列表中。为什么 CORS 必须放
+//    Filter 层？因为浏览器的 OPTIONS 预检请求不带 Authorization 头——如果放
+//    Interceptor 层，LoginInterceptor 发现没 token 就返回 401，预检失败，
+//    所有跨域请求都被浏览器拦截。Filter 在协议层处理，预检直接放行。"
+//
+// ★ §2.2 核心代码讲稿（①/⑩ · 2分钟 · 直接念）：
+//   "这是 CorsConfig.java，负责配置 CORS 跨域。前端跑 localhost:5173，
+//    后端跑 localhost:8080——端口不同就是跨域，浏览器会拦截。
+//    corsFilter() 方法：@Bean 告诉 Spring 这个方法返回一个全局过滤器。
+//    配置了 8 项：允许哪些源、哪些 HTTP 方法、哪些请求头、是否允许携带凭证。
+//    为什么 CORS 必须放 Filter 层？因为浏览器的 OPTIONS 预检请求不带
+//    Authorization 头——如果放 Interceptor 层，LoginInterceptor 发现没
+//    token 就返回 401，预检失败，前端所有跨域请求都被浏览器拦截。
+//    Filter 比 Interceptor 更早执行，预检在 Filter 层就处理完了。"
+//
 // ▶ 逐文件讲解下一个（Ctrl+P）：
 //   system/backend/src/main/java/com/example/finance/interceptor/LoginInterceptor.java
 //   （§1.4 节点 ⑧ · §2.2 逐文件讲解 ②/⑩ — JWT 认证拦截器）

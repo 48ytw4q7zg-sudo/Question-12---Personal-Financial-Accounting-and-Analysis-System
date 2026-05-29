@@ -7,6 +7,17 @@
 //
 // 答辩讲什么：addInterceptors() — 白名单 4 个接口 + 执行顺序为什么不能反
 //
+// ★ §2.2 核心代码讲稿（③/⑩ · 1分钟 · 直接念）：
+//   "WebMvcConfig 负责注册拦截器。addInterceptors() 注册了两个拦截器：
+//    LoginInterceptor 拦截 /api/v1/**——用两个星号匹配任意多级路径——
+//    但白名单放行 4 个接口：login/register（用户还没 token），
+//    health（Docker/K8s 健康检查不带 token），category（种子数据公开只读）。
+//    AdminInterceptor 只拦 /api/v1/admin/**——
+//    依赖 LoginInterceptor 存入的 role 判断是不是管理员。
+//    执行顺序：先 LoginInterceptor 校验 token 顺便存 role，
+//    再 AdminInterceptor 读 role 校验权限——顺序不能反。
+//    反了 AdminInterceptor 读到的是 null，所有管理员请求都被误判为无权限。"
+//
 // ▶ 逐文件讲解下一个（Ctrl+P）：
 //   system/backend/src/main/java/com/example/finance/controller/TransactionController.java
 //   （§1.4 节点 ⑨ · §2.2 逐文件讲解 ④/⑩ — Controller 层承上启下）

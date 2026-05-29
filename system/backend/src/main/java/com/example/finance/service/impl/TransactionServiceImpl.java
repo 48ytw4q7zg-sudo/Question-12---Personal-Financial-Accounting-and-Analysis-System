@@ -18,6 +18,55 @@
 // 覆盖 7 个知识点：fail-fast / 死锁预防 / FOR UPDATE 悲观锁 / BigDecimal /
 //                 @Transactional 原子性 / 复式记账 / UUID 关联
 //
+// ★ §1.4 数据流讲稿（节点 ⑩ · 直接念）：
+//   "节点⑩，核心来了——TransactionServiceImpl 的 transfer() 方法。
+//    这是我自选的后端核心方法。7 步业务逻辑：fail-fast 校验金额和账户、
+//    死锁预防按账户 ID 升序加锁、FOR UPDATE 悲观锁查余额、BigDecimal 精确计算、
+//    查分类、UUID 生成关联 ID 做复式记账、组装 DTO 返回。
+//    35 行代码覆盖 7 个知识点——第二部分会逐行讲。"
+//
+// ★ §2.2 核心代码讲稿（⑤/⑩ · 5分钟 · ★30分核心 · 直接念）：
+//   开场白："这是我选的后端核心方法——TransactionServiceImpl 的 transfer()
+//    转账方法。35 行代码覆盖了 7 个知识点：fail-fast 校验、死锁预防、
+//    FOR UPDATE 悲观锁、BigDecimal 精度、@Transactional 原子性、
+//    复式记账、UUID 关联。比登录的技术深度高得多。"
+//   逐行 7 步（代码里已标注 ★★，边滚边念）：
+//    入口 @Transactional："Spring 声明式事务——此方法内所有数据库操作要么全部
+//      成功提交，要么任何一步失败全部回滚。转账三步（查余额+INSERT转出+INSERT转入）
+//      不可分割——如果 INSERT 转入时数据库崩了，转出也会回滚，不会'钱扣了没到账'。"
+//    第1步 fail-fast："金额非空+必须>0+不能自己转自己。为什么放加锁之前？
+//      快速失败不占用数据库连接池——锁是最贵的资源，任何能在加锁前排除的错误
+//      都不应该占着锁。"
+//    第2步 死锁预防："Math.min/max 按账户 ID 升序确定加锁顺序——
+//      先锁小 ID 再锁大 ID。线程1转账户1→5先锁1等5，线程2转5→1同样是
+//      min(5,1)=1 先锁1再锁5——所有线程锁顺序一致，打破操作系统的'循环等待'
+//      条件，死锁就不可能发生。selectByIdForUpdate() = SELECT ... FOR UPDATE，
+//      InnoDB 行级排他锁。"
+//    第3步 账户校验："校验账户存在+归属当前用户+状态活跃。Objects.equals 比较
+//      Integer 值而不是 ==——Integer 在 -128~127 范围内有缓存，超出范围的
+//      == 比较的是引用地址，可能两个值相同的 Integer 返回 false。"
+//    第4步 BigDecimal："初始余额+收入总和-支出总和=当前余额。
+//      BigDecimal.add().subtract() 链式调用。为什么必须用 BigDecimal？
+//      如果用了 float/double——0.1+0.2=0.30000000000000004≠0.3——
+//      财务系统一分钱都对不上，生产事故。compareTo(amount) < 0 判断余额不足。"
+//    第5步 查分类："LambdaQueryWrapper 查 name='其他' AND type=1（支出类）。
+//      为什么加 type 过滤？种子数据有 13 条分类，'其他'有两个——
+//      支出类(id=8)和收入类(id=13)。不加过滤 MyBatis-Plus 的 selectOne
+//      查出来两行会抛 TooManyResultsException，转账直接崩溃。"
+//    第6步 UUID+复式记账："UUID.randomUUID() 生成转账关联 ID——
+//      在 Java 代码里提前生成，INSERT 之前就能设给两条记录。
+//      为什么不用数据库自增 ID？自增是 INSERT 后才有值——
+//      但我们需要 INSERT 之前就拿到关联 ID 同时赋给转出和转入两条记录。
+//      然后分别 INSERT 一条转出(type=2=支出)和一条转入(type=1=收入)，
+//      共享同一个 transferId——这就是'复式记账'：一出一入，资金流向完全可追溯。
+//      金额完全相等——转账不创造也不消灭金钱，只是转移。"
+//    收尾："组装 TransferDTO——包含 transferId、转出记录 DTO、转入记录 DTO。
+//      返回给 Controller → Result.success() 包装 → Jackson 序列化 JSON →
+//      前端展示。"
+//   总结："这 35 行代码覆盖了 7 个知识点：fail-fast 校验、死锁预防、
+//    FOR UPDATE 悲观锁、BigDecimal 精度、@Transactional 原子性、
+//    复式记账、UUID 关联——都是后端开发必知必会。"
+//
 // ▶ 逐文件讲解下一个（Ctrl+P）：
 //   system/backend/src/main/java/com/example/finance/common/Result.java
 //   （§1.4 节点 ⑬ · §2.2 逐文件讲解 ⑥/⑩ — 统一响应包装）

@@ -1,4 +1,20 @@
-// ========== Vite 构建配置文件 ==========
+// ============================================================
+// §1.4 数据流 节点 ⑤ — Vite Dev Server Proxy（开发环境跨域解决方案）
+//
+// 这个文件做什么：Vite 构建配置——开发端口 5173，proxy 把 /api 请求转发到后端 8080
+//                 生产构建按 vendor 分包，ECharts 按需拆分，优化首屏加载
+//
+// ★ §1.4 数据流讲稿（节点 ⑤ · 直接念）：
+//   "节点⑤，HTTP 请求发出去了，但前端跑在 localhost:5173，
+//    后端在 localhost:8080——端口不同就是跨域。Vite 的 proxy 配置在这里起作用：
+//    匹配 /api 前缀的请求，Vite Dev Server 帮你转发到 localhost:8080。
+//    浏览器以为是同源请求，不触发 CORS 预检。
+//    这就是开发环境解决跨域的标准做法——不用改后端代码。"
+//
+// ▶ 数据流下一个（Ctrl+P）：
+//   system/backend/.../config/CorsConfig.java
+//   （§1.4 节点 ⑥ · §2.2 逐文件讲解 ①/⑩ — CORS 跨域配置）
+// ============================================================
 // 开发服务器端口 5173，代理 /api 请求到后端 SpringBoot localhost:8080
 // 构建时按 vendor 分包，ECharts 按需拆分（echarts-core/charts/components/renderers），优化首屏加载
 // 引用方：vite dev / vite build 命令自动读取本文件

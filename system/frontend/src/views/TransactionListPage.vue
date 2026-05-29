@@ -14,6 +14,40 @@
   函数3 syncFiltersToUrl() — 筛选条件写入 URL query → router.replace 防历史污染
     知识点：URL↔状态双向同步、replace vs push 区别、readFiltersFromUrl 反向还原
 
+★ §2.2 核心代码讲稿（⑩/⑩ · 5分钟 · ★30分核心 · 直接念）：
+  开场白："这是我选的前端组件——TransactionListPage.vue，收支记录页面。
+    系统里最复杂的页面。<template> 有 4 大区块：筛选栏（日期+账户+分类+关键词）、
+    交易表格（el-table 8 列+转账标识+操作按钮）、分页栏（el-pagination）、
+    新增/编辑弹窗（el-dialog）。重点讲 3 个核心函数。"
+  函数1 loadTransactions()："loading.value = true 开启表格 loading →
+    构建 params 对象，只有用户选了筛选条件才拼接——
+    if (filters.dateRange)、if (filters.accountId != null)
+    （用 != null 而不是 if(accountId) 因为 0 也是合法 ID，但 0 是 falsy）→
+    await getTransactionList(params) 发 GET 请求 →
+    响应用可选链 data?.records || data?.list || data || []
+    兼容后端三种可能的返回格式——万一后端重构改了字段名，前端不用改代码。
+    catch 里 ElMessage.error 提示 + 清空列表兜底。
+    finally 关闭 loading——保证一定执行。"
+  函数2 handleSubmit()："formRef.value.validate() 校验表单 →
+    submitting.value = true 按钮 loading 防重复提交 →
+    if (isEdit) 判断走 update 还是 create——
+    RESTful 规范 POST 创建新资源、PUT 更新已有资源。
+    成功后关闭弹窗+刷新列表。
+    转账记录编辑时账户/分类/金额字段 disabled——
+    转账记录只允许改备注，保护转账关联完整性。
+    finally 关闭 submitting——保证一定执行。"
+  函数3 syncFiltersToUrl()："把筛选条件写入 URL query 参数：
+    router.replace({ query: q })。为什么用 replace 而不是 push？
+    replace 替换当前历史记录，不产生新的 history 条目——
+    用户点'后退'回到上一页，不是上一个筛选状态。
+    如果用 push，用户筛选 10 次要按 10 次后退才能离开页面——这叫'历史污染'。
+    readFiltersFromUrl() 是反向操作——页面初始化时从 URL 读取筛选条件恢复状态。
+    URL 参数是字符串 '3'，el-select 的 value 是数字 3——
+    Number(q.accountId) 做类型转换，否则匹配不上显示空白。
+    这两个函数形成 URL↔状态双向同步闭环。"
+  收尾："这三个函数覆盖了 5 个知识点：async/await 异步、Promise.all 并行、
+    reactive 响应式状态、URL↔状态双向同步、Element Plus 表单校验。"
+
 ▶ 答辩结束。全部 10 个文件已讲完。
 ============================================================
 -->

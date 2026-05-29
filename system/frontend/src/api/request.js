@@ -13,6 +13,30 @@
 //   3. 响应拦截器成功分支 — 三段处理（200 剥壳 / 401 跳转 / 其他提示）
 //   4. 响应拦截器错误分支 — 指数退避重试（1s→2s→4s + 随机抖动防惊群效应）
 //
+// ★ §1.4 数据流讲稿（节点 ④⑮ · 直接念）：
+//   "节点④，请求拦截器在这里自动注入 token——从 localStorage 读取，
+//    拼成 Bearer xxx 格式，写入 Authorization 请求头。10 个 API 模块
+//    全走这一个拦截器，不会出现哪个模块忘了加 token 导致 401。
+//    节点⑮，响应拦截器接收到响应。三段处理：code===200 剥壳只返回 data——
+//    业务代码拿到的直接是纯数据，不用再判断 code；code===401 清 token 跳登录页；
+//    其他 code 弹出错误提示。10 个 API 模块、11 个页面全部自动走这个逻辑。"
+//
+// ★ §2.2 核心代码讲稿（⑨/⑩ · 2分钟 · 直接念）：
+//   "这是 api/request.js——前端 10 个 API 模块的总闸。所有请求都经过这一个
+//    axios 实例。
+//    第 44 行 axios.create({ baseURL: '/api/v1', timeout: 10000 })——
+//    baseURL 和 vite.config.js 的 proxy 对齐，timeout 10 秒。
+//    第 99 行请求拦截器：每次发请求前从 localStorage 读 token，
+//    拼成 Bearer xxx 格式写入 Authorization 头——10 个 API 模块统一注入，
+//    不会出现哪个模块忘了加 token 导致 401。
+//    第 122 行响应拦截器三段处理：code===200 → 剥壳只返回 data
+//    （业务层直接拿到纯数据）；code===401 → 清 token+Pinia userStore +
+//    跳 /login（isRedirecting 标志防 Dashboard 同时 3 个请求并发跳转 3 次）；
+//    其他 code → ElMessage.error 弹提示 + reject。
+//    第 153 行错误分支指数退避重试：网络异常时 1s→2s→4s 间隔重试，
+//    最多 3 次。10-30% 随机抖动——防止所有客户端同一时刻重试，
+//    把刚恢复的服务器又打垮——这叫'惊群效应'。"
+//
 // ▶ 逐文件讲解下一个（Ctrl+P）：
 //   system/frontend/src/views/TransactionListPage.vue
 //   （§2.2 逐文件讲解 ★ ⑩/⑩ — 自选前端页面 · 3 个核心函数）

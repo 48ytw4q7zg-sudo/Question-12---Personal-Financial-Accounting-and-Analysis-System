@@ -7,6 +7,15 @@
 //
 // 答辩怎么讲（10 秒）："Controller 只做 @Valid 校验 + 调 Service。业务逻辑在下一个文件。"
 //
+// ★ §1.4 数据流讲稿（节点 ⑨ · 直接念）：
+//   "节点⑨，校验通过后，终于进入 TransactionController.transfer()。
+//    Controller 只做两件事：@Valid 校验参数、调 transactionService.transfer()。
+//    不写业务逻辑、不 try-catch。"
+//
+// ★ §2.2 核心代码讲稿（④/⑩ · 10 秒 · 直接念）：
+//   "Controller 只做两件事：@Valid 校验参数 + 调 Service。
+//    不写业务逻辑、不 try-catch。具体逻辑在下一个文件。"
+//
 // ▶ 逐文件讲解下一个（Ctrl+P）：
 //   system/backend/src/main/java/com/example/finance/service/impl/TransactionServiceImpl.java
 //   （§1.4 节点 ⑩ · §2.2 逐文件讲解 ★ ⑤/⑩ — transfer() 转账 7 步）

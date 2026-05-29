@@ -9,6 +9,30 @@
 // 答辩讲什么：preHandle() 4 步 JWT 校验 + writeError() body-code-first 约定
 //   第1步 OPTIONS 放行 / 第2步 提取 Bearer token / 第3步 HMAC 验签 / 第4步 setAttribute
 //
+// ★ §1.4 数据流讲稿（节点 ⑧ · 直接念）：
+//   "节点⑧，在进入 Controller 之前，LoginInterceptor 的 preHandle() 方法
+//    拦截请求，校验 JWT token。分 4 步：OPTIONS 请求直接放行、从请求头提取
+//    Bearer token、HMAC 验签、把 userId 存入 request.setAttribute。
+//    token 无效直接返回 401，Controller 的代码根本不会执行。
+//    这就是 AOP 面向切面编程——把'校验身份'和'处理业务'分离。"
+//
+// ★ §2.2 核心代码讲稿（②/⑩ · 3分钟 · 直接念）：
+//   "LoginInterceptor 校验 JWT token。10 个 Controller 如果每个都写一遍
+//    JWT 校验，重复且容易漏。拦截器把'校验身份'和'处理业务'分离——
+//    这就是 AOP 面向切面编程的思想。preHandle() 分 4 步：
+//    第 1 步 OPTIONS 请求直接 return true 放行——预检没有 Authorization 头，
+//    不放行就被误拦。
+//    第 2 步 从请求头提取 Authorization: Bearer <token>——RFC 6750 标准格式，
+//    检查 startsWith('Bearer ') 防非 JWT 格式攻击。
+//    第 3 步 parseTokenPayload() 一次 HMAC 验签，同时提取 userId 和 role——
+//    旧方案调用两次解析，合并后减少 50% 密码学运算。
+//    第 4 步 request.setAttribute('userId', ...) 存入请求属性——
+//    为什么不用 ThreadLocal？Tomcat 线程池复用线程，ThreadLocal 没清干净
+//    会导致用户 A 读到用户 B 的数据——串号安全漏洞。
+//    setAttribute 每个请求独立对象，天然隔离。
+//    writeError() 返回 HTTP 200 + body.code=401——
+//    前端 axios 检查 body.code 而非 HTTP status，全系统统一 body-code-first 机制。"
+//
 // ▶ 逐文件讲解下一个（Ctrl+P）：
 //   system/backend/src/main/java/com/example/finance/config/WebMvcConfig.java
 //   （§2.1 请求处理链 · §2.2 逐文件讲解 ③/⑩ — 拦截器注册 + 白名单）

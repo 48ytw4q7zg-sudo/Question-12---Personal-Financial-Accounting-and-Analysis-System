@@ -13,6 +13,30 @@
   第4步 成功后 ElMessage + resetFields + loadAccounts 刷新余额
   finally 保证 loading 一定关闭——按钮不会永远转圈
 
+★ 答辩讲稿（§1.4 数据流 · 节点 ①②⑯ · 直接念）：
+  "节点①，用户在 TransferPage.vue 转账页面选择转出账户、转入账户、输入金额，
+   点'确认转账'。这是整个数据流的起点——用户的一次点击，触发后面 16 个节点依次执行。
+   节点②，handleSubmit() 方法里，el-form.validate() 先做前端校验——金额必须大于 0、
+   转出和转入账户不能相同。这层校验是秒级反馈，校验不通过根本不发 HTTP 请求，省带宽。
+   节点⑯，数据回到 TransferPage.vue。handleSubmit() 拿到响应后：
+   ElMessage.success 弹出'转账成功'提示 → resetFields() 清空表单 →
+   loadAccounts() 重新加载账户余额。用户看到的是：成功提示、表单清空、余额更新——
+   一次完整的转账操作结束。"
+
+★ 答辩讲稿（§2.2 核心代码 · ⑧/⑩ · 2分钟 · 直接念）：
+  "这是 TransferPage.vue，转账页面。它是转账完整数据流的起点——
+   用户在这里选择转出/转入账户、输金额、点确认。
+   handleSubmit() 分 4 步：
+   第 1 步 formRef.value.validate()——Element Plus 表单校验，金额>0、
+   账户不能相同。前端秒级反馈，不通过不发 HTTP 请求。
+   第 2 步 submitting.value = true——按钮进入 loading 转圈+disabled 状态，
+   防止用户连点发出重复转账。
+   第 3 步 await transfer(formData)——调 API，从这里触发 17 个节点的全栈数据流。
+   第 4 步 成功后 ElMessage.success 提示 → resetFields() 清空表单 →
+   loadAccounts() 刷新账户余额。
+   最后 finally { submitting.value = false }——无论成功还是异常，
+   保证 loading 一定关闭，按钮不会永远转圈。"
+
 ▶ 逐文件讲解下一个（Ctrl+P）：
   system/frontend/src/api/request.js
   （§1.4 节点 ④⑮ · §2.2 逐文件讲解 ⑨/⑩ — axios 请求/响应拦截器）

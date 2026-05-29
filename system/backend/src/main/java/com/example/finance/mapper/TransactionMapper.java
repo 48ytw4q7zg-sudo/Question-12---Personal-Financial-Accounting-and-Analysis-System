@@ -1,3 +1,17 @@
+// ============================================================
+// §1.4 数据流 节点 ⑪ — Mapper 数据访问层（MyBatis-Plus → JDBC → MySQL）
+//
+// 这个文件做什么：交易记录 Mapper 接口——继承 BaseMapper<Transaction>
+//                 转账时被调用：SELECT ... FOR UPDATE 锁行 → insert() 两次
+//                 复杂聚合查询（SUM/COUNT/GROUP BY）走 XML 映射文件
+//
+// ★ §1.4 数据流讲稿（节点 ⑪ · 直接念）：
+//   "节点⑪，Service 调 Mapper。MyBatis-Plus 的 BaseMapper 生成 SQL——
+//    SELECT ... FOR UPDATE 锁两行、INSERT 转出记录、INSERT 转入记录。
+//    通过 JDBC 发送到 MySQL。"
+//
+// ▶ 数据流终点：MySQL InnoDB（节点 ⑫ — FOR UPDATE 行锁 → INSERT → COMMIT 事务提交）
+// ============================================================
 package com.example.finance.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
