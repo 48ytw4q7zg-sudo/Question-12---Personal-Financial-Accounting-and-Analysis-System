@@ -1,0 +1,40 @@
+字段名               字段描述              数据类型             完整性约束
+discussnum                 评论数                     int                非空〈默认值 0)
+totalscore                                   评分                                      double                          非空〈默认值 0)
+price                                       价格                                      double                                      非空
+onshelves                 rey Ee                    int                非空〈默认值 1)
+storeupnum                                             收藏数                                                       int                                         非空〈默认值 0)
+客服中心表主要存储客服沟通信息，客服中心表字段包括id、addtime userid.
+adminid、ask、reply、isreply、isread、uname、uimage、type，客服中心表如表4-5所示。
+表4-5 chat 客服中心表
+字段名               字段描述              数据类型             完整性约束
+BB bint 再
+addtime                                              创建时间                                           timestamp                                                 非空
+userid                    FA Pid                    bigint                     外码
+adminid                  管理员id                   bigint                     外码
+ask                                                提问                                            longtext
+reply                                        回复                                     longtext
+isreply                                    是否回复                                        int
+isread                                   己读未读                                     int                              非空〈默认值 0)
+uname                                  用户头像                                 longtext
+uimage                                   用户名                                   longtext
+type                    内容类型                    int                非空〈默认值 1)
+订单表主要存储订单相关信息，订单表字段包括id、addtime、orderid、tablename、
+userid. goodid. goodname. picture. buynumber. price, total, type. status. address.
+tel. consignee. logistics, remark. dianpumingcheng. sfsh, shhf. role. returnreason, iJ
+单表如表4-6所示。
+表4-6 orders 订单表
+字段名               字段描述              数据类型             完整性约束
+BB bint 再
+addtime                                              创建时间                                           timestamp                                                 非空
+orderid                                               订单编号                                           varchar(64)                                                非空
+tablename                                      商品表名                                     varchar(64)                               tee   ‘ AME
+'shangpinxinxi' )
+userid                                     FAP id                                     bigint                                       非空
+goodid                                     商品id                                     bigint                                       非空
+goodname                                   商品名称                                 varchar(64)
+picture                                     商品图片                                    longtext
+buynumber                                          购买数量                                                    int                                                          非空
+price                     价格                    double              非空〈默认值 0)
+total                    总价格                   double              非空〈默认值 0)
+27

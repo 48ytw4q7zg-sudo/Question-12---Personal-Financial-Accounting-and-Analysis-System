@@ -1,0 +1,36 @@
+商品评论《评论id，用户id，商品ii，订单il，评论内容，评分，点赞数，踩数，评
+论时间，是否回复)
+根据图4-15所示的基本E-R图中联系类型，将图中的联系分别转化成关系模式，每个
+关系模式使用属性下画线标注主键。
+m2n类型联系转化为的6个关系横式分别如下。
+收藏 〈用户id，商品id，收藏时间)
+上架〈商家这，商品jd，上架时间，是否上架)
+属于《购物车这，商品这，订单ia，商品数量)
+查看“用户id，公告ia，查看时间，是否已读)
+咨询《用户这，客服id，咨询时间)
+4.4.3 数据库物理结构设计
+管理员表主要存储管理员相关信息，管理员表字段包括id、username、password、
+image、role、addtime，管理员表如表4-1所示。
+表4-1 users 管理员表
+字段名           字段描述          数据类型         完整性约束
+iB pigint EF
+username                                       用户名                                    varchar(100)                                       非空
+password           密码           varchar(100)           非空
+image            头像            longtext          默认NULL
+role             角色           varchar(100)      非空(默认为管理员)
+addtime                                              新增时间                                           timestamp                                                 非空
+商家表主要存储商家相关信息，商家表字段包括id、addtime、dianpumingcheng、
+mima, fuzeren, touxiang, lianxifangshi. zizhizhengming, sfsh. shhf. money, MA ZH
+表4-2所示。
+表4-2 shangjia 商家表
+字段名           字段描述          数据类型         完整性约束
+bint ER
+addtime                                          创建时间                                       timestamp                                             非空
+dianpumingcheng                              店铺名称                                         varchar                                              非空
+mima            密码            varchar            非空
+fuzeren                                             负责人                                             varchar
+touxiang                                    封面                                     longtext
+lianxifangshi         联系方式           varchar
+zizhizhengming                               资质证明                                       longtext
+Imoney                                            余额                                            double
+25

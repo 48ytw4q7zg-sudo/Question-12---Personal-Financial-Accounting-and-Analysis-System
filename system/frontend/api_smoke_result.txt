@@ -1,0 +1,32 @@
+zhangsan login: code=200 role=0
+admin login: code=1002
+admin login FAILED (using zhangsan)
+  [PASS] GET /health
+  [PASS] GET /account
+  [PASS] GET /category
+  [PASS] GET /account/balance
+  [PASS] GET /statistics/monthly
+  [PASS] GET /statistics/yearly
+  [PASS] GET /statistics/category-summary
+  [PASS] GET /statistics/trend
+  [PASS] GET /budget
+  [PASS] GET /budget/progress
+  [PASS] GET /budget/alert
+  [PASS] GET /recurring-bill
+  [PASS] GET /transaction
+  [PASS] GET /exchange-rate
+  [PASS] POST /user/register
+  [PASS] POST /account
+  [PASS] POST /transaction
+  [PASS] POST /budget
+  [PASS] POST /recurring-bill
+  [PASS] POST /transaction/transfer
+  [FAIL(code=1002)] POST /user/change-password
+  [PASS] PUT /account/1
+  [PASS] DELETE /account/99
+  [PASS] DELETE /recurring-bill/99
+  [PASS] POST /recurring-bill/1/generate
+  [FAIL(code=500)] POST /api/transaction/import
+  [PASS] 401 no-token guard
+
+H4 COMPLETE: 25/27 PASS (2 FAIL)

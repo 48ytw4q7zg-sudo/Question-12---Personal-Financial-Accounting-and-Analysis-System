@@ -1,0 +1,14 @@
+/**
+ * 全局颜色 CSS 变量
+ * 集中管理标题/收入/支出/警告/次要/信息等颜色值，
+ * 避免 Vue 文件 scoped style 中硬编码散布各页面。
+ * ECharts itemStyle.color 是 JS 配置而非 CSS，不适用此处变量。
+ */
+:root {
+  --color-title: #303133;
+  --color-income: #67c23a;
+  --color-expense: #f56c6c;
+  --color-warning: #e6a23c;
+  --color-muted: #909399;
+  --color-info: #dcdfe6;
+}

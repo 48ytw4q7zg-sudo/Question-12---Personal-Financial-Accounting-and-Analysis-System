@@ -1,0 +1,61 @@
+Announcement公告信
+息
+Customerservice客服
+           o                                           String 主键                                                           ee
++String 角色                                                  +String 简介                                                             +String 主键
++Date 新增时间                                             +String 内容                                                             +String 用户id
+nageUsr |                                 +String 图片                                                                          +String 管理员id
+|                                    +String 分类名称                                                  +String 用户名
++manageProduct()                                                   +String 发布人                                                                      +String 用户头像
++manageOrder()                                                 +String 头像                                                                   +String 内容类型
++manageSystem()                                                    +int 点击次数                                                                       +String 提问
++auditMerchant()                                             +Date 最近点击时间                                                    +String 回复
++int赞                                                               +boolean 是否回复
+                                                          +int踩                                                                           +boolean 已读/未读
+                                                                 +int 收藏数                                                                    +Date 创建时间
+-                                                             +addAnnouncement()                                            +replyQuestion()
+re 主键                                                             +deleteAnnouncement()                                                 +viewChatRecord()
++String eS                                                                             +viewAnnouncement()
++String
++String 姓名           L |
++String 头像                                                                                                                         ShoppingCart购物车                           +String =a
++double 余额                                               +publishAnnouncement()                                                                                +String 商品名称
++string SARE                                        +viewAnnouncement()                        +String 主键                                       +String 商品分类
++String BARES                                         +String 主键                                       +String 用户id                                      +String 品牌
++Date 创建时间                                            +String 订单编号                                 +String 商品id               +String 规格
+[|                         +String 用户id                                       +int R=                                                +String 封面
++logout()                                                   +String 商品id                                   +Date 添加时间                                  +String 商品特色
++viewPersonalinfo()                                        +String 商品名称                                addproduc =                 +String 商品详情
++updatePersonalinfo()                                 +String 商品表名                                +removeproduct()                               +String 店铺名称
+h*                                     +String 商品图片                             +updateQuantity()                             +int SIR
++int 购买数量                                       4viewCart()                                            tint 库存
+1                                                 +double 价格                                                                                                                tint &
++double总价格                                                                                                                          +int BR
+Si                                                               +String 状态                                                                                                       +int 点击次数
+ <有                                          4String 地址                                                                                                  sint 评论数
++String 负责人                                          +String 电话                                                                                         +double 评分
++String 联系方式                                        +String 收货人                                                                                          +double 价格
++String 资质证明                   1              米 | +String 物流                                                                                                  +boolean 2H E28
++String 封面                                                    +String 备注                                                                                                       +int 收藏数
++double余额                                             +String 商户名称                                                                                     _+Date ERT)
++Date 创建时间              +boolean 是否审核                           +addProduct()
++manageProduct()                                           +String 审核回复                                                                                                +updateProduct()
++manageOrder()                                      +String 用户角色                                                                                +deleteProduct{)
++viewPersonalCenter()                                     +String 退货原因                                                                                                +viewProduct()
++Date 创建时间
++createOrder()
++payOrder()
++cancelOrder()
++applyReturn()
++viewOrder()
+图4-16 数据关系类图
+4.5.2 时序
+C1) 商品信息管理模块设计
+、                        、                pet          S               也 、                 hes,                                     四大昌 户        wy                            =
+该时序图以商家为操作主体，通过商品管理界面、业务逻辑层与数据库的分层协
+fas                   、                             、              as                      bebe                    Yep             、
+作，实现商品信息的查询与修改全流程管控;商家进入商品管理界面并输入查询条件
+、           yaa        5        、                      、            =                         YEE fF. Ft           a               Pe ee OY
+Weis FEDS AS i VBR FE BY BEB, HL 5 Se He rH
+FREE ARIE II FE se RAS; dint AP BEI A 0 14-17 ft As
+31

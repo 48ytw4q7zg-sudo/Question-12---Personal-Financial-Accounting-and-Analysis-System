@@ -1,0 +1,35 @@
+5.2.2 商品添加管理
+
+商家在商品信息管理页面后可以全面管理商品。实现过程中，前端提供商品名称或
+分类搜索框，通过AJAX向后端接口传递查询条件，后端从商品表(goods_info)检索并返回
+分页结果。商品信息页面如图5$-7所示。
+
+—        wm = wsue
+日sse   aan      aan      an      oe            P= |               GG)
+Bre                   aus                              Lae)
+sues,                           Qo =D
+-四 > wom
+图 5-7 商品信息页面
+核心代码如下:
+@RequestMapping("/save")
+public R save(@RequestBody ShangpinxinxiEntity shangpinxinxi, HttpServletRequest
+request) {
+shangpinxinxiService.insert(shangpinxinxi):
+retum R.ok().put("data", shangpinxinxi.getId()):
+}
+
+新增商品时，前端表单提交名称、价格、库存和图片信息，后端使用SQL插入数据库
+记录，并返回操作结果。删除操作通过商品了调用接口执行删除或标记状态，查看商品
+详情时通过ID查询完整信息，用户评论通过关联评论表(comment info)获取并显示。前端
+Vue实现动态泻染和交互。商品添加页面如图5-8所示。
+
+—                       “mage as
+
+站                        “商品分类 。 水地植物
+
+fs: pee                        as
+
+Bc                        me |
+
+图 5-8 商品添加管理页面
+39

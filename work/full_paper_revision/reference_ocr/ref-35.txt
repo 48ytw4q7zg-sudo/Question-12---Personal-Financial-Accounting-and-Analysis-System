@@ -1,0 +1,40 @@
+字段名                 字段描述                数据类型               完整性约束
+type                        支付类型                         int                    非空〈默认值 1)
+Status                                  状态                              varchar(32)
+address                                 地址                              varchar(64)
+tel                                          电话                                  varchar(32)
+consignee                                 收货人                                varchar(32)
+logistics                                物流                                longtext
+Temark                                 备注                              varchar(64)
+dianpumingcheng                              商户名称                                    varchar(64)
+shhf                                   审核回复                                 longtext
+returnreason                             退货原                              varchar(32)
+公告表主要存储公告相关信息，公告表字段包括ii、addtime、title、introduction、
+typename 、 name 、 headportrait 、 clicknum 、 clicktime 、 thumbsupnum 、 crazilynum 、
+storeupnum、picture、content，公告信息表如表4-7所示。
+表4-7 news 公告表
+字段名                 字段描述                数据类型               完整性约束
+id                                     主键                                  bigint                                  主码
+addtime                                          创建时间                                       timestamp                                             非空
+title                                   标题                              varchar(64)                              非空
+introduction                             简介                                longtext
+typename                               分类名称                              varchar(64)
+name                                 发布人                            varchar(32)
+headportrait                             头像                                longtext
+clicknum                         点击次数                              int                        非空〈默认值 0)
+clicktime                            点击时间                             datetime
+thumbsupnum                         FEB                                int                       非空〈默认值 0)
+crazilynum                           踩数                                int                       非空〈默认值 0)
+storeupnum                         收藏数                               int                       非空〈默认值 0)
+picture                                      图片                                     longtext
+content                                      内容                                     longtext                                     非空
+殉物车表主要存依用户临时选购的商品信息，购物车表字段自插这QUserid
+goodid、num、createtime，购物车表如表4-8所示。
+表4-8 cart 购物车表
+字段名                 字段描述                数据类型               完整性约束
+id                                     主键                                  bigint                                  主码
+userid                                     用户id                                     bigint                                       外码
+goodid                                     商品这                                     bigint                                       外码
+num                   购买数量                    int                非空〈默认值 1)
+createtime                               添加时间                               timestamp                                   非空
+28

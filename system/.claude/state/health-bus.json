@@ -1,0 +1,8 @@
+{
+  "timestamp": null,
+  "H1_build_be": null, "H2_build_fe": null,
+  "H3_test_be": null, "H4_api_smoke": null,
+  "H5_db_audit": null, "H6_git_hygiene": null,
+  "H7_dep_precision": null, "H8_review_debt": null,
+  "overall": "UNKNOWN"
+}

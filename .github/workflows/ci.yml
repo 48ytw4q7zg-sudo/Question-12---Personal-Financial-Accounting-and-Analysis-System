@@ -1,0 +1,63 @@
+# Q-CR v13 CI/CD Pipeline — creator qxw · 2501060122
+name: CI - Build & Test
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  backend:
+    name: Backend (JDK 21 · MySQL 8.4)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: finance_db
+        ports:
+          - 3306:3306
+        options: --health-cmd "mysqladmin ping -h localhost" --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Init Database
+        run: mysql -h 127.0.0.1 -uroot -proot finance_db < system/sql/01-init.sql
+
+      - name: Build & Test
+        working-directory: system/backend
+        run: mvn -B clean test --no-transfer-progress
+
+  frontend:
+    name: Frontend (Node 24 · pnpm)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '10'
+
+      - name: Install & Build
+        working-directory: system/frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build

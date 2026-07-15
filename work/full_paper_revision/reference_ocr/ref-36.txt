@@ -1,0 +1,40 @@
+商品评论表主要存储用户对商品的评价、评分信息，商品评论表字段包括记、
+userid、goodid、content、score、1likenum、createtime、isreply，商品评论表如表4-9所示。
+表4-9 discussshangpin 商品评论表
+字段名                 字段描述                数据类型               完整性约束
+id                                          主键                                       bigint                                       主码
+userid                    用户id                    bigint                     外码
+goodid                                     商品id                                     bigint                                       外码
+orderid                                    订单id                                     bigint                                       外码
+content                                 评论内容                                    text                                         非空
+score                   商品评分                  tinyint                     非空
+likenum                   点赞数                     int                非空〈默认值 0)
+createtime                                           评论时间                                           timestamp                                                 非空
+isreply                                    是否回复                                        int
+收藏表主要存储用户收藏商品的记录，收藏表字段包括id、userid goodid .
+collecttime，收藏表如表4-10所示。
+表4-10 shoucang 收藏表
+字段名                 字段描述                数据类型               完整性约束
+BE bnt ER
+userid                    用户id                    bigint                     外码
+goodid                                     商品id                                     bigint                                       外码
+collecttime                                           收藏时间                                           timestamp                                                 非空
+购买记录表主要存储用户的商品购买记录，购买表字段包括id、userid、goodid、
+buynum、buytime，购买记录表如表4-11所示。
+表4-11 goumaijilu 购买记录表
+字段名                 字段描述                数据类型               完整性约束
+id                                          主键                                       bigint                                       主码
+userid                                          用户 ID                                          bigint                                             外码
+goodid                                   商品 ID                                    bigint                                       外码
+buynum                                              购买数量                                                    int                                                          非空
+buytime                                              购买时间                                           timestamp                                                 非空
+商品上架表主要存储商家的商品上架状态信息，商品上架表字段包括id、sellerid、
+goodid、shelftime、onshelves，商品上架表如表4-12所示。
+表4-12 shangpinshangjia 商品上架表
+字段名                 字段描述                数据类型               完整性约束
+id                                          主键                                       bigint                                       主码
+sellerid                                    商家id                                     bigint                                       外码
+goodid                                     商品id                                     bigint                                       外码
+shelftime                                            上架时间                                           timestamp                                                 非空
+onshelves                               re ty EAR                                     int                              非空〈默认值 1)
+29

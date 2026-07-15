@@ -1,0 +1,256 @@
+000	Normal	个人财务记账与分析系统的设计与实现
+001	Normal	软件框架技术及应用课程论文
+002	Normal	2026年7月
+003	Normal	
+004	Heading 1	摘要
+005	Normal	随着移动支付、网络消费和多账户资金流转成为个人日常生活的重要组成部分，传统手工记账方式在数据完整性、统计效率、预算提醒和趋势分析方面逐渐难以满足个人财务管理需求。本文围绕“个人财务记账与分析系统”的设计与实现展开，目标是构建一套面向个人用户的前后端分离 Web 系统，使用户能够完成账户管理、收支记录、预算控制、周期性账单、转账处理、统计分析和数据导入等操作。
+006	Normal	实现用户数据隔离、账户余额实时计算、预算进度计算、周期账单生成和分类统计。
+007	Normal	经过功能实现与测试，系统能够支持普通用户完成注册登录、账户维护（含修改密码）、分类浏览、记一笔、流水筛选、账户转账、预算设置、周期账单、一键生成收支记录、统计图表、CSV 导入等功能，同时支持管理员进行用户列表查看、用户删除和角色调整。系统整体结构清晰，功能覆盖完整，具有较好的可维护性、可扩展性和教学实践价值。
+008	Normal	关键词：个人财务；记账系统；Spring Boot；Vue 3；MyBatis-Plus；ECharts
+009	Normal	
+010	Heading 1	1 绪论
+011	Heading 2	1.1 研究背景及意义
+012	Normal	个人财务数据来源越来越分散。用户可能同时使用现金、银行卡、支付宝、微信钱包等账户完成消费和收入入账，单笔交易信息又包含账户、分类、金额、时间、备注和转账关系等字段。如果仅依靠手工电子表记录，用户需要反复维护数据，且很难实时得到月度收支、年度收支、分类占比和预算消耗等结果。
+013	Normal	个人财务记账与分析系统的建设意义主要体现在三个方面。第一，系统将账户、分类、流水、预算和账单模板统一到数据库中，降低用户手工整理数据的成本。第二，系统可以通过图表展示消费结构和趋势，使用户从“记录发生了什么”进一步过渡到“分析为什么发生”。第三，系统通过 JWT 鉴权、用户数据隔离、密码加密、统一异常处理和金额精度控制，保证日常财务数据在使用过程中的安全性和可靠性。
+014	Normal	本系统不仅是一个单纯的记账页面集合，更是一个覆盖前端页面、后端接口、数据库设计、业务流程和测试验证的完整软件实践项目。通过该系统可以综合运用前后端分离、RESTful 接口设计、ORM 持久化、权限拦截、图表可视化和事务处理等知识，具有较强的课程实践价值。
+015	Heading 2	1.2 主要研究内容
+016	Normal	本文研究重点是系统“怎么做、采用了什么技术框架、实现了哪些功能”。系统从实际源码出发，围绕需求分析、技术选型、总体设计、数据库设计、核心模块实现和测试验证展开。具体内容包括：分析个人用户和管理员的业务需求；设计基于 Vue 3 与 Spring Boot 的前后端分离架构；设计 user、account、category、transaction、budget、recurring_bill、budget_alert 等数据表；实现用户认证、账户管理、收支记录、预算管理、周期账单、统计分析、CSV 导入、管理员管理等功能；最后通过接口测试、业务流程测试、前端构建和异常场景测试验证系统可用性。
+017	Normal	在技术实现上，前端采用 Vue Router 组织页面路由，除登录页外其他业务页面均挂载在 AppLayout 布局下；Element Plus 提供表单、列表、对话框、进度条、上传和提示组件；Pinia 保存用户状态；Axios 封装 HTTP 请求并统一处理 401 和业务错误；ECharts 用于渲染月度趋势、分类汇总、预算对比等图表。后端采用 Controller 接收请求、Service 处理业务、Mapper 访问数据库、Entity 映射表结构的分层方式；JWT 用于登录态识别，BCrypt 用于密码哈希，MyBatis-Plus 提供基础 CRUD 和分页能力。
+018	Heading 1	2 可行性分析与需求分析
+019	Heading 2	2.1 可行性分析
+020	Normal	系统可行性从技术、经济和操作三个角度进行分析。
+021	Normal	技术可行性方面，系统采用 Spring Boot、MyBatis-Plus、MySQL、Vue 3、Element Plus、Axios 和 ECharts 等成熟技术。后端框架能够支撑接口开发、身份校验、业务分层和数据库访问，前端框架能够完成表单、导航、图表、文件上传和列表展示等交互需求，技术体系与课程项目规模相匹配。
+022	Normal	经济可行性方面，系统开发和运行所需工具均可使用开源软件或免费开发工具完成，数据库、前端构建、后端运行均可在普通个人电脑上部署，不依赖付费云服务，开发成本和运行成本较低。
+023	Normal	操作可行性方面，系统面向普通个人用户，页面以导航菜单、表单、列表、图表和提示信息为主，业务流程接近日常记账习惯。用户登录后可直接进入账户、收支、预算、账单、统计等页面，管理员登录后可进入用户管理页面完成维护操作。
+024	Heading 2	2.2 系统需求分析
+025	Heading 3	2.2.1 业务需求分析
+026	Normal	个人财务记账与分析系统面向普通用户和管理员两类角色。普通用户完成账户、收支、预算、周期账单、统计和数据导入等个人财务活动；管理员只负责系统用户列表、用户删除和角色切换。系统后端统一完成 JWT 身份校验、参数校验、业务处理和 MySQL 数据读写，前端负责表单交互、列表展示、ECharts 图表和结果提示。
+027	Normal	顶层数据流图采用与参考论文一致的数据流图符号：外部实体使用矩形，系统处理过程使用椭圆，数据流使用实线箭头。普通用户向系统提交注册登录、账户、流水、预算、账单、统计查询和 CSV 文件，系统返回余额、列表、预算预警、图表和导入结果；管理员提交用户管理请求并接收处理结果，如图2-1所示。
+028	Normal	
+029	Normal	图2-1 系统顶层数据流图
+030	Normal	
+031	Normal	在顶层数据流图基础上，将系统分解为身份认证与用户管理、账户与收支处理、预算与周期计划、统计分析与 CSV 导入四个处理过程，并使用开放式数据存储符号表示 D1 至 D7 七张核心表。为避免多条长线交叉，图中对统计处理所读取的 D3、D4、D5 数据存储进行重复绘制；相同编号始终表示同一张逻辑数据表，如图2-2所示。
+032	Normal	
+033	Normal	图2-2 系统一层数据流图
+034	Normal	业务处理以当前登录用户 ID 作为数据隔离条件。账户、流水、预算、周期账单和预算预警均按 user_id 查询；分类表为系统预置只读数据。账户转账在同一事务内写入一条转出流水和一条转入流水，周期账单生成在同一事务内写入流水并推进下次到期日，保证跨表处理的一致性。
+035	Heading 3	2.2.2 用户需求分析
+036	Normal	普通用户需要完成注册登录、账户新增与维护、余额汇总、多币种 CNY 参考折算、分类浏览、收支记录增删改查、分页筛选、账户转账、预算设置与预警、周期账单维护与一键生成、月度和年度统计、分类和趋势分析、CSV 导入以及修改密码。图中参与者与主用例之间使用实线无箭头关联，主用例包含的子功能使用带空心箭头的虚线 <<include>> 关系，如图2-3所示。
+037	Normal	
+038	Normal	图2-3 普通用户用例图
+039	Normal	
+040	Normal	管理员功能以实际 AdminPage、AdminController 和 AdminServiceImpl 为依据，仅包括管理员登录、查看用户列表、删除用户和切换用户角色。系统没有实现独立的用户名搜索、用户详情或权限配置页面，因此管理员用例图不绘制这些不存在的功能。删除和角色切换作为用户维护的包含用例，所有关联线分区布置且无交叉，如图2-4所示。
+041	Normal	
+042	Normal	图2-4 管理员用例图
+043	Heading 3	2.2.3 性能与非功能需求分析
+044	Normal	系统面向个人记账场景，非功能需求重点是响应稳定、金额准确、数据隔离和关键事务一致性。系统应在普通个人电脑和本地网络环境下保持常用页面秒级响应，并对文件大小、单次导入条数、金额精度和访问权限设置明确边界。具体要求如表2-1所示。
+045	Normal	表2-1 系统非功能需求
+046	Heading 2	2.3 本章小结
+047	Normal	本章从技术、经济和操作层面论证了系统可行性，并以实际源码和运行功能为依据完成业务需求、用户需求和非功能需求分析。顶层数据流图与一层数据流图明确了两类外部角色、四类处理过程和七类数据存储；普通用户与管理员用例图进一步界定了功能边界，其中管理员仅具有用户列表、删除和角色切换能力。
+048	Heading 1	3 系统相关理论和技术
+049	Normal	本章结合项目配置文件、依赖清单和运行环境，说明系统开发工具、前后端框架、数据持久化、身份认证和可视化技术，并解释各技术在个人财务业务中的具体作用。
+050	Heading 2	3.1 开发与运行环境
+051	Normal	系统采用前后端分离方式开发。前端由 Vite 提供开发服务器并通过代理访问后端，后端使用内嵌 Tomcat 提供 REST 接口，MySQL 保存业务数据。论文核验时实际数据库版本为 MySQL 8.4.8，核心环境如表3-1所示。
+052	Normal	表3-1 系统开发与运行环境
+053	Heading 2	3.2 开发框架与关键技术
+054	Normal	前端使用 Vue 3 组件化构建页面，Vue Router 组织 12 个路由页面，Pinia 保存用户令牌和角色状态，Element Plus 提供表单、表格、对话框、上传和进度条组件，Axios 负责请求封装与统一错误处理，ECharts 绘制分类饼图、收支趋势图和年度对比图。
+055	Normal	后端以 Spring Boot 为运行框架，Controller 接收请求，Service 实现数据隔离、金额校验、转账事务、预算预警和周期日期推进，Mapper 通过 MyBatis-Plus 访问 MySQL。JJWT 生成与解析访问令牌，BCrypt 保存密码哈希，OpenCSV 逐行解析导入文件，Guava 用于登录限流等辅助逻辑。
+056	Normal	账户支持 CNY、USD、EUR、JPY、GBP、HKD 六种币种。ExchangeRateServiceImpl 提供静态参考汇率及反向汇率，AccountServiceImpl 在余额汇总时计算 CNY 参考等值；该实现不是实时汇率服务，因此页面同时保留原币种金额并提示折算仅供参考。主要技术版本如表3-2所示。
+057	Normal	表3-2 系统主要技术与版本
+058	Normal	后端统一使用 Result<T> 返回 code、message 和 data。Axios 响应拦截器在 code=200 时返回业务数据，在 401 时清理登录状态并跳转登录页，在其他业务错误时统一显示 message。该约定减少了页面重复判断，并使异常处理、权限校验和接口调试保持一致。
+059	Heading 2	3.3 本章小结
+060	Normal	本章说明了系统开发环境、前端框架、后端分层、数据库、认证、文件导入和可视化技术。所选技术均已在实际项目配置和运行页面中得到验证，能够支撑用户认证、个人财务数据维护、多币种账户、预算预警、周期账单、统计分析和管理员管理等功能。
+061	Heading 1	4 系统设计
+062	Normal	系统设计承接需求分析并为功能实现提供结构依据。本章从总体架构、功能模块、核心流程、数据库和详细模块五个方面展开，所有实体、字段、接口和处理步骤均与当前源码、根目录 sql/01-init.sql 及实际运行数据库相互校核。
+063	Heading 2	4.1 系统总体架构设计
+064	Normal	系统采用 B/S 架构和前后端分离模式，按表现层、应用层、服务层、数据层和基础架构层组织。表现层为 Vue Web 界面；应用层对应 11 个普通业务页面和管理员页面；服务层封装用户、账户、分类、流水、预算、账单、统计、汇率和管理员业务；数据层承担事务、对象映射、MySQL 持久化和静态汇率参考；基础架构由 Vue 3、Element Plus、Spring Boot、JWT/BCrypt 与 MySQL 8.4 支撑。严格按照参考图格式，各层仅使用独立矩形区域表示，不绘制层与层之间的连接线，如图4-1所示。
+065	Normal	
+066	Normal	图4-1 系统总体架构图
+067	Heading 2	4.2 系统总体设计
+068	Normal	系统总体功能按用户认证、账户管理、收支管理、预算管理、周期账单、统计分析和数据与管理七个模块划分。模块树使用矩形表示模块，采用横平竖直、无箭头的层级连线表示系统、一级模块和子功能之间的从属关系，与业务流程图和数据流图的符号严格区分，如图4-2所示。
+069	Normal	
+070	Normal	图4-2 系统总体功能模块图
+071	Heading 2	4.3 功能模块流程设计
+072	Normal	流程图统一采用参考论文中的标准符号：开始和结束使用圆角终止符，处理步骤使用矩形，用户输入或文件输入使用平行四边形，条件判断使用菱形，执行方向使用实心箭头。所有回退支路沿图形外侧布置，不穿过其他节点。
+073	Heading 3	4.3.1 账户管理流程设计
+074	Normal	用户进入账户页面后，可新增、编辑或停用现金、银行卡、支付宝和微信账户。前端先校验名称、类型、金额和币种格式，后端再校验账户归属和状态。处理成功后，系统根据初始余额与收支流水计算当前余额，并使用静态参考汇率显示非 CNY 账户的 CNY 参考等值，最后刷新账户列表，流程如图4-3所示。
+075	Normal	
+076	Normal	图4-3 账户管理流程图
+077	Heading 3	4.3.2 收支记录与转账流程设计
+078	Normal	普通收支和账户转账共用交易数据模型。普通收支在校验账户、分类、类型、金额和时间后写入一条 transaction 记录；转账在校验两个账户均属于当前用户且状态有效后，以 @Transactional 事务写入一条支出和一条收入记录，并使用同一 transfer_id 关联。两条记录任一写入失败时整体回滚，流程如图4-4所示。
+079	Normal	
+080	Normal	图4-4 收支记录与转账流程图
+081	Heading 3	4.3.3 预算管理流程设计
+082	Normal	预算按用户、支出分类和月份设置。系统通过 user_id、category_id、month 联合唯一约束判断更新或新增预算，再汇总当月同分类支出，计算消耗百分比及 NORMAL、DAILY_WARN、MONTHLY_WARN、OVERSPENT 四级预警。BudgetScheduler 每日凌晨 2 点重新计算并持久化预警，流程如图4-5所示。
+083	Normal	
+084	Normal	图4-5 预算管理流程图
+085	Heading 3	4.3.4 周期账单生成流程设计
+086	Normal	周期账单支持 daily、weekly、monthly、yearly 四种周期。用户维护名称、账户、分类、金额、类型、周期和下次到期日；一键生成时，服务层在同一事务中写入收支流水，并循环推进 next_due_date，直至该日期晚于当前日期。该规则避免历史到期模板生成后仍停留在过去，流程如图4-6所示。
+087	Normal	
+088	Normal	图4-6 周期账单生成流程图
+089	Heading 3	4.3.5 CSV 导入流程设计
+090	Normal	CSV 导入先校验账户归属、文件扩展名和 5 MB 大小上限，再由 OpenCSV 逐行读取日期、分类 ID、类型、金额和备注。每行校验列数、分类、类型、金额和时间；有效行立即写入流水并累计成功数，非法行记录行号和失败原因后继续处理，最多接收 1000 条有效记录。所有循环线均从节点外侧回到“读取下一行”，不存在穿框或交叉连线，如图4-7所示。
+091	Normal	
+092	Normal	图4-7 CSV 导入流程图
+093	Heading 2	4.4 系统数据库设计
+094	Heading 3	4.4.1 数据库概念结构设计
+095	Normal	数据库概念结构围绕用户财务活动设计，包含用户、账户、收支分类、收支记录、预算、周期账单和预算预警七个核心实体。实体使用矩形表示，属性使用椭圆表示，实体与属性之间使用无箭头实线连接，主键属性在椭圆内加下划线，符号与参考论文保持一致。
+096	Normal	
+097	Normal	用户实体保存登录账号、BCrypt 密码哈希、角色和审计时间。用户是账户、流水、预算和周期账单的归属主体，用户实体属性如图4-8所示。
+098	Normal	
+099	Normal	图4-8 用户实体属性图
+100	Normal	账户实体保存账户名称、类型、初始余额、币种、状态和审计时间。当前余额由初始余额与关联流水实时计算，不在表中重复存储，账户实体属性如图4-9所示。
+101	Normal	
+102	Normal	图4-9 账户实体属性图
+103	Normal	
+104	Normal	收支分类实体保存分类名称和收入/支出类型，系统初始化 8 个支出分类和 5 个收入分类，普通用户只读浏览，收支分类实体属性如图4-10所示。
+105	Normal	
+106	Normal	图4-10 收支分类实体属性图
+107	Normal	收支记录实体保存用户、账户、分类、交易类型、金额、时间和备注。转账产生的两条流水通过 transfer_id 建立逻辑自关联，收支记录实体属性如图4-11所示。
+108	Normal	
+109	Normal	图4-11 收支记录实体属性图
+110	Normal	
+111	Normal	预算实体按用户、支出分类和月份保存预算金额，并为预算进度和预警计算提供上限值，预算实体属性如图4-12所示。
+112	Normal	
+113	Normal	图4-12 预算实体属性图
+114	Normal	周期账单实体保存固定收入或支出的模板、周期、状态和下次到期日，并关联账户与分类，周期账单实体属性如图4-13所示。
+115	Normal	
+116	Normal	图4-13 周期账单实体属性图
+117	Normal	
+118	Normal	预算预警实体保存定时计算得到的月份、预警级别、预算金额、已支出金额和消耗百分比。该表已在实际根目录 SQL、实体类和 MySQL 库中实现，预算预警实体属性如图4-14所示。
+119	Normal	
+120	Normal	图4-14 预算预警实体属性图
+121	Normal	
+122	Normal	系统总体 E-R 图采用 Chen 表示法：实体为矩形，联系为菱形，连接线不带箭头，线端标注 1 和 N。用户拥有账户并记录流水、设置预算和维护周期账单；账户承载流水并关联周期账单；分类用于归类流水、预算、账单和预警；预算可生成多次预警记录。实体在同一图中只出现一次，图中不存在重复实体或交叉连线，如图4-15所示。
+123	Normal	
+124	Normal	图4-15 系统总体 E-R 图
+125	Heading 3	4.4.2 数据库逻辑结构设计
+126	Normal	根据概念模型，将七个实体转换为关系模式。下列关系模式中带下划线的字段为主键；系统未声明物理外键，而是在 Service 层校验 user_id、account_id 和 category_id 的归属与状态，并在管理员删除用户时按子表到父表顺序执行级联删除。
+127	Normal	用户 user（id，username，password，role，create_time，update_time）
+128	Normal	账户 account（id，user_id，name，type，initial_balance，currency，status，create_time，update_time）
+129	Normal	分类 category（id，name，type，create_time，update_time）
+130	Normal	收支记录 transaction（id，user_id，account_id，category_id，type，amount，note，time，transfer_id，create_time，update_time）
+131	Normal	预算 budget（id，user_id，category_id，month，amount，create_time，update_time）
+132	Normal	周期账单 recurring_bill（id，user_id，account_id，category_id，name，amount，type，period，next_due_date，status，create_time，update_time）
+133	Normal	预算预警 budget_alert（id，user_id，category_id，month，alert_level，budget_amount，spent_amount，percentage，create_time，update_time）
+134	Heading 3	4.4.3 数据库物理结构设计
+135	Normal	数据库采用 MySQL 8.4、InnoDB 引擎和 utf8mb4 字符集。金额统一使用 DECIMAL，Java 端使用 BigDecimal；日期时间使用 DATE 或 DATETIME；查询热点字段建立普通索引或联合索引。各表按参考论文的三线表格式列出。
+136	Normal	用户表用于保存登录账号、密码哈希和角色信息，username 建立唯一索引，表结构如表4-1所示。
+137	Normal	表4-1 user 用户表
+138	Normal	账户表保存用户的现金、银行卡、支付宝和微信账户，user_id 建立普通索引，表结构如表4-2所示。
+139	Normal	表4-2 account 账户表
+140	Normal	收支分类表保存系统预置的收入和支出分类，业务层按 type 限定分类用途，表结构如表4-3所示。
+141	Normal	表4-3 category 收支分类表
+142	Normal	收支记录表保存普通收支和转账流水，并对用户、账户、时间和 transfer_id 建立索引，表结构如表4-4所示。
+143	Normal	表4-4 transaction 收支记录表
+144	Normal	预算表保存用户按月份和支出分类设置的预算，user_id、category_id、month 构成联合唯一索引，表结构如表4-5所示。
+145	Normal	表4-5 budget 预算表
+146	Normal	周期性账单表保存固定周期发生的收入或支出模板，用户、账户和分类字段均建立索引，表结构如表4-6所示。
+147	Normal	表4-6 recurring_bill 周期性账单表
+148	Normal	预算预警表保存定时计算得到的预算消耗与预警级别，并按用户、月份和分类建立查询索引，表结构如表4-7所示。
+149	Normal	表4-7 budget_alert 预算预警表
+150	Heading 2	4.5 详细模块设计
+151	Heading 3	4.5.1 核心实体类设计
+152	Normal	后端实体类与数据库表一一映射，并由 Lombok 生成访问方法。业务操作不直接写入实体类，而由对应 Service 完成，因此类图在实体属性区列出关键字段，在方法区列出由业务服务提供的主要操作。用户、账户、分类、流水、预算、周期账单和预算预警之间的多重关系与 E-R 图保持一致，如图4-16所示。
+153	Normal	
+154	Normal	图4-16 系统核心类图
+155	Normal	
+156	Heading 3	4.5.2 核心业务时序设计
+157	Normal	（1）登录时序。用户在 LoginPage 输入用户名和密码，Axios 调用 UserController，UserService 通过 UserMapper 查询 user 表，使用 BCrypt 校验密码后生成 JWT，并将 token、用户 ID、用户名和角色返回前端，如图4-17所示。
+158	Normal	
+159	Normal	图4-17 登录核心时序图
+160	Normal	
+161	Normal	（2）转账时序。TransactionService 在事务中校验账户归属与余额，向 transaction 表写入转出和转入两条记录，并使用同一 transfer_id 关联，前端收到结果后刷新余额和流水，如图4-18所示。
+162	Normal	
+163	Normal	图4-18 账户转账核心时序图
+164	Normal	
+165	Normal	（3）预算时序。BudgetService 查询同月同分类预算并执行新增或更新，再通过 TransactionMapper 汇总实际支出，计算进度与预警级别后返回 BudgetPage，如图4-19所示。
+166	Normal	
+167	Normal	图4-19 预算管理核心时序图
+168	Normal	
+169	Normal	（4）周期账单时序。RecurringBillService 查询账单及关联账户、分类，在事务中写入流水并推进 next_due_date，最终刷新账单和统计结果，如图4-20所示。
+170	Normal	
+171	Normal	图4-20 周期账单生成核心时序图
+172	Normal	
+173	Normal	（5）CSV 导入时序。TransactionService 使用 OpenCSV 读取每一行，校验后通过 Mapper 写入有效流水，累计成功数、失败数和失败原因并返回 ImportResultDTO，如图4-21所示。
+174	Normal	
+175	Normal	图4-21 CSV 导入核心时序图
+176	Heading 3	4.5.3 核心模块职责设计
+177	Normal	各业务模块采用 Controller-Service-Mapper-Entity 纵向分层，控制层只负责请求入口、参数绑定和统一响应，业务规则集中在 Service 层，Mapper 负责数据访问。核心类与职责如表4-8所示。
+178	Normal	表4-8 核心模块类职责
+179	Heading 2	4.6 本章小结
+180	Normal	本章完成了系统总体架构、功能模块、五类核心流程、七实体数据库和详细模块设计。架构图取消层间连接线；流程图采用终止符、处理框、输入输出框和判断菱形；数据库补齐七张实体属性图，并以无重复实体、无交叉连线的 Chen E-R 图表达关系；类图和五张时序图进一步说明了前端、控制层、业务层、数据访问层与 MySQL 的协作过程。
+181	Heading 1	5 系统实现
+182	Normal	系统实现章节结合前端页面、Axios API 模块、Controller、ServiceImpl、Mapper 和 MySQL 表说明各功能如何落地。每节均给出模块职责、实现思路、关键接口、涉及数据表和运行效果，截图均来自本机实际系统页面。
+183	Heading 2	5.1 登录注册模块
+184	Normal	登录注册模块由 LoginPage.vue、api/user.js、api/request.js、UserController、UserServiceImpl、UserMapper 和 user 表共同实现。前端使用 Element Plus 的 el-form、el-tabs、el-input 与 el-button 组织登录和注册表单，提交时通过 Axios 调用 /api/v1/user/register 与 /api/v1/user/login。
+185	Normal	后端注册流程先校验用户名唯一性，再使用 BCryptPasswordEncoder 生成密码哈希后写入 user 表；登录流程按用户名查询用户，校验密码后签发 JWT，并返回 token、userId、username 和 role。前端把令牌写入 Pinia 与 localStorage，后续请求由 Axios 拦截器自动附加 Authorization 头。改密接口 POST /api/v1/user/change-password 需要旧密码校验。实现效果为用户可完成注册、登录和密码维护，未登录访问受保护页面时由 Vue Router 与 LoginInterceptor 共同拦截，登录注册页面如图5-1所示。
+186	Normal	
+187	Normal	图5-1 登录注册页面
+188	Heading 2	5.2 用户管理模块
+189	Normal	用户管理模块对应管理员能力，由 AdminPage.vue、api/admin.js、AdminController、AdminServiceImpl、AdminInterceptor 和 user 表实现。前端路由将 AdminPage 标记为 requiresAdmin，普通用户不能进入；后端管理员接口同样经过 AdminInterceptor 校验角色。
+190	Normal	模块提供用户列表查询、删除用户和角色切换，接口包括 GET /api/v1/admin/users、DELETE /api/v1/admin/users/{userId} 和 PUT /api/v1/admin/users/{userId}/role。删除用户时 Service 按预算预警、周期账单、预算、流水、账户到用户的顺序清理关联数据，避免残留孤儿记录。实现效果为管理员可查看系统用户并维护异常账号，系统不提供独立的用户搜索或详情页，管理员用户管理页面如图5-2所示。
+191	Normal	
+192	Normal	图5-2 管理员用户管理页面
+193	Heading 2	5.3 收支记账模块
+194	Normal	收支记账是系统核心业务，由 TransactionListPage.vue、TransferPage.vue、api/transaction.js、TransactionController、TransactionServiceImpl、TransactionMapper、AccountServiceImpl 以及 transaction、account、category 表实现。普通记账在校验账户、分类、类型、金额和时间后写入一条流水；账户转账在同一事务中写入支出和收入两条记录，并用 transfer_id 关联。
+195	Normal	系统支持流水分页查询、多条件筛选、修改、删除和账户转账。主要接口为 GET /api/v1/transaction、POST /api/v1/transaction、PUT /api/v1/transaction/{id}、DELETE /api/v1/transaction/{id} 与 POST /api/v1/transaction/transfer。所有查询均以当前登录用户 ID 做数据隔离。实现效果是用户可以维护日常收支，并在不同账户之间安全转账；收支记录列表页面如图5-3所示，账户转账页面如图5-4所示。
+196	Normal	
+197	Normal	图5-3 收支记录列表页面
+198	Normal	
+199	Normal	图5-4 账户转账页面
+200	Heading 2	5.4 收支分类模块
+201	Normal	收支分类模块由 CategoryPage.vue、api/category.js、CategoryController、CategoryServiceImpl、CategoryMapper 和 category 表实现。分类为系统初始化种子数据，包含餐饮、交通、住房、娱乐、医疗、教育、购物、其他等支出分类，以及工资、奖金、兼职、理财、其他等收入分类。普通用户只读浏览，不提供增删改。
+202	Normal	列表接口为 GET /api/v1/category，分类统计由 GET /api/v1/statistics/category-summary 提供。前端 CategoryPage 使用 el-tabs、el-table 和 el-tag 分栏展示收入与支出分类，并可结合分类汇总金额展示。实现效果是记账、预算和统计始终基于统一分类字典，收支分类页面如图5-5所示。
+203	Normal	
+204	Normal	图5-5 收支分类页面
+205	Heading 2	5.5 预算管理模块
+206	Normal	预算管理模块由 BudgetPage.vue、api/budget.js、BudgetController、BudgetServiceImpl、BudgetAlertServiceImpl、BudgetScheduler 以及 budget、budget_alert、category、transaction 表实现。用户可按月份和支出分类设置预算金额，系统通过 user_id、category_id、month 联合唯一约束保证同一预算只保留一条记录。
+207	Normal	模块接口包括 GET /api/v1/budget、POST /api/v1/budget、DELETE /api/v1/budget/{id}、GET /api/v1/budget/progress 和 GET /api/v1/budget/alert。预算进度根据 transaction 表中的实际支出计算，前端使用 el-progress 展示消耗比例，并对接近超支和超支状态给出提示。BudgetScheduler 每日凌晨重新计算并持久化预警。实现效果是用户可及时感知预算使用情况，预算管理页面如图5-6所示。
+208	Normal	
+209	Normal	图5-6 预算管理页面
+210	Heading 2	5.6 财务统计分析模块
+211	Normal	财务统计分析模块由 DashboardPage.vue、AnalyticsPage.vue、api/statistics.js、StatisticsController、StatisticsServiceImpl 以及 transaction、category、budget 等表实现。后端按月份、年度、分类和趋势等维度聚合交易数据，前端通过 ECharts 渲染为饼图、折线图和预算对比图。
+212	Normal	模块接口包括 GET /api/v1/statistics/monthly、GET /api/v1/statistics/yearly、GET /api/v1/statistics/category-summary 和 GET /api/v1/statistics/trend。实现效果是用户可查看本月收入、本月支出、结余、分类占比和月度趋势，从流水明细上升为财务概览；仪表盘统计页面如图5-7所示，财务分析页面如图5-8所示。
+213	Normal	
+214	Normal	图5-7 仪表盘统计页面
+215	Normal	
+216	Normal	图5-8 财务分析页面
+217	Heading 2	5.7 个人信息与数据扩展模块
+218	Normal	个人信息管理由 UserSettingsPage.vue、stores/user.js、utils/jwt.js、api/user.js、UserController 和 user 表实现。前端从 Pinia 用户状态和 JWT 载荷读取当前用户信息，在个人设置页展示用户名和角色，并提供修改密码入口。改密接口为 POST /api/v1/user/change-password，后端校验旧密码后写入新的 BCrypt 哈希，个人设置页面如图5-9所示。
+219	Normal	数据扩展能力由账户管理、周期账单和 CSV 导入共同构成。账户模块通过 AccountPage.vue 与 AccountServiceImpl 维护多账户余额，并基于静态参考汇率显示非 CNY 账户的 CNY 等值；周期账单模块通过 RecurringBillPage.vue 与 RecurringBillServiceImpl 维护模板并一键生成流水；CSV 导入模块通过 ImportPage.vue 与 TransactionServiceImpl.importCsv 完成批量记账。实现效果是用户既能维护个人资料，也能批量扩展历史数据。账户管理页面如图5-10所示，周期账单页面如图5-11所示，CSV 导入页面如图5-12所示。
+220	Normal	
+221	Normal	图5-9 个人设置页面
+222	Normal	
+223	Normal	图5-10 账户管理页面
+224	Normal	
+225	Normal	图5-11 周期账单页面
+226	Normal	
+227	Normal	图5-12 CSV 导入页面
+228	Heading 2	5.8 本章小结
+229	Normal	本章结合实际源码说明了系统各模块的实现过程。系统实现不是简单的页面展示，而是由 Vue 前端组件、Axios API 封装、Spring Boot 控制层、Service 业务层、Mapper 数据访问和 MySQL 数据表协同完成。登录注册、用户管理、收支记账、分类查询、预算管理、统计分析、个人信息、账户管理、周期账单和 CSV 导入均已对应到真实页面、接口和数据表。
+230	Heading 1	6 系统测试
+231	Normal	系统测试用于验证功能是否满足需求、接口返回是否规范、异常路径是否可控、数据是否正确写入和查询，以及前端构建是否通过。测试范围覆盖用户登录、账户管理、收支记录、转账、预算、周期账单、统计分析、CSV 导入和管理员功能。
+232	Heading 2	6.1 测试概念
+233	Normal	本系统测试采用黑盒功能验证与白盒业务规则验证相结合的方式。黑盒测试从用户操作和接口输入输出出发，检查页面流程和结果提示；白盒测试关注 Service 层事务、金额精度、数据隔离和异常码。测试环境为本地 Windows 开发环境，前端 5173 端口，后端 8080 端口，MySQL 3306 端口。
+234	Heading 2	6.2 测试内容和方法
+235	Normal	功能测试用于验证各页面和接口是否完成业务主流程，测试时模拟执行新增、修改、查询、删除和统计操作。接口测试用于验证 /api/v1 下各接口的入参、响应码和 Result<T> 返回格式。异常测试用于验证非法金额、未登录访问、跨用户账户等边界条件。事务测试用于验证转账和周期账单一键生成的原子性。构建测试执行 pnpm build，单元测试执行 Maven test。
+236	Heading 2	6.3 测试用例
+237	Normal	结合实际系统功能，按模块设计测试用例。表中“实际结果”与“是否通过”依据本地页面联调、接口验证和自动化测试填写。用户认证、账户管理、收支转账、预算管理、周期账单与 CSV 导入、统计分析与管理员测试用例分别如表6-1至表6-6所示。
+238	Normal	表6-1 用户认证测试用例
+239	Normal	表6-2 账户管理测试用例
+240	Normal	表6-3 收支记录与转账测试用例
+241	Normal	表6-4 预算管理测试用例
+242	Normal	表6-5 周期账单与 CSV 导入测试用例
+243	Normal	表6-6 统计分析与管理员测试用例
+244	Heading 2	6.4 测试分析与结果
+245	Normal	从测试结果看，系统主要功能能够闭环运行。用户登录、前端路由守卫和后端拦截器能够共同拦截未授权访问；账户、分类和流水数据均按用户隔离；预算与周期账单可在事务中与账户流水协同；统计分析能够从交易流水中聚合结果；CSV 导入能够对非法数据进行逐行校验；管理员页面和接口能够完成用户信息管理。
+246	Normal	测试重点关注金额精度、转账原子性和异常提示。金额字段采用 DECIMAL 与 BigDecimal 后，可避免 Double 运算的精度问题；转账过程通过事务保证两条流水一致；异常路径通过 BusinessException 与 GlobalExceptionHandler 转换为统一 Result 错误响应，前端使用 ElMessage 统一提示。
+247	Normal	验证期间前端 pnpm build 构建成功；后端 Maven 共执行 175 项测试，其中 174 项通过。唯一未通过项是 CrossModuleIntegrationTest.generate_nextDueDateAdvances 的固定日期断言：用例仍期望 2026-07-01，而执行日已晚于该日期，服务按设计循环推进到未来日期 2026-08-01。该结果说明业务实现符合“下次到期日必须晚于当前日期”的规则，但测试用例依赖系统时钟，后续应注入 Clock 或使用相对日期消除时间漂移。
+248	Heading 2	6.5 本章小结
+249	Normal	本章按用户认证、账户管理、收支转账、预算管理、周期账单与导入、统计分析与管理员六个模块设计测试用例，并结合功能测试、接口测试、异常测试、事务测试、构建测试和单元测试验证系统。主要业务功能与关键约束符合预期，同时识别出一项依赖固定日期的测试维护问题。
+250	Heading 1	7 总结和展望
+251	Heading 2	7.1 总结
+252	Normal	本文围绕实际系统源码完成了个人财务记账与分析系统的分析、设计与实现说明。系统采用 Vue 3、Element Plus、Pinia、Axios 和 ECharts 的前端技术栈，以及 Spring Boot、MyBatis-Plus、MySQL、JWT 和 BCrypt 的后端技术栈，形成了从页面交互、接口调用、业务处理到数据存储的完整链路。
+253	Normal	系统实现了普通用户注册登录、账户管理、分类浏览、流水分页与筛选、账户转账、预算管理、周期账单一键生成流水、统计分析、CSV 导入等功能，也实现了管理员用户列表、删除用户和角色切换能力。数据库设计覆盖用户、账户、分类、流水、预算、周期账单和预算预警七个核心对象；后端统一响应格式、异常处理和登录拦截，前端统一路由、组件、状态管理和请求封装。综合来看，系统能够支撑个人财务记账、分析和管理。
+254	Heading 2	7.2 展望
+255	Normal	后续系统仍有四个方向可以继续完善。第一，增强数据分析能力，补充消费预测、预算建议、同比环比分析和更细粒度的图表维度。第二，增强账户能力，支持更多币种、实时汇率、信用卡账单和资产负债视图。第三，增强数据导入能力，适配不同银行和支付平台的账单格式，降低用户手工上传 CSV 的成本。第四，增强安全、部署与测试能力，完善 JWT 密钥管理、数据库备份和容器化部署，为日期相关服务注入 Clock，并补充稳定的回归测试与日志监控。

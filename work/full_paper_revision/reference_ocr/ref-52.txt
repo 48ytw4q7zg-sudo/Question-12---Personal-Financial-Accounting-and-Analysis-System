@@ -1,0 +1,33 @@
+我的订单
+未支付   已支付   已发货   已完成   Bak ”已取消
+_ Ea      Ha  wt
+图5-17 我的订单页面
+这!requestgetSession0.getAttribute("role").toString0.equals("管理员") {
+orders.setUserid((Long)request.getSession(O.getAttribute("useIId")):
+}
+
+}
+
+EntityWrapper<OrdersEntity> ew = new EntityWrapper<OrdersEntity>():
+
+PageUtils               page               =               ordersService.queryPage(params,
+
+MPUtil.sort(MPUtil. between(MPUtil. likeOrEq(ew, orders), params), params)):
+
+Map<String, String> deSens = new HashMap<>():
+
+DeSensUtil.desensitize(page, deSens):
+
+retum R.ok().put("data", page):
+
+}
+5.4 本章小结
+本章详细阐述了系统各类用户的功能模块实现，包括管理员、商家和用户的操作流
+程。管理员模块涵盖用户管理、商家管理、公告信息管理及订单管理，实现了对平台数
+据的全面维护和状态控制，前后端结合保证数据准确和操作可控。商家模块重点实现了
+登录、首页数据展示、商品管理、订单处理及个人中心维护，通过前端动态泻染和后端
+接口调用，实现信息查询、更新和状态控制。用户模块实现了商品浏览、购物车管理、
+收藏维护、聊天记录查询、客服咨询及订单管理功能，支持交互操作和数据实时更新。
+各模块均采用Vue进行界面泻染，Spring Boot提供接口服务，MySQL存储数据，实现了前
+后端协同和功能完整性，保证系统运行稳定可靠。
+45

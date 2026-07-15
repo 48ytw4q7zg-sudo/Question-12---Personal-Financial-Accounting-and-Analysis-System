@@ -1,0 +1,31 @@
+核心代码如下
+@RequestMapping("/save")
+public R save(@RequestBody ChargerecordEntity chargerecord, HttpServletRequest
+request) {
+chargerecord.setUserid((Long)request. getSession().getA ttribute("userld")):
+chargerecordService. insert(chargerecord):
+retum R.ok().put("data", chargerecord.getId()):
+}
+5.1.4 订单管理
+管理员在订单管理页面后可以对平台订单进行全面管理。实现过程中，前端通过订
+单编号或商品名称进行查询，发送请求到后端，后端从订单表(order info)和关联商品表碍
+询匹配记录并返回结果。订单详情显示包括商品信息、总价、用户信息和物流状态，通
+过ID关联查询实现完整数据展示。管理操作包括更新订单状态、处理异常订单或删除过
+期订单，均通过接口调用数据库完成。前端使用Vue动态演染表格和状态标签，后端使用
+Spring Boot处理请求，数据存储在MySQL数据库中。订单管理页面如图$-4所示。
+加ma    mies      nace       =                                      (mm)
+Oe      ae wmas © meen © mam     mam sme ® MNES HOS ES ES MAAS GES MEMS URNS MENS MAM > FARMS a
+图sasxea                                cea
+[:: eee
+Bree              te
+a                         nen
+图5-4 订单管理页面
+核心代码如下
+@RequestMapping("/update")
+@Transactional
+@lIgnoreAuth
+public R update(@RequestBody OrdersEntity orders, HttpServletRequest request) {
+ordersService.updateByld(orders):
+return R.ok():
+}
+37

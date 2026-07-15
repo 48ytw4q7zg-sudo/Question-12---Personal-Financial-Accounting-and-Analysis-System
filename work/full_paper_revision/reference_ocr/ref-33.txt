@@ -1,0 +1,46 @@
+用户表主要存储用户相关信息，用户表字段包括这、addtime、zhanghao 、mima、
+xingming 、xingbie 、shouji、touxiang、money、pquestion 、panswer，用户表如表4-3所
+Ro
+
+24-3 yonghu 用户表
+字段名               字段描述              数据类型              完整性约束
+id主键 besnt 3岳
+addtime                                            创建时间                                          timestamp                                               非空
+zhanghao                                            账号                                           varchar(64)                                          非空
+mima                                      密码                                 varchar(32)                                 非空
+xingming                                                 姓名                                              varchar(32)                                              非空
+xingbie                                    性别                                 varchar(32)
+
+lianxifangshi                                       联系方式                                             Varchar
+
+touxiang                                   头像                                    longtext
+
+money                                               余额                                               double                                               非空
+pquestion                              密保问题                             varchar(32)
+
+panswer                               密保答案                             varchar(64)
+
+商品表主要存储商品相关信息，商品表字段包括id、addtime、shangpinmingcheng、
+shangpinfenlei 、 pinpai 、 guige 、 fengmian 、 shangpintese 、 Shangpinxiangqing 、
+dianpumingcheng 、onelimittimes 、alllimittimes 、thumbsupnum 、 crazilynum 、 clicktime、
+clicknum、discussnum、totalscore、price、onshelves、storeupnum，商品表如表4-4所示。
+
+表4-4 shangpin 商品表
+字段名               字段描述              数据类型             完整性约束
+int ER
+addtime                                 创建时间                               timestamp                                   非空
+shangpinmingcheng                         商品名称                                 varchar(64)                                      非空
+shangpinfenlei                                   商品分类                                      varchar(32)                                           非空
+pinpai                                                      品牌                                                varchar(32)                                                非空
+guige                                       规格                                  varchar(32)
+fengmian                                    封面                                     longtext
+Shangpintese                             商品特色                              varchar(32)
+shangpinxiangqing                        商品详情                                 longtext
+dianpumingcheng                          店铺名称                                varchar(64)
+onelimitimes                                 单限                                          int
+alllimitimes                                  库存                                          int
+thumbsupnum                 ewe                      int                非空〈默认值 0)
+crazilynum                  踩数                      int                非空〈默认值 0)
+clicktime                                点击时间                                 datetime
+clicknum                                点击次数                                     int                             非空〈默认值 0)
+26

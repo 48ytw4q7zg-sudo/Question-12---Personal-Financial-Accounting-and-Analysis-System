@@ -1,0 +1,26 @@
+# Repowise local index/config
+.repowise/
+
+# Java / Maven
+system/backend/target/
+*.class
+*.jar
+*.war
+
+# Node.js
+node_modules/
+pnpm-debug.log*
+
+# IDE
+.vs/
+.idea/
+*.iml
+.vscode/
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
