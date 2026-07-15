@@ -522,6 +522,7 @@
 <!-- R-01-issue-2(第4轮): 已修复 - §5 功能编号改为 P0-6 / P1-7 -->
 <!-- R-01-issue-6: 已修复 - P1-7 已包含 POST /api/user/change-password 接口定义 -->
 
+<<<<<<< HEAD
 | 功能编号 | 功能名                       | 实现优先级 | 对应页面                                  |
 | ---- | ------------------------- | :---: | ------------------------------------- |
 | P0-1 | 登录/JWT                    |  P0   | LoginPage                             |
@@ -542,6 +543,28 @@
 | P2-5 | 单元测试                      |  P2   | 无（纯后端）                                |
 | P0-6 | 分类浏览页                     |  P0   | CategoryPage                          |
 | P1-7 | 用户设置                      |  P1   | UserSettingsPage（修改密码）                |
+=======
+| 功能编号 | 功能名 | 实现优先级 | 对应页面 |
+|---|---|:---:|---|
+| P0-1 | 登录/JWT | P0 | LoginPage |
+| P0-2 | 账户 CRUD | P0 | AccountPage |
+| P0-3 | 分类 GET 列表 | P0 | CategorySelector（复用于表单和筛选） |
+| P0-4 | 收支记录 | P0 | TransactionListPage（记一笔为内嵌弹窗） |
+| P0-5 | 按账户汇总余额 | P0 | AccountPage（余额列） |
+| P1-1 | 多条件筛选 | P1 | TransactionListPage（筛选器区域复用） |
+| P1-2 | 月度/年度汇总统计 | P1 | DashboardPage（汇总卡片） |
+| P1-3 | 预算管理 | P1 | BudgetPage |
+| P1-4 | 周期性账单提醒 | P1 | RecurringBillPage |
+| P1-5 | 转账功能 | P1 | TransferPage（或复用 TransactionFormPage） |
+| P1-6 | ECharts 基础图表 | P1 | DashboardPage（图表区域） |
+| P2-1 | ECharts 多图联动 + drill-down | P2 | AnalyticsPage |
+| P2-2 | 多维度预算预警 | P2 | DashboardPage, BudgetPage |
+| P2-3 | 导入银行 CSV | P2 | ImportPage |
+| P2-4 | 多币种支持 | P2 | AccountPage, DashboardPage |
+| P2-5 | 单元测试 | P2 | 无（纯后端） |
+| P0-6 | 分类浏览页 | P0 | CategoryPage |
+| P1-7 | 用户设置 | P1 | UserSettingsPage（修改密码） |
+>>>>>>> d463476029f30a051c2b7a044cbcc537a6e63de6
 
 ---
 

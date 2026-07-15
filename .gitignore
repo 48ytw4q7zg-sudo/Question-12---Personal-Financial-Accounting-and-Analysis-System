@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 # Repowise local index/config
 .repowise/
+=======
+# repowise API keys (local)
+.repowise/.env
+>>>>>>> d463476029f30a051c2b7a044cbcc537a6e63de6
 
 # Java / Maven
 system/backend/target/

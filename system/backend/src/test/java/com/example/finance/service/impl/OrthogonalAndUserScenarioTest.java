@@ -252,7 +252,11 @@ class OrthogonalAndUserScenarioTest {
       when(recurringBillMapper.insert(any(RecurringBill.class))).thenReturn(1);
       RecurringBillRequest rReq = new RecurringBillRequest();
       rReq.setName("月房租"); rReq.setAmount(new BigDecimal("2500.00")); rReq.setType(2);
+<<<<<<< HEAD
       rReq.setPeriod("monthly"); rReq.setNextDueDate(java.time.LocalDate.now().plusMonths(1).toString());
+=======
+      rReq.setPeriod("monthly"); rReq.setNextDueDate("2026-06-01");
+>>>>>>> d463476029f30a051c2b7a044cbcc537a6e63de6
       rReq.setAccountId(2L); rReq.setCategoryId(4L);
       RecurringBillDTO rDto = recurringBillService.create(userId, rReq);
       assertEquals("月房租", rDto.getName());

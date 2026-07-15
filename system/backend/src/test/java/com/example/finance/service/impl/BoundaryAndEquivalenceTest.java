@@ -22,7 +22,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+<<<<<<< HEAD
 import java.time.LocalDate;
+=======
+>>>>>>> d463476029f30a051c2b7a044cbcc537a6e63de6
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -436,7 +439,11 @@ class BoundaryAndEquivalenceTest {
       when(entityValidator.validateAccount(1L, 1L)).thenReturn(acct);  // mock EntityValidator 校验账户
       when(entityValidator.validateCategory(4L)).thenReturn(cat);  // mock EntityValidator 校验分类
       when(recurringBillMapper.insert(any(RecurringBill.class))).thenReturn(1);
+<<<<<<< HEAD
       RecurringBillRequest req = buildBillReq("房租", new BigDecimal("2500.00"), 2, "monthly", futureDueDate());
+=======
+      RecurringBillRequest req = buildBillReq("房租", new BigDecimal("2500.00"), 2, "monthly", "2026-06-01");
+>>>>>>> d463476029f30a051c2b7a044cbcc537a6e63de6
       RecurringBillDTO dto = recurringBillService.create(1L, req);
       assertEquals("monthly", dto.getPeriod());
     }
@@ -446,7 +453,11 @@ class BoundaryAndEquivalenceTest {
       when(entityValidator.validateAccount(1L, 1L)).thenReturn(acct);  // mock EntityValidator 校验账户
       when(entityValidator.validateCategory(4L)).thenReturn(cat);  // mock EntityValidator 校验分类
       when(recurringBillMapper.insert(any(RecurringBill.class))).thenReturn(1);
+<<<<<<< HEAD
       RecurringBillRequest req = buildBillReq("零花钱", new BigDecimal("200.00"), 2, "weekly", futureDueDate());
+=======
+      RecurringBillRequest req = buildBillReq("零花钱", new BigDecimal("200.00"), 2, "weekly", "2026-06-01");
+>>>>>>> d463476029f30a051c2b7a044cbcc537a6e63de6
       RecurringBillDTO dto = recurringBillService.create(1L, req);
       assertEquals("weekly", dto.getPeriod());
     }
@@ -476,15 +487,22 @@ class BoundaryAndEquivalenceTest {
       when(entityValidator.validateAccount(1L, 1L)).thenReturn(acct);  // mock EntityValidator 校验账户
       when(entityValidator.validateCategory(4L)).thenReturn(cat);  // mock EntityValidator 校验分类
       when(recurringBillMapper.insert(any(RecurringBill.class))).thenReturn(1);
+<<<<<<< HEAD
       RecurringBillRequest req = buildBillReq("123456789012345678901234567890", new BigDecimal("100.00"), 2, "monthly", futureDueDate());
+=======
+      RecurringBillRequest req = buildBillReq("123456789012345678901234567890", new BigDecimal("100.00"), 2, "monthly", "2026-06-01");
+>>>>>>> d463476029f30a051c2b7a044cbcc537a6e63de6
       RecurringBillDTO dto = recurringBillService.create(1L, req);
       assertEquals(30, dto.getName().length());
     }
 
+<<<<<<< HEAD
     private String futureDueDate() {
       return LocalDate.now().plusMonths(1).toString();
     }
 
+=======
+>>>>>>> d463476029f30a051c2b7a044cbcc537a6e63de6
     private RecurringBillRequest buildBillReq(String name, BigDecimal amount, int type, String period, String dueDate) {
       RecurringBillRequest r = new RecurringBillRequest();
       r.setName(name); r.setAmount(amount); r.setType(type); r.setPeriod(period); r.setNextDueDate(dueDate);

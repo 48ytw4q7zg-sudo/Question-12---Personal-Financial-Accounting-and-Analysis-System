@@ -170,7 +170,11 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
+<<<<<<< HEAD
         <version>0.8.15</version>
+=======
+        <version>0.8.13</version>
+>>>>>>> d463476029f30a051c2b7a044cbcc537a6e63de6
         <executions>
           <execution>
             <goals><goal>prepare-agent</goal></goals>

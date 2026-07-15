@@ -1,0 +1,2 @@
+C:\ProgramData\chocolatey\lib\maven\apache-maven-3.9.15\bin\mvn
+C:\ProgramData\chocolatey\lib\maven\apache-maven-3.9.15\bin\mvn.cmd

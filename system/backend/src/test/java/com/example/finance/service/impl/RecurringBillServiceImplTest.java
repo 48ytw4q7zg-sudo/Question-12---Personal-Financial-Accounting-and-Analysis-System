@@ -76,10 +76,13 @@ class RecurringBillServiceImplTest {
   private Category testCategory;
   private RecurringBill testBill;
 
+<<<<<<< HEAD
   private static String futureDueDate() {
     return LocalDate.now().plusMonths(1).toString();
   }
 
+=======
+>>>>>>> d463476029f30a051c2b7a044cbcc537a6e63de6
   @BeforeEach
   void setUp() {
     testAccount = new Account();
@@ -119,7 +122,11 @@ class RecurringBillServiceImplTest {
     req.setAmount(new BigDecimal("2500.00"));
     req.setType(2);
     req.setPeriod("monthly");
+<<<<<<< HEAD
     req.setNextDueDate(futureDueDate());
+=======
+    req.setNextDueDate("2026-06-01");
+>>>>>>> d463476029f30a051c2b7a044cbcc537a6e63de6
 
     RecurringBillDTO dto = service.create(1L, req);
     assertNotNull(dto);
@@ -139,7 +146,11 @@ class RecurringBillServiceImplTest {
     req.setAmount(BigDecimal.ONE);
     req.setType(2);
     req.setPeriod("monthly");
+<<<<<<< HEAD
     req.setNextDueDate(futureDueDate());
+=======
+    req.setNextDueDate("2026-06-01");
+>>>>>>> d463476029f30a051c2b7a044cbcc537a6e63de6
 
     BusinessException ex = assertThrows(BusinessException.class,
         () -> service.create(1L, req));
